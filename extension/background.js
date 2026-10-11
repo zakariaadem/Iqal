@@ -116,5 +116,19 @@ for (const event of ["onCommitted", "onHistoryStateUpdated", "onReferenceFragmen
   });
 }
 
+// Every 15 s, report the page in front of the user (only while the browser
+// window has focus), so the service can count time allowances.
+setInterval(async () => {
+  if (!port) return;
+  try {
+    const win = await api.windows.getLastFocused();
+    if (!win || !win.focused) return;
+    const [tab] = await api.tabs.query({ active: true, windowId: win.id });
+    if (tab && isWeb(tab.url)) port.postMessage({ type: "active", url: tab.url });
+  } catch (e) {
+    // No window (browser starting or closing).
+  }
+}, 15000);
+
 connect();
 recheckAllTabs();

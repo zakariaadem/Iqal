@@ -7,7 +7,7 @@ use al_dir_core::partial;
 use al_dir_core::schedule::{DateRange, Day, Schedule, WeeklyRange};
 use al_dir_core::{Allowance, AppRule, BlockSet, ListMode, UserScope, WebRule};
 use al_dir_i18n::{t, ta};
-use al_dir_ipc::SetInfo;
+use al_dir_ipc::{Request, Response, SetInfo};
 use gtk::prelude::*;
 use gtk::{gio, glib};
 
@@ -40,7 +40,7 @@ pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
         ("tab-websites", websites(ui, &info.set)),
         ("tab-apps", apps(ui, &info.set)),
         ("tab-users", users(ui, &info.set)),
-        ("tab-schedule", schedule(ui, &info.set)),
+        ("tab-schedule", schedule(ui, info)),
         ("tab-lock", lockui::page(ui, info)),
     ];
     for (key, widget) in pages {
@@ -255,6 +255,36 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         glib::Propagation::Stop
     });
     body.append(&setting_row(&t("web-safesearch"), &safe));
+
+    body.append(&heading(&t("web-lists")));
+    body.append(&note(&t("web-lists-detail")));
+    let catalog = match ui.service.call(Request::Catalog) {
+        Ok(Response::Catalog { lists }) => lists,
+        _ => Vec::new(),
+    };
+    for list in catalog {
+        let text = format!("{}  ·  {}", t(&format!("list-{}", list.id)), ta("list-count", &[("count", (list.rules as i64).into())]));
+        let check = gtk::CheckButton::with_label(&text);
+        check.set_active(set.web.lists.contains(&list.id));
+        let weak = ui.weak();
+        let id = list.id.clone();
+        check.connect_toggled(move |c| {
+            let on = c.is_active();
+            let id = id.clone();
+            if let Some(ui) = weak.upgrade() {
+                glib::idle_add_local_once(move || {
+                    ui.modify(|s| {
+                        s.web.lists.retain(|l| *l != id);
+                        if on {
+                            s.web.lists.push(id);
+                        }
+                        Ok(())
+                    })
+                });
+            }
+        });
+        body.append(&check);
+    }
 
     body.append(&heading(&t("web-partial")));
     body.append(&note(&t("web-partial-detail")));
@@ -532,7 +562,8 @@ pub fn weekly_editor() -> (gtk::Box, impl Fn() -> Option<WeeklyRange>) {
     (b, get)
 }
 
-fn schedule(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
+fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
+    let set = &info.set;
     let (scroll, body) = page();
     let limited = gtk::Switch::builder().active(set.schedule.is_some()).build();
     let weak = ui.weak();
@@ -642,6 +673,10 @@ fn schedule(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
             }
         });
         body.append(&setting_row(&t("allowance-minutes"), &minutes));
+        body.append(&label(&ta(
+            "allowance-used-today",
+            &[("used", ((info.used_today_secs / 60) as i64).into()), ("total", ((a.daily_secs / 60) as i64).into())],
+        )));
     }
     scroll.upcast()
 }

@@ -55,6 +55,13 @@ pub enum Request {
     /// extension of a running browser. The connection then receives
     /// `Response::Changed` whenever the rules may have changed.
     ExtensionSession { browser: String },
+    /// Pre-made lists and how many rules each has.
+    Catalog,
+    /// Browser extension: this page is in front of the user right now
+    /// (sent every 15 s; used to count time allowances).
+    ActiveTab { url: String },
+    /// Statistics for the last `days` days.
+    Stats { days: u32 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +92,8 @@ pub enum Response {
     Learned { networks: usize },
     /// Rules or schedules changed: re-check open pages.
     Changed,
+    Catalog { lists: Vec<ListSummary> },
+    Stats { stats: Box<StatsReport> },
     Error { code: ErrorCode, message: String },
 }
 
@@ -101,6 +110,37 @@ pub enum EventKind {
     SiteBlocked,
     /// The browser extension showed a block page.
     PageBlocked,
+    /// Five minutes of a daily allowance are left (target: block name).
+    AllowanceLow,
+    /// A daily allowance is used up (target: block name).
+    AllowanceUsed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListSummary {
+    pub id: String,
+    pub rules: usize,
+    /// When the downloaded part was last refreshed (unix seconds).
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DayStats {
+    /// Local date, YYYY-MM-DD.
+    pub date: String,
+    pub blocked: u32,
+    pub allowance_secs: u32,
+}
+
+/// Block statistics over a period. Kept only on this computer.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct StatsReport {
+    pub days: Vec<DayStats>,
+    pub by_kind: Vec<(EventKind, u32)>,
+    /// Most blocked websites and apps.
+    pub top_targets: Vec<(String, u32)>,
+    pub by_block: Vec<(String, u32)>,
+    pub allowance_by_block: Vec<(String, u32)>,
 }
 
 /// The extension's verdict on a page.
@@ -163,6 +203,9 @@ pub struct SetInfo {
     pub locked: bool,
     /// In force right now for the calling user.
     pub active: bool,
+    /// Seconds of this set's daily allowance the caller used today.
+    #[serde(default)]
+    pub used_today_secs: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

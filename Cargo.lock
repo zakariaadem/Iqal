@@ -15,7 +15,9 @@ dependencies = [
 name = "al-dir-agent"
 version = "0.1.0"
 dependencies = [
+ "al-dir-i18n",
  "al-dir-ipc",
+ "serde_json",
  "zbus",
 ]
 

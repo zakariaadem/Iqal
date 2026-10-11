@@ -41,6 +41,18 @@ fn main() {
                 }
                 send(&out, &json!({ "type": "hello", "version": env!("CARGO_PKG_VERSION") }));
             }
+            Some("active") => {
+                // The page in front of the user, for time allowances.
+                if let Some(url) = msg.get("url").and_then(Value::as_str) {
+                    let request = Request::ActiveTab { url: url.to_string() };
+                    if client.as_mut().is_none_or(|c| c.call(&request).is_err()) {
+                        client = Client::connect().ok();
+                        if let Some(c) = client.as_mut() {
+                            let _ = c.call(&request);
+                        }
+                    }
+                }
+            }
             Some("check") => {
                 let id = msg.get("id").cloned().unwrap_or(Value::Null);
                 let url = msg.get("url").and_then(Value::as_str).unwrap_or("").to_string();

@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "Блокировка сайтов для Al-Dir. Управляется Al-Dir; нельзя удалить, пока Al-Dir установлен." },
+  "blockedTitle": { "message": "Эта страница заблокирована" },
+  "blockedBy": {
+    "message": "Заблокировано блоком «$SET$»",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "Al-Dir کے لیے ویب سائٹ بلاکنگ۔ Al-Dir کے زیرِ انتظام؛ Al-Dir انسٹال ہونے تک ہٹایا نہیں جا سکتا۔" },
+  "blockedTitle": { "message": "یہ صفحہ بلاک ہے" },
+  "blockedBy": {
+    "message": "«$SET$» نے بلاک کیا",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}

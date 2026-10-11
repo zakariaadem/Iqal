@@ -12,12 +12,14 @@ use std::time::{Duration, Instant};
 
 use al_dir_ipc::client::Client;
 use al_dir_ipc::{BlockEvent, EventKind, Request, Response};
+use al_dir_i18n::{t, ta, FluentValue};
 
 /// The same thing blocked again within this time is not announced again
 /// (e.g. a launcher retrying).
 const QUIET_FOR: Duration = Duration::from_secs(10);
 
 fn main() {
+    al_dir_i18n::init(&language());
     #[cfg(target_os = "linux")]
     let _instance = match single_instance() {
         Some(guard) => guard,
@@ -101,22 +103,25 @@ impl Notifier {
     }
 }
 
-/// Notification text, or `None` for events not worth a pop-up. (Translations
-/// arrive with the GUI milestone.)
+/// Notification text, or `None` for events not worth a pop-up.
 fn message(e: &BlockEvent) -> Option<(String, String)> {
-    let app = app_name(&e.target);
-    Some(match e.kind {
-        EventKind::AppStart => ("App blocked".into(), format!("{app} was stopped by “{}”.", e.set_name)),
-        EventKind::AppKilled => ("App closed".into(), format!("{app} was closed by “{}”.", e.set_name)),
-        EventKind::WindowClosed => {
-            ("Window closed".into(), format!("“{}” was closed by “{}”.", shorten(&e.target, 80), e.set_name))
-        }
+    let block = || FluentValue::from(e.set_name.clone());
+    let (title, body) = match e.kind {
+        EventKind::AppStart => ("notify-app-blocked", ta("notify-app-blocked-body", &[("app", app_name(&e.target).into()), ("block", block())])),
+        EventKind::AppKilled => ("notify-app-closed", ta("notify-app-closed-body", &[("app", app_name(&e.target).into()), ("block", block())])),
+        EventKind::WindowClosed => (
+            "notify-window-closed",
+            ta("notify-window-closed-body", &[("title", shorten(&e.target, 80).into()), ("block", block())]),
+        ),
+        EventKind::AllowanceLow => ("notify-allowance-low", ta("notify-allowance-low-body", &[("block", block())])),
+        EventKind::AllowanceUsed => ("notify-allowance-used", ta("notify-allowance-used-body", &[("block", block())])),
         // Browsers look up and prefetch many names; the browser extension
         // shows a block page for sites actually opened.
         EventKind::SiteBlocked => return None,
         // The block page in the browser says it all.
         EventKind::PageBlocked => return None,
-    })
+    };
+    Some((t(title), body))
 }
 
 /// "/usr/lib/firefox/firefox" → "Firefox"
@@ -137,6 +142,20 @@ fn shorten(s: &str, max: usize) -> String {
     let mut out: String = s.chars().take(max - 1).collect();
     out.push('…');
     out
+}
+
+
+/// The language chosen in the Al-Dir app (~/.config/al-dir/gui.json), or
+/// the system's.
+fn language() -> String {
+    let path = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
+        .map(|d| d.join("al-dir/gui.json"));
+    path.and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("language")?.as_str().map(String::from))
+        .unwrap_or_else(|| al_dir_i18n::system_language().to_string())
 }
 
 #[cfg(test)]

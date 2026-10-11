@@ -18,6 +18,8 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 | `crates/al-dir-host` | Native messaging host between the browser extension and the service |
 | `crates/al-dir-pack` | Dev tool: packages the extension (`.xpi`, signed `.crx`) |
 | `extension` | Browser extension (Firefox and Chromium family) |
+| `lists` | Curated starter lists for the pre-made categories |
+| `locales` | Interface translations (11 languages) |
 | `packaging/linux` | systemd unit, agent autostart entry |
 | `scripts/dev-install.sh` | Install a local build as a system service |
 

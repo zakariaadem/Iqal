@@ -7,13 +7,17 @@ use std::time::Duration;
 
 use al_dir_core::lock::{self, Challenge, LockContext, UnlockOutcome};
 use al_dir_core::{
-    import, BlockSet, Config, CoreError, Ctx, Decision, Engine, GeoArea, Hit, LocationFix, Lock, LockKind, NoLists,
-    Now, PasswordHash, ProcessInfo, SetId,
+    import, BlockSet, Config, CoreError, Ctx, Decision, Engine, GeoArea, Hit, LocationFix, Lock, LockKind, Now,
+    PasswordHash, ProcessInfo, SetId,
 };
 use al_dir_ipc::{
     BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo,
-    PageInfo, Status, UnlockInfo, PROTOCOL_VERSION,
+    ListSummary, PageInfo, Status, UnlockInfo, PROTOCOL_VERSION,
 };
+
+use crate::lists::{ListRules, ListStore};
+use crate::stats::Stats;
+use crate::usage::Usage;
 
 const MAX_EVENTS: usize = 500;
 const PROVEN_FILE: &str = "extensions-proven";
@@ -97,6 +101,15 @@ pub struct Service {
     next_session: AtomicU64,
     /// Recently reported block pages, to log each visit once.
     recent_pages: Mutex<HashMap<(String, String), std::time::Instant>>,
+    lists: ListStore,
+    list_rules: RwLock<ListRules>,
+    list_summaries: RwLock<Vec<ListSummary>>,
+    usage: Mutex<Usage>,
+    /// Read-only copy of today's usage for the hot paths, per user.
+    usage_view: RwLock<UsageView>,
+    /// When each user's browser last reported an active tab.
+    last_active: Mutex<HashMap<String, std::time::Instant>>,
+    stats: Mutex<Stats>,
     store: Store,
     boot_id: String,
     started_at: i64,
@@ -105,13 +118,16 @@ pub struct Service {
 struct Snapshot {
     engine: Arc<Engine>,
     names: HashMap<SetId, String>,
+    /// Daily allowance (seconds) per set that has one.
+    allowances: HashMap<SetId, u32>,
 }
 
 impl Snapshot {
-    fn of(config: &Config) -> Arc<Self> {
+    fn of(config: &Config, lists: &ListRules) -> Arc<Self> {
         Arc::new(Snapshot {
-            engine: Arc::new(Engine::new(config, &NoLists)),
+            engine: Arc::new(Engine::new(config, &**lists)),
             names: config.block_sets.iter().map(|s| (s.id, s.name.clone())).collect(),
+            allowances: config.block_sets.iter().filter_map(|s| Some((s.id, s.allowance?.daily_secs))).collect(),
         })
     }
 }
@@ -123,12 +139,26 @@ struct Inner {
 }
 
 type Result<T> = std::result::Result<T, Response>;
+/// Today's allowance usage per user, shared with the hot paths.
+type UsageView = Arc<HashMap<String, Arc<HashMap<SetId, u32>>>>;
 
 impl Service {
     pub fn new(store: Store, boot_id: String) -> std::io::Result<Self> {
         let config = store.load()?;
-        Ok(Self {
-            snapshot: RwLock::new(Snapshot::of(&config)),
+        let lists = ListStore::new(store.dir());
+        let (list_rules, list_summaries) = lists.load();
+        let mut usage = Usage::load(store.dir());
+        usage.roll(&today());
+        let stats = Stats::load(store.dir());
+        let service = Self {
+            snapshot: RwLock::new(Snapshot::of(&config, &list_rules)),
+            lists,
+            list_rules: RwLock::new(list_rules),
+            list_summaries: RwLock::new(list_summaries),
+            usage: Mutex::new(usage),
+            usage_view: RwLock::default(),
+            last_active: Mutex::new(HashMap::new()),
+            stats: Mutex::new(stats),
             location: RwLock::new(Arc::new(LocationState::default())),
             learner: std::sync::OnceLock::new(),
             inner: Mutex::new(Inner { config, challenges: HashMap::new() }),
@@ -141,7 +171,9 @@ impl Service {
             store,
             boot_id,
             started_at: crate::clock::now().unix,
-        })
+        };
+        service.refresh_usage_view();
+        Ok(service)
     }
 
     fn snapshot(&self) -> Arc<Snapshot> {
@@ -160,22 +192,29 @@ impl Service {
     /// Logs a block and keeps it for `RecentEvents`.
     pub fn record_block(&self, user: &str, kind: EventKind, target: &str, hit: &Hit) {
         let set_name = self.snapshot().names.get(&hit.set).cloned().unwrap_or_default();
+        self.record_event(user, kind, target, hit.set, set_name, hit.reason.to_string());
+    }
+
+    fn record_event(&self, user: &str, kind: EventKind, target: &str, set: SetId, set_name: String, reason: String) {
         let verb = match kind {
             EventKind::AppStart => "stopped",
             EventKind::AppKilled => "closed",
             EventKind::WindowClosed => "closed window",
             EventKind::SiteBlocked => "blocked site",
             EventKind::PageBlocked => "showed block page for",
+            EventKind::AllowanceLow => "allowance almost used:",
+            EventKind::AllowanceUsed => "allowance used up:",
         };
-        eprintln!("al-dir: {verb} {target} for {user} (block \"{set_name}\": {})", hit.reason);
+        eprintln!("al-dir: {verb} {target} for {user} (block \"{set_name}\": {reason})");
+        self.stats.lock().unwrap_or_else(|e| e.into_inner()).record(&today(), kind, &set_name, target);
         let event = BlockEvent {
             time: crate::clock::now().unix,
             user: user.to_string(),
             kind,
             target: target.to_string(),
-            set: hit.set,
+            set,
             set_name,
-            reason: hit.reason.to_string(),
+            reason,
         };
         let mut events = self.events.lock().unwrap_or_else(|e| e.into_inner());
         if events.len() == MAX_EVENTS {
@@ -190,7 +229,8 @@ impl Service {
     /// A feed of `user`'s block events from now on.
     fn check_page(&self, caller: &Caller, url: &str, now: Now) -> PageInfo {
         let snapshot = self.snapshot();
-        let ctx = Ctx::new(now, &caller.user);
+        let usage = self.usage_for(&caller.user);
+        let ctx = Ctx { now, user: &caller.user, usage: usage.as_deref() };
         let effective = al_dir_core::web::interstitial_target(url);
         let Some(view) = al_dir_core::UrlView::parse(effective.as_deref().unwrap_or(url)) else {
             return PageInfo::default();
@@ -307,7 +347,7 @@ impl Service {
             self.store
                 .save(&next)
                 .map_err(|e| Response::error(ErrorCode::Internal, format!("could not save settings: {e}")))?;
-            let snapshot = Snapshot::of(&next);
+            let snapshot = Snapshot::of(&next, &self.list_rules());
             inner.config = next;
             *self.snapshot.write().unwrap_or_else(|e| e.into_inner()) = snapshot;
             self.generation.fetch_add(1, Ordering::AcqRel);
@@ -317,6 +357,7 @@ impl Service {
 
     /// Periodic housekeeping: drops expired locks and applies due unlocks.
     pub fn tick(&self) {
+        self.save_counters();
         let now = crate::clock::now();
         let loc = self.location();
         let ctx = self.lock_ctx(now, &loc);
@@ -347,6 +388,9 @@ impl Service {
                 | Request::Subscribe
                 | Request::CheckPage { .. }
                 | Request::ExtensionSession { .. }
+                | Request::Catalog
+                | Request::ActiveTab { .. }
+                | Request::Stats { .. }
         );
         if mutating && !caller.admin {
             return Response::error(
@@ -389,7 +433,8 @@ impl Service {
             }
             Request::ListSets => {
                 let engine = self.engine();
-                let user_ctx = Ctx::new(now, &caller.user);
+                let usage = self.usage_for(&caller.user);
+                let user_ctx = Ctx { now, user: &caller.user, usage: usage.as_deref() };
                 let active: Vec<SetId> = engine.active_sets(&user_ctx).collect();
                 let inner = self.lock_inner();
                 let sets = inner
@@ -400,6 +445,7 @@ impl Service {
                         set: if caller.admin { s.clone() } else { redact(s) },
                         locked: lock::is_locked(s, &ctx),
                         active: active.contains(&s.id),
+                        used_today_secs: usage.as_ref().and_then(|u| u.get(&s.id)).copied().unwrap_or(0),
                     })
                     .collect();
                 Ok(Response::Sets { sets })
@@ -496,6 +542,19 @@ impl Service {
             Request::Subscribe => Ok(Response::Subscribed),
             Request::ExtensionSession { .. } => Ok(Response::Subscribed),
             Request::CheckPage { url } => Ok(Response::Page { page: self.check_page(caller, &url, now) }),
+            Request::Catalog => {
+                let lists = self.list_summaries.read().unwrap_or_else(|e| e.into_inner()).clone();
+                Ok(Response::Catalog { lists })
+            }
+            Request::ActiveTab { url } => {
+                self.active_tab(caller, &url);
+                Ok(Response::Done)
+            }
+            Request::Stats { days } => {
+                let today = crate::clock::now().local.date();
+                let report = self.stats.lock().unwrap_or_else(|e| e.into_inner()).report(today, days);
+                Ok(Response::Stats { stats: Box::new(report) })
+            }
             Request::RecentEvents => {
                 let events = self.events.lock().unwrap_or_else(|e| e.into_inner());
                 let events = events.iter().filter(|e| caller.admin || e.user == caller.user).cloned().collect();
@@ -510,7 +569,8 @@ impl Service {
                     None => caller.user.clone(),
                 };
                 let engine = self.engine();
-                let c = Ctx::new(now, &user);
+                let usage = self.usage_for(&user);
+                let c = Ctx { now, user: &user, usage: usage.as_deref() };
                 let decision = match &query {
                     CheckQuery::Url { url } => engine.check_url(url, &c),
                     CheckQuery::Host { host } => engine.check_host(host, &c),
@@ -566,6 +626,133 @@ fn core_error(e: CoreError) -> Response {
         _ => ErrorCode::BadRequest,
     };
     Response::error(code, e.to_string())
+}
+
+
+/// Today's local date (trusted clock), as YYYY-MM-DD.
+fn today() -> String {
+    crate::clock::now().local.date().to_string()
+}
+
+/// Lists, allowance usage and statistics.
+impl Service {
+    fn list_rules(&self) -> ListRules {
+        self.list_rules.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    /// Downloads lists that blocks use and are due; recompiles if any changed.
+    pub fn update_lists(&self) {
+        let ids: Vec<String> = {
+            let inner = self.lock_inner();
+            let mut ids: Vec<String> = inner.config.block_sets.iter().flat_map(|s| s.web.lists.iter().cloned()).collect();
+            ids.sort();
+            ids.dedup();
+            ids
+        };
+        if ids.is_empty() || !self.lists.update(&ids) {
+            return;
+        }
+        let (rules, summaries) = self.lists.load();
+        *self.list_rules.write().unwrap_or_else(|e| e.into_inner()) = rules.clone();
+        *self.list_summaries.write().unwrap_or_else(|e| e.into_inner()) = summaries;
+        let inner = self.lock_inner();
+        *self.snapshot.write().unwrap_or_else(|e| e.into_inner()) = Snapshot::of(&inner.config, &rules);
+        self.generation.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// Today's allowance usage of `user`, for building a `Ctx`.
+    pub fn usage_for(&self, user: &str) -> Option<Arc<HashMap<SetId, u32>>> {
+        self.usage_view.read().unwrap_or_else(|e| e.into_inner()).get(user).cloned()
+    }
+
+    fn refresh_usage_view(&self) {
+        let usage = self.usage.lock().unwrap_or_else(|e| e.into_inner());
+        let view: HashMap<String, Arc<HashMap<SetId, u32>>> =
+            usage.all().iter().map(|(u, m)| (u.clone(), Arc::new(m.clone()))).collect();
+        *self.usage_view.write().unwrap_or_else(|e| e.into_inner()) = Arc::new(view);
+    }
+
+    /// Counts `secs` of use against the allowances of `sets` (each once),
+    /// announcing when five minutes are left and when time is up.
+    pub fn add_usage(&self, user: &str, sets: &[SetId], secs: u32) {
+        if sets.is_empty() || secs == 0 {
+            return;
+        }
+        let snapshot = self.snapshot();
+        let date = today();
+        let mut seen = Vec::new();
+        let mut crossings = Vec::new();
+        {
+            let mut usage = self.usage.lock().unwrap_or_else(|e| e.into_inner());
+            for &set in sets {
+                if seen.contains(&set) {
+                    continue;
+                }
+                seen.push(set);
+                let Some(&daily) = snapshot.allowances.get(&set) else { continue };
+                let (before, after) = usage.add(&date, user, set, secs);
+                let warn_at = daily.saturating_sub(300);
+                if before < warn_at && after >= warn_at && warn_at > 0 {
+                    crossings.push((set, EventKind::AllowanceLow));
+                }
+                if before < daily && after >= daily {
+                    crossings.push((set, EventKind::AllowanceUsed));
+                }
+            }
+        }
+        {
+            let mut stats = self.stats.lock().unwrap_or_else(|e| e.into_inner());
+            for set in &seen {
+                if let Some(name) = snapshot.names.get(set)
+                    && snapshot.allowances.contains_key(set)
+                {
+                    stats.add_allowance(&date, name, secs);
+                }
+            }
+        }
+        self.refresh_usage_view();
+        if crossings.iter().any(|(_, k)| *k == EventKind::AllowanceUsed) {
+            // Blocks whose allowance just ran out must take effect now.
+            self.generation.fetch_add(1, Ordering::AcqRel);
+        }
+        for (set, kind) in crossings {
+            let name = snapshot.names.get(&set).cloned().unwrap_or_default();
+            let reason = match kind {
+                EventKind::AllowanceLow => "5 minutes of the daily allowance left",
+                _ => "daily allowance used up",
+            };
+            self.record_event(user, kind, &name, set, name.clone(), reason.into());
+        }
+    }
+
+    /// Browser extension heartbeat: the page in front of the user.
+    fn active_tab(&self, caller: &Caller, url: &str) {
+        const EVERY: Duration = Duration::from_secs(15);
+        {
+            // Several browsers may report at once; count the time only once.
+            let mut last = self.last_active.lock().unwrap_or_else(|e| e.into_inner());
+            if last.get(&caller.user).is_some_and(|t| t.elapsed() < EVERY - Duration::from_secs(3)) {
+                return;
+            }
+            last.insert(caller.user.clone(), std::time::Instant::now());
+        }
+        let Some(view) = al_dir_core::UrlView::parse(url) else { return };
+        let usage = self.usage_for(&caller.user);
+        let ctx = Ctx { now: crate::clock::now(), user: &caller.user, usage: usage.as_deref() };
+        let decision = self.engine().check_view(&view, &ctx);
+        self.add_usage(&caller.user, &decision.metered, EVERY.as_secs() as u32);
+    }
+
+    /// Saves usage and statistics (called periodically).
+    fn save_counters(&self) {
+        let rolled = self.usage.lock().unwrap_or_else(|e| e.into_inner()).roll(&today());
+        if rolled {
+            self.refresh_usage_view();
+            self.generation.fetch_add(1, Ordering::AcqRel);
+        }
+        self.usage.lock().unwrap_or_else(|e| e.into_inner()).save_if_dirty();
+        self.stats.lock().unwrap_or_else(|e| e.into_inner()).save_if_dirty();
+    }
 }
 
 #[cfg(test)]

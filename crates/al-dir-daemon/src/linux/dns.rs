@@ -180,7 +180,8 @@ impl DnsFilter {
         }
         let user = self.users.name(uid);
         let engine = self.service.engine();
-        let ctx = Ctx::new(crate::clock::now(), &user);
+        let usage = self.service.usage_for(&user);
+        let ctx = Ctx { now: crate::clock::now(), user: &user, usage: usage.as_deref() };
         if let Some(hit) = engine.check_host(&q.name, &ctx).block {
             self.record(uid, &user, &q.name, &hit);
             return Some(dnsmsg::blocked(pkt, &q));

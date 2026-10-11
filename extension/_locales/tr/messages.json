@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "Al-Dir için web sitesi engelleme. Al-Dir tarafından yönetilir; Al-Dir yüklü olduğu sürece kaldırılamaz." },
+  "blockedTitle": { "message": "Bu sayfa engellendi" },
+  "blockedBy": {
+    "message": "“$SET$” tarafından engellendi",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}

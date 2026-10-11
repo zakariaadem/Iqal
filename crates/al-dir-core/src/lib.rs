@@ -10,6 +10,7 @@ pub mod apps;
 pub mod engine;
 pub mod geo;
 pub mod import;
+pub mod lists;
 pub mod lock;
 pub mod model;
 pub mod partial;

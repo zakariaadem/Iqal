@@ -115,10 +115,11 @@ impl Ui {
         let pop = gtk::Popover::new();
         let b = vbox(2);
         type Action = fn(&Rc<Ui>);
-        let items: [(&str, Action); 5] = [
+        let items: [(&str, Action); 6] = [
             ("menu-import", dialogs::import_blocks),
             ("menu-export-all", dialogs::export_all),
             ("menu-activity", dialogs::activity),
+            ("menu-stats", dialogs::statistics),
             ("menu-settings", dialogs::settings),
             ("menu-about", dialogs::about),
         ];
@@ -152,6 +153,7 @@ impl Ui {
             Ok("new") => dialogs::new_block(self),
             Ok("settings") => dialogs::settings(self),
             Ok("activity") => dialogs::activity(self),
+            Ok("stats") => dialogs::statistics(self),
             _ => {}
         }
     }

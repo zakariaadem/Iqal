@@ -7,8 +7,11 @@
 
 mod clock;
 mod dnsmsg;
+mod lists;
 mod service;
+mod stats;
 mod storage;
+mod usage;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -87,6 +90,25 @@ fn linux_main() -> Result<(), String> {
                         system::sd_notify("WATCHDOG=1");
                     }
                     std::thread::sleep(period);
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
+    // Pre-made lists: downloads are due at most daily; checked every 10 min.
+    {
+        let service = service.clone();
+        std::thread::Builder::new()
+            .name("al-dir-lists".into())
+            .spawn(move || loop {
+                service.update_lists();
+                // Wake early when settings change (a list was just added).
+                let generation = service.generation();
+                for _ in 0..120 {
+                    std::thread::sleep(Duration::from_secs(5));
+                    if service.generation() != generation {
+                        break;
+                    }
                 }
             })
             .map_err(|e| e.to_string())?;

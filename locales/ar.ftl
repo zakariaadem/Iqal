@@ -244,3 +244,57 @@ status-location = الموقع: { $state }
 status-extensions = إضافات المتصفح: { $list }
 status-no-extensions = لا شيء متصل
 status-not-admin = يمكنك عرض الكتل لكن لا يمكنك تغييرها (للمسؤولين فقط).
+
+event-allowance-low = الوقت المسموح أوشك على الانتهاء
+event-allowance-used = انتهى الوقت المسموح
+
+web-lists = قوائم جاهزة
+web-lists-detail = مجموعات جاهزة من المواقع. قوائم المحتوى الإباحي والقمار ووسائل التواصل تُحدَّث يوميًا من قائمة مجتمعية كبيرة.
+list-social = وسائل التواصل
+list-adult = محتوى إباحي
+list-gambling = القمار
+list-search = محركات البحث
+list-news = الأخبار
+list-video = الفيديو والبث
+list-games = الألعاب
+list-shopping = التسوق
+list-count = { $count ->
+    [zero] لا مواقع
+    [one] موقع واحد
+    [two] موقعان
+    [few] { $count } مواقع
+    [many] { $count } موقعًا
+   *[other] { $count } موقع
+}
+allowance-used-today = المستخدم اليوم: { $used } من { $total } دقيقة
+
+menu-stats = الإحصاءات
+stats-period = المدة
+stats-7 = آخر 7 أيام
+stats-30 = آخر 30 يومًا
+stats-90 = آخر 90 يومًا
+stats-private = تبقى الإحصاءات على هذا الحاسوب.
+stats-total = { $count ->
+    [zero] لا حجب في هذه المدة
+    [one] حجب واحد في هذه المدة
+    [two] حجبان في هذه المدة
+    [few] { $count } حالات حجب في هذه المدة
+    [many] { $count } حالة حجب في هذه المدة
+   *[other] { $count } حالة حجب في هذه المدة
+}
+stats-top = الأكثر حجبًا
+stats-by-block = حسب الكتلة
+stats-allowance = الوقت المسموح المستخدم
+stats-minutes = { $minutes } د
+stats-empty = لم يُحجب شيء في هذه المدة.
+
+notify-app-blocked = حُجب تطبيق
+notify-app-blocked-body = أوقفت «{ $block }» تطبيق { $app }.
+notify-app-closed = أُغلق تطبيق
+notify-app-closed-body = أغلقت «{ $block }» تطبيق { $app }.
+notify-window-closed = أُغلقت نافذة
+notify-window-closed-body = أغلقت «{ $block }» النافذة «{ $title }».
+notify-allowance-low = بقيت 5 دقائق
+notify-allowance-low-body = الوقت اليومي لـ«{ $block }» أوشك على الانتهاء.
+notify-allowance-used = انتهى الوقت
+notify-allowance-used-body = انتهى الوقت اليومي لـ«{ $block }». ستبقى محجوبة حتى الغد.

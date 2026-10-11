@@ -7,7 +7,9 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+al-dir-i18n = { path = "../al-dir-i18n" }
 al-dir-ipc = { path = "../al-dir-ipc" }
+serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus.workspace = true

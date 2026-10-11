@@ -120,6 +120,13 @@ enum Cmd {
     Hardened { state: OnOff },
     /// Show what Al-Dir blocked recently.
     Events,
+    /// Pre-made lists (use with: al-dir-cli lists <block> add <id>).
+    Catalog,
+    /// Statistics for the last days.
+    Stats {
+        #[arg(long, default_value_t = 7)]
+        days: u32,
+    },
     /// Test what Al-Dir would decide.
     Check {
         /// Check as another user (administrators only).
@@ -402,6 +409,9 @@ fn run(cmd: Cmd) -> Result<()> {
             s.web.safe_search = matches!(state, OnOff::On);
             Ok(())
         })?,
+        Cmd::Lists { ref id, .. } if al_dir_core::lists::find(id).is_none() => {
+            return Err(format!("unknown list \"{id}\" (see: al-dir-cli catalog)"));
+        }
         Cmd::Lists { block, action, id } => c.modify(&block, |s| {
             toggle(&mut s.web.lists, id, action);
             Ok(())
@@ -493,6 +503,34 @@ fn run(cmd: Cmd) -> Result<()> {
                 println!("for the people it applies to. Emergency access: boot into recovery mode.");
             }
         }
+        Cmd::Catalog => {
+            let Response::Catalog { lists } = c.call(Request::Catalog)? else { return Err("bad reply".into()) };
+            for l in lists {
+                let updated = l.updated_at.map(fmt_time).unwrap_or_else(|| "built-in only".into());
+                println!("{:<10} {:>7} rules   {updated}", l.id, l.rules);
+            }
+        }
+        Cmd::Stats { days } => {
+            let Response::Stats { stats } = c.call(Request::Stats { days })? else { return Err("bad reply".into()) };
+            println!("Blocked per day:");
+            for d in &stats.days {
+                let mins = d.allowance_secs / 60;
+                let bar = "#".repeat((d.blocked as usize).min(50));
+                println!("  {}  {:>5}  {bar}{}", d.date, d.blocked, if mins > 0 { format!("  ({mins} min allowance used)") } else { String::new() });
+            }
+            if !stats.top_targets.is_empty() {
+                println!("Most blocked:");
+                for (t, n) in &stats.top_targets {
+                    println!("  {n:>5}  {t}");
+                }
+            }
+            if !stats.by_block.is_empty() {
+                println!("By block:");
+                for (b, n) in &stats.by_block {
+                    println!("  {n:>5}  {b}");
+                }
+            }
+        }
         Cmd::Events => {
             let Response::Events { events } = c.call(Request::RecentEvents)? else { return Err("bad reply".into()) };
             if events.is_empty() {
@@ -505,6 +543,8 @@ fn run(cmd: Cmd) -> Result<()> {
                     EventKind::WindowClosed => "closed",
                     EventKind::SiteBlocked => "blocked",
                     EventKind::PageBlocked => "page",
+                    EventKind::AllowanceLow => "5 min left",
+                    EventKind::AllowanceUsed => "time up",
                 };
                 println!("{}  {:<10} {what:<8} {}  [{}: {}]", fmt_time(e.time), e.user, e.target, e.set_name, e.reason);
             }

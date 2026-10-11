@@ -240,3 +240,49 @@ status-location = Location: { $state }
 status-extensions = Browser extensions: { $list }
 status-no-extensions = none connected
 status-not-admin = You can view the blocks but not change them (administrators only).
+
+event-allowance-low = Allowance almost used
+event-allowance-used = Allowance used up
+
+web-lists = Pre-made lists
+web-lists-detail = Ready-made collections of websites. Adult content, gambling and social media are updated daily from a large community list.
+list-social = Social media
+list-adult = Adult content
+list-gambling = Gambling
+list-search = Search engines
+list-news = News
+list-video = Video and streaming
+list-games = Games
+list-shopping = Shopping
+list-count = { $count ->
+    [one] { $count } website
+   *[other] { $count } websites
+}
+allowance-used-today = Used today: { $used } of { $total } minutes
+
+menu-stats = Statistics
+stats-period = Period
+stats-7 = Last 7 days
+stats-30 = Last 30 days
+stats-90 = Last 90 days
+stats-private = Statistics stay on this computer.
+stats-total = { $count ->
+    [one] { $count } block in this period
+   *[other] { $count } blocks in this period
+}
+stats-top = Most blocked
+stats-by-block = By block
+stats-allowance = Allowance time used
+stats-minutes = { $minutes } min
+stats-empty = Nothing has been blocked in this period.
+
+notify-app-blocked = App blocked
+notify-app-blocked-body = { $app } was stopped by “{ $block }”.
+notify-app-closed = App closed
+notify-app-closed-body = { $app } was closed by “{ $block }”.
+notify-window-closed = Window closed
+notify-window-closed-body = “{ $title }” was closed by “{ $block }”.
+notify-allowance-low = 5 minutes left
+notify-allowance-low-body = The daily time for “{ $block }” is almost used up.
+notify-allowance-used = Time is up
+notify-allowance-used-body = The daily time for “{ $block }” is used up. It is blocked until tomorrow.

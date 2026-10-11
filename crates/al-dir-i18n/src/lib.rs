@@ -12,12 +12,33 @@ use unic_langid::LanguageIdentifier;
 pub use fluent_bundle::FluentValue;
 
 /// (code, name in that language, right-to-left)
-pub const LANGUAGES: &[(&str, &str, bool)] = &[("en", "English", false), ("ar", "العربية", true)];
+pub const LANGUAGES: &[(&str, &str, bool)] = &[
+    ("en", "English", false),
+    ("ar", "العربية", true),
+    ("fr", "Français", false),
+    ("es", "Español", false),
+    ("de", "Deutsch", false),
+    ("tr", "Türkçe", false),
+    ("ur", "اردو", true),
+    ("id", "Bahasa Indonesia", false),
+    ("pt", "Português", false),
+    ("ru", "Русский", false),
+    ("zh", "中文（简体）", false),
+];
 
 fn source(code: &str) -> Option<&'static str> {
     match code {
         "en" => Some(include_str!("../../../locales/en.ftl")),
         "ar" => Some(include_str!("../../../locales/ar.ftl")),
+        "fr" => Some(include_str!("../../../locales/fr.ftl")),
+        "es" => Some(include_str!("../../../locales/es.ftl")),
+        "de" => Some(include_str!("../../../locales/de.ftl")),
+        "tr" => Some(include_str!("../../../locales/tr.ftl")),
+        "ur" => Some(include_str!("../../../locales/ur.ftl")),
+        "id" => Some(include_str!("../../../locales/id.ftl")),
+        "pt" => Some(include_str!("../../../locales/pt.ftl")),
+        "ru" => Some(include_str!("../../../locales/ru.ftl")),
+        "zh" => Some(include_str!("../../../locales/zh.ftl")),
         _ => None,
     }
 }

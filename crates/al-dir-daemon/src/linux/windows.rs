@@ -332,7 +332,9 @@ impl<'a> Watcher<'a> {
             return None;
         }
         let process = ProcessInfo { exe_path: &exe, ..Default::default() };
-        engine.check_window(&win.title, &process, &Ctx::new(now, &self.user)).block
+        let usage = self.service.usage_for(&self.user);
+        let ctx = Ctx { now, user: &self.user, usage: usage.as_deref() };
+        engine.check_window(&win.title, &process, &ctx).block
     }
 
     fn check(&mut self, w: Window, engine: &Engine, now: Now) -> Result<()> {

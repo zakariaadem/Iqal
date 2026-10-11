@@ -9,7 +9,7 @@ use std::os::unix::fs::MetadataExt;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use al_dir_core::{Ctx, Engine, Hit, Now, ProcessInfo, Reason};
+use al_dir_core::{Ctx, Engine, Hit, Now, ProcessInfo, Reason, SetId};
 use al_dir_ipc::EventKind;
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
@@ -32,6 +32,15 @@ pub struct AppGuard {
     index: RwLock<(Arc<AppIndex>, Instant)>,
     hashes: Mutex<HashMap<FileKey, String>>,
     own_pid: i32,
+    last_sweep: Mutex<Instant>,
+    /// Fractions of a second not yet counted.
+    carry: Mutex<f64>,
+}
+
+struct Verdict {
+    hit: Option<Hit>,
+    metered: Vec<SetId>,
+    user: String,
 }
 
 impl AppGuard {
@@ -44,6 +53,8 @@ impl AppGuard {
             index: RwLock::new((Arc::new(index), Instant::now())),
             hashes: Mutex::new(HashMap::new()),
             own_pid: std::process::id() as i32,
+            last_sweep: Mutex::new(Instant::now()),
+            carry: Mutex::new(0.0),
         }
     }
 
@@ -60,7 +71,8 @@ impl AppGuard {
         }
     }
 
-    /// The common decision. Returns the hit and the user it applies to.
+    /// The common decision for an enforced account: the block (if any),
+    /// the allowances the program uses up, and the user.
     fn decide(
         &self,
         engine: &Engine,
@@ -69,24 +81,26 @@ impl AppGuard {
         exe: &str,
         cmdline: Option<&str>,
         hash: impl FnOnce() -> Option<String>,
-    ) -> Option<(Hit, String)> {
+    ) -> Option<Verdict> {
         if !self.users.enforced(uid) || appindex::is_essential(exe) {
             return None;
         }
         let user = self.users.name(uid);
-        let ctx = Ctx::new(now, &user);
+        let usage = self.service.usage_for(&user);
+        let ctx = Ctx { now, user: &user, usage: usage.as_deref() };
         if browsers::is_unsupported(exe)
             && let Some(set) = engine.web_active_set(&ctx)
         {
-            return Some((Hit { set, reason: Reason::UnsupportedBrowser }, user));
+            return Some(Verdict { hit: Some(Hit { set, reason: Reason::UnsupportedBrowser }), metered: Vec::new(), user });
         }
         let sha = if engine.wants_exe_hash() { hash() } else { None };
         let process = ProcessInfo { exe_path: exe, cmdline, sha256: sha.as_deref() };
-        let hit = engine.check_process(&process, &ctx).block?;
-        if hit.reason == Reason::NotAllowed && !self.index().is_user_app(exe) {
-            return None; // allow-only mode only restricts apps, not system helpers
-        }
-        Some((hit, user))
+        let decision = engine.check_process(&process, &ctx);
+        let hit = decision.block.filter(|hit| {
+            // Allow-only mode restricts apps, not system helpers.
+            hit.reason != Reason::NotAllowed || self.index().is_user_app(exe)
+        });
+        Some(Verdict { hit, metered: decision.metered, user })
     }
 
     /// Exec hook: may process `pid` execute the file open as `file`?
@@ -105,42 +119,67 @@ impl AppGuard {
             self.hash_file(File::from(owned))
         };
         match self.decide(engine, now, uid, &exe, None, hash) {
-            Some((hit, user)) => {
+            Some(Verdict { hit: Some(hit), user, .. }) => {
                 self.service.record_block(&user, EventKind::AppStart, &exe, &hit);
                 false
             }
-            None => true,
+            _ => true,
         }
     }
 
     /// Checks an already running process; kills it if it is blocked.
-    pub fn enforce_running(&self, pid: i32, engine: &Engine, now: Now) {
+    /// Otherwise returns the user and the allowances it is using up.
+    pub fn enforce_running(&self, pid: i32, engine: &Engine, now: Now) -> Option<(String, Vec<SetId>)> {
         if pid == self.own_pid || pid <= 1 {
-            return;
+            return None;
         }
-        let Some(uid) = procs::uid_of(pid) else { return };
+        let uid = procs::uid_of(pid)?;
         if !self.users.enforced(uid) {
-            return;
+            return None;
         }
-        let Some(exe) = procs::exe_of(pid) else { return };
+        let exe = procs::exe_of(pid)?;
         let cmdline = procs::cmdline_of(pid);
         let hash = || File::open(format!("/proc/{pid}/exe")).ok().and_then(|f| self.hash_file(f));
-        if let Some((hit, user)) = self.decide(engine, now, uid, &exe, cmdline.as_deref(), hash) {
-            // The process may have exited meanwhile; that is fine.
-            if kill(Pid::from_raw(pid), Signal::SIGKILL).is_ok() {
-                self.service.record_block(&user, EventKind::AppKilled, &exe, &hit);
+        let verdict = self.decide(engine, now, uid, &exe, cmdline.as_deref(), hash)?;
+        match verdict.hit {
+            Some(hit) => {
+                // The process may have exited meanwhile; that is fine.
+                if kill(Pid::from_raw(pid), Signal::SIGKILL).is_ok() {
+                    self.service.record_block(&verdict.user, EventKind::AppKilled, &exe, &hit);
+                }
+                None
             }
+            None if verdict.metered.is_empty() => None,
+            None => Some((verdict.user, verdict.metered)),
         }
     }
 
     /// Closes every running program that is blocked right now (e.g. when a
     /// scheduled block starts or a rule is added).
+    /// Also counts time for apps that use up an allowance.
     pub fn sweep(&self) {
         let engine = self.service.engine();
         let now = crate::clock::now();
         let pids = procs::pids();
+        let mut metered: HashMap<String, Vec<SetId>> = HashMap::new();
         for &pid in &pids {
-            self.enforce_running(pid, &engine, now);
+            if let Some((user, sets)) = self.enforce_running(pid, &engine, now) {
+                metered.entry(user).or_default().extend(sets);
+            }
+        }
+        let elapsed = {
+            let mut last = self.last_sweep.lock().unwrap_or_else(|e| e.into_inner());
+            let secs = last.elapsed().as_secs_f64().min(10.0);
+            *last = Instant::now();
+            secs
+        };
+        let mut carry = self.carry.lock().unwrap_or_else(|e| e.into_inner());
+        *carry += elapsed;
+        let whole = carry.floor() as u32;
+        *carry -= whole as f64;
+        drop(carry);
+        for (user, sets) in metered {
+            self.service.add_usage(&user, &sets, whole);
         }
         self.close_unsupervised_browsers(&pids, &engine, now);
     }

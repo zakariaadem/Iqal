@@ -132,6 +132,8 @@ pub fn activity(ui: &Rc<Ui>) {
             EventKind::WindowClosed => "event-window-closed",
             EventKind::SiteBlocked => "event-site-blocked",
             EventKind::PageBlocked => "event-page-blocked",
+            EventKind::AllowanceLow => "event-allowance-low",
+            EventKind::AllowanceUsed => "event-allowance-used",
         });
         let top = label(&format!("{what}: {}", e.target));
         top.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
@@ -209,4 +211,101 @@ pub fn about(ui: &Rc<Ui>) {
         .license_type(gtk::License::Gpl30)
         .build();
     d.present();
+}
+
+pub fn statistics(ui: &Rc<Ui>) {
+    let (win, body) = small_window(ui, &t("menu-stats"), 720);
+    win.set_default_height(640);
+    let period = gtk::DropDown::from_strings(&[t("stats-7").as_str(), t("stats-30").as_str(), t("stats-90").as_str()]);
+    body.append(&setting_row(&t("stats-period"), &period));
+    body.append(&note(&t("stats-private")));
+    let content = vbox(14);
+    let scroll = gtk::ScrolledWindow::builder().vexpand(true).hscrollbar_policy(gtk::PolicyType::Never).child(&content).build();
+    body.append(&scroll);
+
+    let fill = {
+        let (weak, content) = (ui.weak(), content.clone());
+        Rc::new(move |days: u32| {
+            let Some(ui) = weak.upgrade() else { return };
+            while let Some(c) = content.first_child() {
+                content.remove(&c);
+            }
+            let stats = match ui.service.call(Request::Stats { days }) {
+                Ok(Response::Stats { stats }) => stats,
+                Ok(_) => return,
+                Err(e) => return ui.error(&e),
+            };
+            let total: u32 = stats.days.iter().map(|d| d.blocked).sum();
+            content.append(&heading(&ta("stats-total", &[("count", (total as i64).into())])));
+            content.append(&chart(&stats.days.iter().map(|d| d.blocked).collect::<Vec<_>>()));
+            if let (Some(first), Some(last)) = (stats.days.first(), stats.days.last()) {
+                let range = hbox(0);
+                let a = note(&first.date);
+                a.set_hexpand(true);
+                range.append(&a);
+                range.append(&note(&last.date));
+                content.append(&range);
+            }
+            let section = |title: &str, rows: Vec<(String, String)>| {
+                if rows.is_empty() {
+                    return;
+                }
+                content.append(&heading(title));
+                for (name, value) in rows {
+                    let row = hbox(12);
+                    let l = label(&name);
+                    l.set_hexpand(true);
+                    l.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+                    row.append(&l);
+                    row.append(&note(&value));
+                    content.append(&row);
+                }
+            };
+            let counts = |v: &[(String, u32)]| v.iter().map(|(n, c)| (n.clone(), c.to_string())).collect();
+            section(&t("stats-top"), counts(&stats.top_targets));
+            section(&t("stats-by-block"), counts(&stats.by_block));
+            section(
+                &t("stats-allowance"),
+                stats
+                    .allowance_by_block
+                    .iter()
+                    .map(|(n, s)| (n.clone(), ta("stats-minutes", &[("minutes", ((s / 60) as i64).into())])))
+                    .collect(),
+            );
+            if total == 0 && stats.allowance_by_block.is_empty() {
+                content.append(&note(&t("stats-empty")));
+            }
+        })
+    };
+    {
+        let fill = fill.clone();
+        period.connect_selected_notify(move |p| fill([7, 30, 90][p.selected().min(2) as usize]));
+    }
+    fill(7);
+    win.present();
+}
+
+/// Bars for blocks per day (oldest first; mirrored for right-to-left).
+fn chart(values: &[u32]) -> gtk::DrawingArea {
+    let area = gtk::DrawingArea::new();
+    area.set_content_height(150);
+    area.set_hexpand(true);
+    let mut values = values.to_vec();
+    if al_dir_i18n::is_rtl() {
+        values.reverse();
+    }
+    area.set_draw_func(move |_, cr, w, h| {
+        let max = values.iter().copied().max().unwrap_or(0).max(1) as f64;
+        let n = values.len().max(1) as f64;
+        let slot = w as f64 / n;
+        let bar = (slot * 0.7).max(1.0);
+        cr.set_source_rgba(0.16, 0.62, 0.45, 0.9);
+        for (i, v) in values.iter().enumerate() {
+            let height = (*v as f64 / max) * (h as f64 - 4.0);
+            let x = i as f64 * slot + (slot - bar) / 2.0;
+            cr.rectangle(x, h as f64 - height, bar, height.max(if *v > 0 { 2.0 } else { 0.5 }));
+        }
+        let _ = cr.fill();
+    });
+    area
 }

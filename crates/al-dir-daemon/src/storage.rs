@@ -68,6 +68,10 @@ impl Store {
         write_atomic(&self.dir, name, text.as_bytes())
     }
 
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
     pub fn save(&self, config: &Config) -> io::Result<()> {
         let json = config.to_json();
         write_atomic(&self.dir, CONFIG, json.as_bytes())?;

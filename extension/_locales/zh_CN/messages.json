@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "Al-Dir 的网站拦截。由 Al-Dir 管理；安装 Al-Dir 期间无法移除。" },
+  "blockedTitle": { "message": "此页面已被拦截" },
+  "blockedBy": {
+    "message": "被“$SET$”拦截",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}

@@ -14,6 +14,7 @@ UNIT=/etc/systemd/system/al-dir.service
 AUTOSTART=/etc/xdg/autostart/al-dir-agent.desktop
 APPS=$PREFIX/share/applications/al-dir.desktop
 ICON=$PREFIX/share/icons/hicolor/scalable/apps/al-dir.svg
+LISTS=$PREFIX/share/al-dir/lists
 SRC=$(cd "$(dirname "$0")/.." && pwd)
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -28,6 +29,7 @@ if [ "${1:-}" = "--uninstall" ]; then
     pkill -x al-dir-agent 2>/dev/null || true
     rm -f "$UNIT" "$AUTOSTART" "$APPS" "$ICON" "$BINDIR/al-dir" "$BINDIR/al-dir-cli" "$BINDIR/al-dir-agent" "$LIBDIR/al-dir-daemon" "$LIBDIR/al-dir-nm-host"
     rm -rf "$LIBDIR/extension"
+    rm -rf "$PREFIX/share/al-dir"
     rmdir "$LIBDIR" 2>/dev/null || true
     systemctl daemon-reload
     echo "Al-Dir removed. Settings are kept in /var/lib/al-dir."
@@ -55,6 +57,8 @@ if [ -f "$SRC/dist/extension/al-dir.crx" ]; then
     fi
 fi
 install -m 0755 "$SRC/target/release/al-dir-cli" "$BINDIR/al-dir-cli"
+install -d -m 0755 "$LISTS"
+install -m 0644 "$SRC"/lists/*.txt "$LISTS"/
 install -m 0755 "$SRC/target/release/al-dir-agent" "$BINDIR/al-dir-agent"
 install -m 0755 "$SRC/target/release/al-dir" "$BINDIR/al-dir"
 install -d -m 0755 "$(dirname "$APPS")" "$(dirname "$ICON")"

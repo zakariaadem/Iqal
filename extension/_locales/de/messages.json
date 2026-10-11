@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "Website-Sperre für Al-Dir. Von Al-Dir verwaltet; kann nicht entfernt werden, solange Al-Dir installiert ist." },
+  "blockedTitle": { "message": "Diese Seite ist gesperrt" },
+  "blockedBy": {
+    "message": "Gesperrt durch „$SET$“",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}
