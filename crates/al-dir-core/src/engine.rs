@@ -68,6 +68,24 @@ pub enum Reason {
     WindowTitle(String),
 }
 
+impl std::fmt::Display for Reason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Reason::Domain(d) => write!(f, "website {d}"),
+            Reason::Url(u) => write!(f, "page {u}"),
+            Reason::UrlContains(t) => write!(f, "address contains \"{t}\""),
+            Reason::SearchTerm(t) => write!(f, "search contains \"{t}\""),
+            Reason::Partial(id) => write!(f, "partial block {id}"),
+            Reason::NotAllowed => f.write_str("not on the allow list"),
+            Reason::AppName(n) => write!(f, "app {n}"),
+            Reason::AppPath(p) => write!(f, "app path {p}"),
+            Reason::AppHash => f.write_str("app file fingerprint"),
+            Reason::CmdLine(t) => write!(f, "command line contains \"{t}\""),
+            Reason::WindowTitle(t) => write!(f, "window title contains \"{t}\""),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hit {
     pub set: SetId,

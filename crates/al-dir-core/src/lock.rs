@@ -211,7 +211,7 @@ impl Config {
     pub fn remove_set(&mut self, id: SetId, ctx: &LockContext) -> Result<BlockSet, CoreError> {
         let idx = self.block_sets.iter().position(|s| s.id == id).ok_or(CoreError::NotFound)?;
         if is_locked(&self.block_sets[idx], ctx) {
-            return Err(CoreError::Locked("a locked block cannot be deleted"));
+            return Err(CoreError::Locked("deletes the block"));
         }
         Ok(self.block_sets.remove(idx))
     }

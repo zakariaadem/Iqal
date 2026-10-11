@@ -1,0 +1,12 @@
+[package]
+name = "al-dir-ipc"
+description = "Protocol between the Al-Dir service and its clients"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+al-dir-core = { path = "../al-dir-core" }
+serde.workspace = true
+serde_json.workspace = true

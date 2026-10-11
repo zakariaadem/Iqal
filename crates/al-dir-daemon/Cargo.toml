@@ -1,0 +1,15 @@
+[package]
+name = "al-dir-daemon"
+description = "The Al-Dir background service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+al-dir-core = { path = "../al-dir-core" }
+al-dir-ipc = { path = "../al-dir-ipc" }
+serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { workspace = true, features = ["socket", "user", "fs"] }
