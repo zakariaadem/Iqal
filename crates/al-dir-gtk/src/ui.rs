@@ -56,6 +56,13 @@ impl Ui {
             rebuilding: Cell::new(false),
         });
         ui.build();
+        // Every handler holds only a weak reference (no cycles between the
+        // widgets and the state). The window holds the strong one, so the
+        // state lives exactly as long as the window.
+        let keep = ui.clone();
+        ui.window.connect_destroy(move |_| {
+            let _ = &keep;
+        });
         ui.refresh(true);
         ui.window.present();
         ui.open_requested_dialog();
@@ -92,6 +99,12 @@ impl Ui {
             }
         });
         side.append(&new_button);
+        // Developer aid (tests): AL_DIR_GUI_CLICK=new-block presses the button
+        // as a user would, through its click handler.
+        if std::env::var("AL_DIR_GUI_CLICK").as_deref() == Ok("new-block") {
+            let b = new_button.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_secs(1), move || b.emit_clicked());
+        }
 
         let weak = Rc::downgrade(self);
         self.sidebar.connect_row_selected(move |_, row| {
