@@ -13,6 +13,8 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 | `crates/al-dir-daemon` | The background service (runs as root under systemd) |
 | `crates/al-dir-cli` | Command-line tool (`al-dir-cli --help`) |
 | `crates/al-dir-agent` | Per-session agent: desktop notifications when something is blocked |
+| `crates/al-dir-gtk` | The graphical app (`al-dir`), GTK 4 |
+| `crates/al-dir-i18n` | Translations (Fluent); texts in `locales/` |
 | `crates/al-dir-host` | Native messaging host between the browser extension and the service |
 | `crates/al-dir-pack` | Dev tool: packages the extension (`.xpi`, signed `.crx`) |
 | `extension` | Browser extension (Firefox and Chromium family) |

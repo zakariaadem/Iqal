@@ -1,0 +1,21 @@
+[package]
+name = "al-dir-gtk"
+description = "Al-Dir graphical app (GTK 4)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "al-dir"
+path = "src/main.rs"
+
+[dependencies]
+al-dir-core = { path = "../al-dir-core" }
+al-dir-i18n = { path = "../al-dir-i18n" }
+al-dir-ipc = { path = "../al-dir-ipc" }
+gtk = { package = "gtk4", version = "0.11.5", features = ["v4_14"] }
+jiff.workspace = true
+libshumate = "0.8.1"
+serde.workspace = true
+serde_json.workspace = true
