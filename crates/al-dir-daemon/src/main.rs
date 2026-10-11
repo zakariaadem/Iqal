@@ -29,18 +29,20 @@ fn linux_main() -> Result<(), String> {
 
     let mut socket = PathBuf::from(al_dir_ipc::DEFAULT_SOCKET);
     let mut state_dir = PathBuf::from("/var/lib/al-dir");
+    let mut enforce = true;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         let mut value = |name: &str| args.next().ok_or(format!("{name} needs a value"));
         match arg.as_str() {
             "--socket" => socket = value("--socket")?.into(),
             "--state-dir" => state_dir = value("--state-dir")?.into(),
+            "--no-enforce" => enforce = false,
             "--version" => {
                 println!("al-dir-daemon {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
             }
             "-h" | "--help" => {
-                println!("usage: al-dir-daemon [--socket PATH] [--state-dir DIR]");
+                println!("usage: al-dir-daemon [--socket PATH] [--state-dir DIR] [--no-enforce]");
                 return Ok(());
             }
             other => return Err(format!("unknown argument {other}")),
@@ -70,6 +72,14 @@ fn linux_main() -> Result<(), String> {
                 }
             })
             .map_err(|e| e.to_string())?;
+    }
+
+    if !enforce {
+        eprintln!("al-dir: enforcement disabled (--no-enforce)");
+    } else if !nix::unistd::geteuid().is_root() {
+        eprintln!("al-dir: not running as root; rules are stored but not enforced");
+    } else {
+        linux::start_enforcement(service.clone()).map_err(|e| format!("starting enforcement: {e}"))?;
     }
 
     eprintln!(

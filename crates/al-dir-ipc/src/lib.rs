@@ -38,6 +38,9 @@ pub enum Request {
     CancelUnlock { id: SetId },
     /// Ask what the engine would decide (for testing rules).
     Check { query: CheckQuery, user: Option<String> },
+    /// Recent things the service blocked (the caller's own, or everyone's
+    /// for administrators).
+    RecentEvents,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +63,30 @@ pub enum Response {
     Challenge { challenge: ChallengeInfo },
     Unlock { outcome: UnlockInfo },
     Decision { decision: DecisionInfo },
+    Events { events: Vec<BlockEvent> },
     Error { code: ErrorCode, message: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventKind {
+    /// A program was stopped from starting.
+    AppStart,
+    /// A running program was closed.
+    AppKilled,
+}
+
+/// Something the service blocked.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockEvent {
+    pub time: i64,
+    pub user: String,
+    pub kind: EventKind,
+    /// Executable path, URL or host.
+    pub target: String,
+    pub set: SetId,
+    pub set_name: String,
+    pub reason: String,
 }
 
 impl Response {

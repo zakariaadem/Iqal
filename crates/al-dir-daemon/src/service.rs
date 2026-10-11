@@ -1,18 +1,21 @@
 //! The service state and request handling, independent of the transport.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::time::Duration;
 
 use al_dir_core::lock::{self, Challenge, LockContext, UnlockOutcome};
 use al_dir_core::{
-    import, BlockSet, Config, CoreError, Ctx, Decision, Engine, LocationFix, LockKind, NoLists, Now,
+    import, BlockSet, Config, CoreError, Ctx, Decision, Engine, Hit, LocationFix, LockKind, NoLists, Now,
     PasswordHash, ProcessInfo, SetId,
 };
 use al_dir_ipc::{
-    ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, Request, Response, SetInfo, Status, UnlockInfo,
-    PROTOCOL_VERSION,
+    BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo,
+    Status, UnlockInfo, PROTOCOL_VERSION,
 };
+
+const MAX_EVENTS: usize = 500;
 
 use crate::storage::Store;
 
@@ -25,10 +28,29 @@ pub struct Caller {
 
 pub struct Service {
     inner: Mutex<Inner>,
-    engine: RwLock<Arc<Engine>>,
+    /// What enforcement threads read. Kept apart from `inner` so they never
+    /// wait for a settings write to reach the disk.
+    snapshot: RwLock<Arc<Snapshot>>,
+    /// Bumped on every settings change.
+    generation: AtomicU64,
+    events: Mutex<VecDeque<BlockEvent>>,
     store: Store,
     boot_id: String,
     started_at: i64,
+}
+
+struct Snapshot {
+    engine: Arc<Engine>,
+    names: HashMap<SetId, String>,
+}
+
+impl Snapshot {
+    fn of(config: &Config) -> Arc<Self> {
+        Arc::new(Snapshot {
+            engine: Arc::new(Engine::new(config, &NoLists)),
+            names: config.block_sets.iter().map(|s| (s.id, s.name.clone())).collect(),
+        })
+    }
 }
 
 struct Inner {
@@ -42,19 +64,52 @@ type Result<T> = std::result::Result<T, Response>;
 impl Service {
     pub fn new(store: Store, boot_id: String) -> std::io::Result<Self> {
         let config = store.load()?;
-        let engine = Arc::new(Engine::new(&config, &NoLists));
         Ok(Self {
+            snapshot: RwLock::new(Snapshot::of(&config)),
             inner: Mutex::new(Inner { config, challenges: HashMap::new() }),
-            engine: RwLock::new(engine),
+            generation: AtomicU64::new(0),
+            events: Mutex::new(VecDeque::new()),
             store,
             boot_id,
             started_at: Now::system().unix,
         })
     }
 
+    fn snapshot(&self) -> Arc<Snapshot> {
+        self.snapshot.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
     /// The current compiled engine; cheap to call on hot paths.
     pub fn engine(&self) -> Arc<Engine> {
-        self.engine.read().unwrap_or_else(|e| e.into_inner()).clone()
+        self.snapshot().engine.clone()
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
+
+    /// Logs a block and keeps it for `RecentEvents`.
+    pub fn record_block(&self, user: &str, kind: EventKind, target: &str, hit: &Hit) {
+        let set_name = self.snapshot().names.get(&hit.set).cloned().unwrap_or_default();
+        let verb = match kind {
+            EventKind::AppStart => "stopped",
+            EventKind::AppKilled => "closed",
+        };
+        eprintln!("al-dir: {verb} {target} for {user} (block \"{set_name}\": {})", hit.reason);
+        let event = BlockEvent {
+            time: Now::system().unix,
+            user: user.to_string(),
+            kind,
+            target: target.to_string(),
+            set: hit.set,
+            set_name,
+            reason: hit.reason.to_string(),
+        };
+        let mut events = self.events.lock().unwrap_or_else(|e| e.into_inner());
+        if events.len() == MAX_EVENTS {
+            events.pop_front();
+        }
+        events.push_back(event);
     }
 
     fn lock_inner(&self) -> MutexGuard<'_, Inner> {
@@ -80,9 +135,10 @@ impl Service {
             self.store
                 .save(&next)
                 .map_err(|e| Response::error(ErrorCode::Internal, format!("could not save settings: {e}")))?;
-            let engine = Arc::new(Engine::new(&next, &NoLists));
+            let snapshot = Snapshot::of(&next);
             inner.config = next;
-            *self.engine.write().unwrap_or_else(|e| e.into_inner()) = engine;
+            *self.snapshot.write().unwrap_or_else(|e| e.into_inner()) = snapshot;
+            self.generation.fetch_add(1, Ordering::AcqRel);
         }
         Ok(out)
     }
@@ -112,7 +168,10 @@ impl Service {
     }
 
     pub fn handle(&self, caller: &Caller, request: Request) -> Response {
-        let mutating = !matches!(request, Request::Status | Request::ListSets | Request::Check { .. });
+        let mutating = !matches!(
+            request,
+            Request::Status | Request::ListSets | Request::Check { .. } | Request::RecentEvents
+        );
         if mutating && !caller.admin {
             return Response::error(
                 ErrorCode::PermissionDenied,
@@ -232,6 +291,11 @@ impl Service {
                 })?;
                 Ok(Response::Done)
             }
+            Request::RecentEvents => {
+                let events = self.events.lock().unwrap_or_else(|e| e.into_inner());
+                let events = events.iter().filter(|e| caller.admin || e.user == caller.user).cloned().collect();
+                Ok(Response::Events { events })
+            }
             Request::Check { query, user } => {
                 let user = match user {
                     Some(u) if caller.admin => u,
@@ -260,8 +324,8 @@ impl Service {
     }
 
     fn describe(&self, d: Decision) -> DecisionInfo {
-        let inner = self.lock_inner();
-        let name = |id: SetId| inner.config.get(id).map(|s| s.name.clone());
+        let snapshot = self.snapshot();
+        let name = |id: SetId| snapshot.names.get(&id).cloned();
         DecisionInfo {
             blocked: d.is_blocked(),
             set: d.block.as_ref().map(|h| h.set),

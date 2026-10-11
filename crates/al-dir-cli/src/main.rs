@@ -13,7 +13,7 @@ use al_dir_core::{
     WebRule,
 };
 use al_dir_ipc::client::Client;
-use al_dir_ipc::{ChallengeInfo, CheckQuery, DecisionInfo, Request, Response, SetInfo, UnlockInfo};
+use al_dir_ipc::{ChallengeInfo, CheckQuery, DecisionInfo, EventKind, Request, Response, SetInfo, UnlockInfo};
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
@@ -112,6 +112,8 @@ enum Cmd {
     },
     /// Import blocks from an export file.
     Import { file: PathBuf },
+    /// Show what Al-Dir blocked recently.
+    Events,
     /// Test what Al-Dir would decide.
     Check {
         /// Check as another user (administrators only).
@@ -461,6 +463,19 @@ fn run(cmd: Cmd) -> Result<()> {
             }
             for (n, why) in rejected {
                 println!("rejected  {n}: {why}");
+            }
+        }
+        Cmd::Events => {
+            let Response::Events { events } = c.call(Request::RecentEvents)? else { return Err("bad reply".into()) };
+            if events.is_empty() {
+                println!("Nothing blocked yet.");
+            }
+            for e in events {
+                let what = match e.kind {
+                    EventKind::AppStart => "stopped",
+                    EventKind::AppKilled => "closed",
+                };
+                println!("{}  {:<10} {what:<8} {}  [{}: {}]", fmt_time(e.time), e.user, e.target, e.set_name, e.reason);
             }
         }
         Cmd::Check { user, what } => {
