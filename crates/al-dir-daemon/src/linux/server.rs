@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use al_dir_ipc::{read_frame, write_frame, Request};
+use al_dir_ipc::{read_frame, write_frame, Request, Response};
 
 use super::system;
 use crate::service::{Caller, Service};
@@ -64,8 +64,21 @@ fn handle_client(mut stream: UnixStream, service: &Service) -> io::Result<()> {
     let uid = system::peer_uid(&stream)?;
     let caller = Caller { user: system::user_name(uid), admin: system::is_admin(uid) };
     while let Some(request) = read_frame::<_, Request>(&mut stream)? {
+        if let Request::Subscribe = request {
+            return feed(stream, service, &caller.user);
+        }
         let response = service.handle(&caller, request);
         write_frame(&mut stream, &response)?;
+    }
+    Ok(())
+}
+
+/// Sends the user's block events as they happen, until the client leaves.
+fn feed(mut stream: UnixStream, service: &Service, user: &str) -> io::Result<()> {
+    let events = service.subscribe(user);
+    write_frame(&mut stream, &Response::Subscribed)?;
+    while let Ok(event) = events.recv() {
+        write_frame(&mut stream, &Response::Event { event: Box::new(event) })?;
     }
     Ok(())
 }

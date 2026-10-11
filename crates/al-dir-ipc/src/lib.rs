@@ -41,6 +41,9 @@ pub enum Request {
     /// Recent things the service blocked (the caller's own, or everyone's
     /// for administrators).
     RecentEvents,
+    /// Turn this connection into a feed of the caller's own block events
+    /// (`Response::Event` messages, one per event, until disconnect).
+    Subscribe,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,16 +67,20 @@ pub enum Response {
     Unlock { outcome: UnlockInfo },
     Decision { decision: DecisionInfo },
     Events { events: Vec<BlockEvent> },
+    Subscribed,
+    Event { event: Box<BlockEvent> },
     Error { code: ErrorCode, message: String },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventKind {
     /// A program was stopped from starting.
     AppStart,
     /// A running program was closed.
     AppKilled,
+    /// A window was closed because of its title.
+    WindowClosed,
 }
 
 /// Something the service blocked.
@@ -203,6 +210,11 @@ pub mod client {
 
         pub fn call(&mut self, request: &Request) -> io::Result<Response> {
             write_frame(&mut self.stream, request)?;
+            self.receive()
+        }
+
+        /// Waits for the next message (used after `Request::Subscribe`).
+        pub fn receive(&mut self) -> io::Result<Response> {
             read_frame(&mut self.stream)?
                 .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "service closed the connection"))
         }

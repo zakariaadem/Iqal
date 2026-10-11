@@ -5,6 +5,7 @@ pub mod proc_watch;
 pub mod procs;
 pub mod server;
 pub mod system;
+pub mod windows;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,6 +25,9 @@ pub fn start_enforcement(service: Arc<Service>) -> std::io::Result<()> {
     }
     if let Err(e) = proc_watch::start(service.clone(), guard.clone()) {
         eprintln!("al-dir: process watcher unavailable ({e}); relying on periodic checks");
+    }
+    if let Err(e) = windows::start(service.clone()) {
+        eprintln!("al-dir: window watcher unavailable ({e})");
     }
 
     std::thread::Builder::new().name("al-dir-sweep".into()).spawn(move || {

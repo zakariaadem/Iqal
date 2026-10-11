@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Al-Dir Agent
+Comment=Shows notifications when Al-Dir blocks something
+Exec=@BINDIR@/al-dir-agent
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-AutoRestart=true

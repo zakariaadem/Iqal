@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/al-dir-core", "crates/al-dir-ipc", "crates/al-dir-daemon", "crates/al-dir-cli"]
+members = ["crates/al-dir-core", "crates/al-dir-ipc", "crates/al-dir-daemon", "crates/al-dir-cli", "crates/al-dir-agent"]
 
 [workspace.package]
 version = "0.1.0"
@@ -23,6 +23,8 @@ sha2 = "0.11.0"
 thiserror = "2.0.21"
 url = "2.5.8"
 uuid = { version = "1.28.0", features = ["v4", "serde"] }
+x11rb = "0.14.0"
+zbus = { version = "5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
 
 [profile.release]
 lto = "fat"

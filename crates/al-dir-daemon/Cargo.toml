@@ -13,5 +13,6 @@ serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc.workspace = true
-nix = { workspace = true, features = ["socket", "user", "fs", "fanotify", "signal"] }
+nix = { workspace = true, features = ["socket", "user", "fs", "fanotify", "signal", "hostname"] }
 sha2.workspace = true
+x11rb.workspace = true

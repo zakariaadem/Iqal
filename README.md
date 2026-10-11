@@ -12,7 +12,8 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 | `crates/al-dir-ipc` | Messages between the service and its clients |
 | `crates/al-dir-daemon` | The background service (runs as root under systemd) |
 | `crates/al-dir-cli` | Command-line tool (`al-dir-cli --help`) |
-| `packaging/linux` | systemd unit |
+| `crates/al-dir-agent` | Per-session agent: desktop notifications when something is blocked |
+| `packaging/linux` | systemd unit, agent autostart entry |
 | `scripts/dev-install.sh` | Install a local build as a system service |
 
 ## Building and installing (Linux)

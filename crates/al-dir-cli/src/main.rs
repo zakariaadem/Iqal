@@ -474,6 +474,7 @@ fn run(cmd: Cmd) -> Result<()> {
                 let what = match e.kind {
                     EventKind::AppStart => "stopped",
                     EventKind::AppKilled => "closed",
+                    EventKind::WindowClosed => "closed",
                 };
                 println!("{}  {:<10} {what:<8} {}  [{}: {}]", fmt_time(e.time), e.user, e.target, e.set_name, e.reason);
             }
