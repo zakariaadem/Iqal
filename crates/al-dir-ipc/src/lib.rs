@@ -81,6 +81,8 @@ pub enum EventKind {
     AppKilled,
     /// A window was closed because of its title.
     WindowClosed,
+    /// A website name was not resolved (DNS level).
+    SiteBlocked,
 }
 
 /// Something the service blocked.

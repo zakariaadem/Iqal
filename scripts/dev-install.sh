@@ -21,6 +21,7 @@ fi
 
 if [ "${1:-}" = "--uninstall" ]; then
     systemctl disable --now al-dir.service 2>/dev/null || true
+    [ -x "$LIBDIR/al-dir-daemon" ] && "$LIBDIR/al-dir-daemon" --cleanup
     pkill -x al-dir-agent 2>/dev/null || true
     rm -f "$UNIT" "$AUTOSTART" "$BINDIR/al-dir-cli" "$BINDIR/al-dir-agent" "$LIBDIR/al-dir-daemon"
     rmdir "$LIBDIR" 2>/dev/null || true

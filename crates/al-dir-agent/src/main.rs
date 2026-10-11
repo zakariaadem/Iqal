@@ -84,7 +84,7 @@ impl Notifier {
         self.recent.retain(|_, t| t.elapsed() < QUIET_FOR);
         self.recent.insert(key, Instant::now());
 
-        let (summary, body) = message(event);
+        let Some((summary, body)) = message(event) else { return };
         #[cfg(target_os = "linux")]
         {
             if self.desktop.is_none() {
@@ -101,16 +101,20 @@ impl Notifier {
     }
 }
 
-/// Notification text. (Translations arrive with the GUI milestone.)
-fn message(e: &BlockEvent) -> (String, String) {
+/// Notification text, or `None` for events not worth a pop-up. (Translations
+/// arrive with the GUI milestone.)
+fn message(e: &BlockEvent) -> Option<(String, String)> {
     let app = app_name(&e.target);
-    match e.kind {
+    Some(match e.kind {
         EventKind::AppStart => ("App blocked".into(), format!("{app} was stopped by “{}”.", e.set_name)),
         EventKind::AppKilled => ("App closed".into(), format!("{app} was closed by “{}”.", e.set_name)),
         EventKind::WindowClosed => {
             ("Window closed".into(), format!("“{}” was closed by “{}”.", shorten(&e.target, 80), e.set_name))
         }
-    }
+        // Browsers look up and prefetch many names; the browser extension
+        // shows a block page for sites actually opened.
+        EventKind::SiteBlocked => return None,
+    })
 }
 
 /// "/usr/lib/firefox/firefox" → "Firefox"

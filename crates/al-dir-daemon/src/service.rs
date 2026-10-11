@@ -98,6 +98,7 @@ impl Service {
             EventKind::AppStart => "stopped",
             EventKind::AppKilled => "closed",
             EventKind::WindowClosed => "closed window",
+            EventKind::SiteBlocked => "blocked site",
         };
         eprintln!("al-dir: {verb} {target} for {user} (block \"{set_name}\": {})", hit.reason);
         let event = BlockEvent {

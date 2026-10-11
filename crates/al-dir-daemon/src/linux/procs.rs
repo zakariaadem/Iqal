@@ -69,6 +69,23 @@ impl Users {
         (self.uid_min..=self.uid_max).contains(&uid)
     }
 
+    pub fn uid_min(&self) -> u32 {
+        self.uid_min
+    }
+
+    /// Enforced accounts listed in /etc/passwd.
+    pub fn enforced_uids(&self) -> Vec<u32> {
+        let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
+        let mut uids: Vec<u32> = passwd
+            .lines()
+            .filter_map(|l| l.split(':').nth(2)?.parse().ok())
+            .filter(|uid| self.enforced(*uid))
+            .collect();
+        uids.sort_unstable();
+        uids.dedup();
+        uids
+    }
+
     pub fn name(&self, uid: u32) -> String {
         let mut names = self.names.lock().unwrap_or_else(|e| e.into_inner());
         names.entry(uid).or_insert_with(|| super::system::user_name(uid)).clone()

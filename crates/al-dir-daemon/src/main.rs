@@ -5,6 +5,7 @@
 //! Normally started by systemd as root. For development it can run as an
 //! ordinary user with its own socket and state directory.
 
+mod dnsmsg;
 mod service;
 mod storage;
 
@@ -27,6 +28,8 @@ fn linux_main() -> Result<(), String> {
 
     use linux::{server, system};
 
+    linux::install_shutdown_handler().map_err(|e| format!("signal setup: {e}"))?;
+
     let mut socket = PathBuf::from(al_dir_ipc::DEFAULT_SOCKET);
     let mut state_dir = PathBuf::from("/var/lib/al-dir");
     let mut enforce = true;
@@ -37,12 +40,16 @@ fn linux_main() -> Result<(), String> {
             "--socket" => socket = value("--socket")?.into(),
             "--state-dir" => state_dir = value("--state-dir")?.into(),
             "--no-enforce" => enforce = false,
+            "--cleanup" => {
+                linux::cleanup();
+                return Ok(());
+            }
             "--version" => {
                 println!("al-dir-daemon {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
             }
             "-h" | "--help" => {
-                println!("usage: al-dir-daemon [--socket PATH] [--state-dir DIR] [--no-enforce]");
+                println!("usage: al-dir-daemon [--socket PATH] [--state-dir DIR] [--no-enforce] | --cleanup");
                 return Ok(());
             }
             other => return Err(format!("unknown argument {other}")),

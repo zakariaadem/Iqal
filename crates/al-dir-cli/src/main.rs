@@ -475,6 +475,7 @@ fn run(cmd: Cmd) -> Result<()> {
                     EventKind::AppStart => "stopped",
                     EventKind::AppKilled => "closed",
                     EventKind::WindowClosed => "closed",
+                    EventKind::SiteBlocked => "blocked",
                 };
                 println!("{}  {:<10} {what:<8} {}  [{}: {}]", fmt_time(e.time), e.user, e.target, e.set_name, e.reason);
             }
