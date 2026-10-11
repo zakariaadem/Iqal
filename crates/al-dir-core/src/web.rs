@@ -207,6 +207,21 @@ impl UrlView {
     }
 }
 
+/// Cookie-consent pages that sites put in front of the page actually
+/// requested. They are judged by where they lead, so a consent page on a
+/// blocked domain does not hide an allowed page behind it.
+const INTERSTITIALS: &[(&str, &str)] = &[("consent.youtube.com", "continue"), ("consent.google.com", "continue")];
+
+/// For a consent page, the URL it continues to.
+pub fn interstitial_target(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    let host = clean_host(parsed.host_str()?);
+    let (_, param) = INTERSTITIALS.iter().find(|(h, _)| *h == host)?;
+    let target = parsed.query_pairs().find(|(k, _)| k == param)?.1.into_owned();
+    let target_url = url::Url::parse(&target).ok()?;
+    matches!(target_url.scheme(), "http" | "https").then_some(target)
+}
+
 /// Iterates a host and its parent domains: `a.b.com`, `b.com`, `com`.
 pub fn host_suffixes(host: &str) -> impl Iterator<Item = &str> {
     std::iter::once(host).chain(host.match_indices('.').map(move |(i, _)| &host[i + 1..]))
@@ -328,6 +343,14 @@ mod tests {
     fn url_view_text_is_decoded() {
         let v = UrlView::parse("https://Example.com/Watch%20Free%20Movies").unwrap();
         assert_eq!(v.text, "example.com/watch free movies");
+    }
+
+    #[test]
+    fn consent_pages_lead_to_their_target() {
+        let u = "https://consent.youtube.com/m?continue=https%3A%2F%2Fwww.youtube.com%2F%40university%3Fcbrd%3D1&gl=NO";
+        assert_eq!(interstitial_target(u).as_deref(), Some("https://www.youtube.com/@university?cbrd=1"));
+        assert_eq!(interstitial_target("https://consent.youtube.com/m?continue=javascript:alert(1)"), None);
+        assert_eq!(interstitial_target("https://www.youtube.com/?continue=https://x.com"), None);
     }
 
     #[test]

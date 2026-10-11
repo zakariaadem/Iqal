@@ -143,7 +143,10 @@ impl Service {
     fn check_page(&self, caller: &Caller, url: &str, now: Now) -> PageInfo {
         let snapshot = self.snapshot();
         let ctx = Ctx::new(now, &caller.user);
-        let Some(view) = al_dir_core::UrlView::parse(url) else { return PageInfo::default() };
+        let effective = al_dir_core::web::interstitial_target(url);
+        let Some(view) = al_dir_core::UrlView::parse(effective.as_deref().unwrap_or(url)) else {
+            return PageInfo::default();
+        };
         let decision = snapshot.engine.check_view(&view, &ctx);
         let hide = snapshot.engine.hidden_selectors(&view.host, &ctx).into_iter().map(String::from).collect();
         let Some(hit) = decision.block else {
