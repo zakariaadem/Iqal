@@ -1,0 +1,16 @@
+#!/bin/sh
+# Al-Dir: after removing.
+set -e
+
+case "$1" in
+    remove)
+        systemctl daemon-reload || true
+        ;;
+    purge)
+        # Settings, statistics and downloaded lists.
+        rm -rf /var/lib/al-dir
+        systemctl daemon-reload || true
+        ;;
+esac
+
+exit 0

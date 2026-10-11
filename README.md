@@ -23,16 +23,28 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 | `packaging/linux` | systemd unit, agent autostart entry |
 | `scripts/dev-install.sh` | Install a local build as a system service |
 
-## Building and installing (Linux)
+## Building the package (Linux Mint 22 / Ubuntu 24.04)
 
 ```bash
+sudo apt install build-essential pkg-config libgtk-4-dev libshumate-dev
 cargo build --release
-cargo run -p al-dir-pack        # package the browser extension
-sudo scripts/dev-install.sh
-al-dir-cli status
+cargo run -p al-dir-pack            # browser extension
+packaging/linux/build-deb.sh        # -> dist/al-dir_<version>_amd64.deb
+sudo apt install ./dist/al-dir_*_amd64.deb
 ```
 
-Remove again with `sudo scripts/dev-install.sh --uninstall` (settings stay in `/var/lib/al-dir`).
+Removing the package is refused while any block is locked. `apt purge al-dir` also deletes the settings in `/var/lib/al-dir`.
+
+Firefox only accepts a Mozilla-signed extension: put it at `dist/extension/al-dir-signed.xpi` before building.
+
+### Development install (without a package)
+
+```bash
+sudo scripts/dev-install.sh             # installs to /usr/local
+sudo scripts/dev-install.sh --uninstall
+```
+
+Do not mix this with the package.
 
 ## Development without root
 
