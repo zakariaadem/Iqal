@@ -9,6 +9,8 @@ authors.workspace = true
 [dependencies]
 al-dir-core = { path = "../al-dir-core" }
 al-dir-ipc = { path = "../al-dir-ipc" }
+jiff.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -16,3 +18,4 @@ libc.workspace = true
 nix = { workspace = true, features = ["socket", "user", "fs", "fanotify", "signal", "hostname"] }
 sha2.workspace = true
 x11rb.workspace = true
+zbus.workspace = true

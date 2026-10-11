@@ -23,11 +23,16 @@ pub struct Config {
     pub version: u32,
     #[serde(default)]
     pub block_sets: Vec<BlockSet>,
+    /// While any block is locked, administrator rights (sudo, password
+    /// prompts) are withdrawn from the people being blocked, so they cannot
+    /// simply stop Al-Dir.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub hardened: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { version: CONFIG_VERSION, block_sets: Vec::new() }
+        Self { version: CONFIG_VERSION, block_sets: Vec::new(), hardened: false }
     }
 }
 

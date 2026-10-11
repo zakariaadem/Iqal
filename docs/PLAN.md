@@ -84,10 +84,13 @@ The UI is only an editor. Killing it changes nothing. All enforcement is in the 
 **Clock tampering:** lock deadlines are tracked with `CLOCK_BOOTTIME` plus periodic NTP verification. Moving the system clock forward doesn't end a lock.
 
 **Location lock details**
-- Sources: GeoClue2 (OS location services) **and** Wi-Fi scan via NetworkManager (BSSIDs → position via BeaconDB, an open service). The daemon also *learns* the BSSIDs it sees while confirmed inside the area, so later checks work offline.
-- **Fail-closed:** if location can't be determined (Wi-Fi off, GeoClue off, no network), Al-Dir treats you as **inside**. Turning location off therefore never unlocks anything.
-- While a location lock is active, polkit rules deny non-root users changes to location services, Wi-Fi radio and NetworkManager connections (keeps the setting itself locked, not only the result).
-- Privacy: only BSSIDs are sent to BeaconDB, and only while a location lock exists. Shown clearly in the UI.
+- **Learned Wi-Fi networks (main source).** "I am at this place now" (`al-dir-cli learn-location`, later a GUI button) remembers every network in range, neighbours' included. It's also learned automatically while a precise position says you're there. Learning only ever adds networks.
+  - Any remembered network in range → **inside**.
+  - Wi-Fi working, at least 2 networks in range, none remembered → **away**.
+- **OS location service (GeoClue2).** The service registers its own GeoClue agent (root has none) and points GeoClue's Wi-Fi lookup at BeaconDB, the open successor of Mozilla's retired service. Only positions better than 1 km count; IP-based guesses (fakeable with a VPN) are ignored. BeaconDB's coverage is still sparse (it had no data for the test PC in Norway), so this is a secondary source.
+- **Fail-closed:** no evidence (Wi-Fi off, too few networks, no position) → treated as **inside**. Turning things off therefore never unlocks anything. A desktop without Wi-Fi can only use GeoClue.
+- While a location lock holds, polkit denies non-root users switching Wi-Fi or networking off.
+- Privacy: nothing is looked up while no location lock exists. Remembered network IDs stay on the machine; only GeoClue's lookup sends network IDs to BeaconDB.
 
 ### Extras (all in v1)
 Allowance (X min/day per site/app, across browsers) · delayed unlock · random-text lock · allow-only mode · forced SafeSearch · partial blocking (YouTube Shorts/comments/recommendations, Reddit front page, …) · profiles (each with own schedule + lock) · local-only statistics · auto-updating lists · CLI.

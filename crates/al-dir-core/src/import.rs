@@ -186,6 +186,8 @@ mod tests {
             now: Now { unix: 0, local: jiff::civil::date(2026, 10, 12).at(10, 0, 0, 0) },
             boot_id: "b",
             location: LocationFix::Unknown,
+            inside: &[],
+            outside: &[],
         }
     }
 

@@ -68,13 +68,18 @@ pub fn apply(users: &[(u32, u16)]) -> io::Result<()> {
     Ok(())
 }
 
-pub fn present() -> bool {
-    Command::new(NFT)
-        .args(["list", "table", "inet", TABLE])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
+/// Whether our table exists with a redirect for each of `users` (someone
+/// may have deleted or replaced it).
+pub fn intact(users: &[(u32, u16)]) -> bool {
+    let Ok(out) = Command::new(NFT).args(["list", "table", "inet", TABLE]).stderr(Stdio::null()).output() else {
+        return false;
+    };
+    let listing = String::from_utf8_lossy(&out.stdout);
+    out.status.success()
+        && listing.contains("chain out")
+        && users.iter().all(|(uid, port)| {
+            listing.contains(&format!("meta skuid {uid} ")) && listing.contains(&format!("redirect to :{port}"))
+        })
 }
 
 pub fn remove() {

@@ -5,6 +5,7 @@
 //! Normally started by systemd as root. For development it can run as an
 //! ordinary user with its own socket and state directory.
 
+mod clock;
 mod dnsmsg;
 mod service;
 mod storage;
@@ -33,6 +34,8 @@ fn linux_main() -> Result<(), String> {
     let mut socket = PathBuf::from(al_dir_ipc::DEFAULT_SOCKET);
     let mut state_dir = PathBuf::from("/var/lib/al-dir");
     let mut enforce = true;
+    let mut cleanup = false;
+    let mut network = true;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         let mut value = |name: &str| args.next().ok_or(format!("{name} needs a value"));
@@ -40,16 +43,14 @@ fn linux_main() -> Result<(), String> {
             "--socket" => socket = value("--socket")?.into(),
             "--state-dir" => state_dir = value("--state-dir")?.into(),
             "--no-enforce" => enforce = false,
-            "--cleanup" => {
-                linux::cleanup();
-                return Ok(());
-            }
+            "--cleanup" => cleanup = true,
+            "--no-network" => network = false,
             "--version" => {
                 println!("al-dir-daemon {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
             }
             "-h" | "--help" => {
-                println!("usage: al-dir-daemon [--socket PATH] [--state-dir DIR] [--no-enforce] | --cleanup");
+                println!("usage: al-dir-daemon [--socket PATH] [--state-dir DIR] [--no-enforce] [--no-network] | --cleanup");
                 return Ok(());
             }
             other => return Err(format!("unknown argument {other}")),
@@ -57,9 +58,19 @@ fn linux_main() -> Result<(), String> {
     }
 
     let store = storage::Store::open(&state_dir).map_err(|e| format!("state directory {}: {e}", state_dir.display()))?;
+    clock::init(state_dir.clone());
     let service = Arc::new(
         service::Service::new(store, system::boot_id()).map_err(|e| format!("loading settings: {e}"))?,
     );
+    if cleanup {
+        // Uninstalling: refuse while any block is locked.
+        if service.lock_summary().any_locked {
+            return Err("a block is locked; Al-Dir cannot be removed until its locks end".into());
+        }
+        linux::cleanup();
+        return Ok(());
+    }
+    clock::start_sync().map_err(|e| e.to_string())?;
     let listener = server::bind(&socket).map_err(|e| format!("socket {}: {e}", socket.display()))?;
 
     // Housekeeping and watchdog.
@@ -86,7 +97,7 @@ fn linux_main() -> Result<(), String> {
     } else if !nix::unistd::geteuid().is_root() {
         eprintln!("al-dir: not running as root; rules are stored but not enforced");
     } else {
-        linux::start_enforcement(service.clone()).map_err(|e| format!("starting enforcement: {e}"))?;
+        linux::start_enforcement(service.clone(), state_dir.clone(), network).map_err(|e| format!("starting enforcement: {e}"))?;
     }
 
     eprintln!(

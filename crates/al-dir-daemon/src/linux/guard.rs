@@ -137,7 +137,7 @@ impl AppGuard {
     /// scheduled block starts or a rule is added).
     pub fn sweep(&self) {
         let engine = self.service.engine();
-        let now = Now::system();
+        let now = crate::clock::now();
         let pids = procs::pids();
         for &pid in &pids {
             self.enforce_running(pid, &engine, now);

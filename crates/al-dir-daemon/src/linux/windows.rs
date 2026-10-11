@@ -256,7 +256,7 @@ impl<'a> Watcher<'a> {
                 {
                     w.title = title;
                     let engine = self.service.engine();
-                    self.check(e.window, &engine, Now::system())?;
+                    self.check(e.window, &engine, crate::clock::now())?;
                 }
             }
             Event::DestroyNotify(e) => {
@@ -272,7 +272,7 @@ impl<'a> Watcher<'a> {
         let current: HashSet<Window> = reply.value32().map(|v| v.collect()).unwrap_or_default();
         self.windows.retain(|w, _| current.contains(w));
         let engine = self.service.engine();
-        let now = Now::system();
+        let now = crate::clock::now();
         for &w in &current {
             if self.windows.contains_key(&w) {
                 continue;
@@ -312,7 +312,7 @@ impl<'a> Watcher<'a> {
 
     fn check_all(&mut self) -> Result<()> {
         let engine = self.service.engine();
-        let now = Now::system();
+        let now = crate::clock::now();
         let ids: Vec<Window> = self.windows.keys().copied().collect();
         for w in ids {
             self.check(w, &engine, now)?;

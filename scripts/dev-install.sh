@@ -20,8 +20,9 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 if [ "${1:-}" = "--uninstall" ]; then
-    systemctl disable --now al-dir.service 2>/dev/null || true
+    # Refuses (and stops this script) while a block is locked.
     if [ -x "$LIBDIR/al-dir-daemon" ]; then "$LIBDIR/al-dir-daemon" --cleanup; fi
+    systemctl disable --now al-dir.service 2>/dev/null || true
     pkill -x al-dir-agent 2>/dev/null || true
     rm -f "$UNIT" "$AUTOSTART" "$BINDIR/al-dir-cli" "$BINDIR/al-dir-agent" "$LIBDIR/al-dir-daemon" "$LIBDIR/al-dir-nm-host"
     rm -rf "$LIBDIR/extension"

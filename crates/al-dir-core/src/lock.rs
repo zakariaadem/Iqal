@@ -21,6 +21,12 @@ pub struct LockContext<'a> {
     /// on Linux).
     pub boot_id: &'a str,
     pub location: LocationFix,
+    /// Areas the platform knows the machine is inside by other means (Wi-Fi
+    /// networks learned there), whatever `location` says.
+    pub inside: &'a [crate::geo::GeoArea],
+    /// Areas the platform knows the machine is away from (Wi-Fi works but
+    /// none of the networks learned there is in range).
+    pub outside: &'a [crate::geo::GeoArea],
 }
 
 pub fn is_locked(set: &BlockSet, ctx: &LockContext) -> bool {
@@ -33,7 +39,15 @@ fn lock_holds(kind: &LockKind, ctx: &LockContext) -> bool {
         LockKind::Schedule { schedule } => schedule.is_active(&ctx.now),
         LockKind::Password { .. } | LockKind::RandomText { .. } => true,
         LockKind::UntilRestart { boot_id } => boot_id == ctx.boot_id,
-        LockKind::Location { area } => area.relation(ctx.location) != Relation::Outside,
+        LockKind::Location { area } => {
+            if ctx.inside.contains(area) {
+                true
+            } else if ctx.outside.contains(area) {
+                false
+            } else {
+                area.relation(ctx.location) != Relation::Outside
+            }
+        }
     }
 }
 
@@ -208,6 +222,20 @@ impl Config {
         Ok(())
     }
 
+    pub fn any_locked(&self, ctx: &LockContext) -> bool {
+        self.block_sets.iter().any(|s| is_locked(s, ctx))
+    }
+
+    /// Hardened mode can always be turned on, but off only while nothing
+    /// is locked.
+    pub fn set_hardened(&mut self, on: bool, ctx: &LockContext) -> Result<(), CoreError> {
+        if self.hardened && !on && self.any_locked(ctx) {
+            return Err(CoreError::Locked("turns off hardened mode"));
+        }
+        self.hardened = on;
+        Ok(())
+    }
+
     pub fn remove_set(&mut self, id: SetId, ctx: &LockContext) -> Result<BlockSet, CoreError> {
         let idx = self.block_sets.iter().position(|s| s.id == id).ok_or(CoreError::NotFound)?;
         if is_locked(&self.block_sets[idx], ctx) {
@@ -354,7 +382,7 @@ mod tests {
     }
 
     fn ctx(unix: i64) -> LockContext<'static> {
-        LockContext { now: now(unix), boot_id: "boot-1", location: LocationFix::Unknown }
+        LockContext { now: now(unix), boot_id: "boot-1", location: LocationFix::Unknown, inside: &[], outside: &[] }
     }
 
     fn locked_set(kind: LockKind) -> BlockSet {
@@ -390,6 +418,11 @@ mod tests {
         assert!(is_locked(&s, &ctx(0)), "unknown location counts as inside");
         let far = LockContext { location: LocationFix::Known { lat: 1.0, lon: 1.0, accuracy_m: 50.0 }, ..ctx(0) };
         assert!(!is_locked(&s, &far));
+        let areas = [GeoArea::Circle { lat: 0.0, lon: 0.0, radius_m: 100.0 }];
+        let wifi_says_inside = LockContext { inside: &areas, ..far };
+        assert!(is_locked(&s, &wifi_says_inside), "learned Wi-Fi beats a remote fix");
+        let wifi_says_outside = LockContext { outside: &areas, ..ctx(0) };
+        assert!(!is_locked(&s, &wifi_says_outside), "away from the learned Wi-Fi");
     }
 
     #[test]
@@ -487,6 +520,16 @@ mod tests {
         config.upsert_set(free, &later).unwrap();
         config.remove_set(id, &later).unwrap();
         assert!(config.block_sets.is_empty());
+    }
+
+    #[test]
+    fn hardened_mode_stays_on_while_locked() {
+        let mut config = Config::default();
+        config.block_sets.push(locked_set(LockKind::Until { until: 100 }));
+        config.set_hardened(true, &ctx(0)).unwrap();
+        assert!(matches!(config.set_hardened(false, &ctx(50)), Err(CoreError::Locked(_))));
+        config.set_hardened(false, &ctx(100)).unwrap();
+        assert!(!config.hardened);
     }
 
     #[test]

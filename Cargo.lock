@@ -51,11 +51,14 @@ version = "0.1.0"
 dependencies = [
  "al-dir-core",
  "al-dir-ipc",
+ "jiff",
  "libc",
  "nix",
+ "serde",
  "serde_json",
  "sha2",
  "x11rb",
+ "zbus",
 ]
 
 [[package]]

@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use al_dir_core::web::{host_suffixes, safe_search_target};
-use al_dir_core::{Ctx, Hit, Now};
+use al_dir_core::{Ctx, Hit};
 use al_dir_ipc::EventKind;
 
 use super::procs::Users;
@@ -180,7 +180,7 @@ impl DnsFilter {
         }
         let user = self.users.name(uid);
         let engine = self.service.engine();
-        let ctx = Ctx::new(Now::system(), &user);
+        let ctx = Ctx::new(crate::clock::now(), &user);
         if let Some(hit) = engine.check_host(&q.name, &ctx).block {
             self.record(uid, &user, &q.name, &hit);
             return Some(dnsmsg::blocked(pkt, &q));

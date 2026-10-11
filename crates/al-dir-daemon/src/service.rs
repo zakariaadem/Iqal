@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use al_dir_core::lock::{self, Challenge, LockContext, UnlockOutcome};
 use al_dir_core::{
-    import, BlockSet, Config, CoreError, Ctx, Decision, Engine, Hit, LocationFix, LockKind, NoLists, Now,
-    PasswordHash, ProcessInfo, SetId,
+    import, BlockSet, Config, CoreError, Ctx, Decision, Engine, GeoArea, Hit, LocationFix, Lock, LockKind, NoLists,
+    Now, PasswordHash, ProcessInfo, SetId,
 };
 use al_dir_ipc::{
     BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo,
@@ -17,6 +17,50 @@ use al_dir_ipc::{
 
 const MAX_EVENTS: usize = 500;
 const PROVEN_FILE: &str = "extensions-proven";
+
+/// Where the machine is, as far as the platform can tell.
+#[derive(Debug, Clone)]
+pub struct LocationState {
+    pub fix: LocationFix,
+    /// Areas known to contain the machine from learned Wi-Fi networks.
+    pub inside: Vec<GeoArea>,
+    /// Areas known not to: Wi-Fi works but none of their networks is near.
+    pub outside: Vec<GeoArea>,
+}
+
+impl Default for LocationState {
+    fn default() -> Self {
+        Self { fix: LocationFix::Unknown, inside: Vec::new(), outside: Vec::new() }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LockSummary {
+    pub any_locked: bool,
+    /// Areas of all location locks, locked or not (the location watcher
+    /// runs while there are any).
+    pub location_areas: Vec<GeoArea>,
+    pub location_locked: bool,
+    pub hardened: bool,
+}
+
+fn describe_location(loc: &LocationState) -> String {
+    let mut parts = Vec::new();
+    if let LocationFix::Known { accuracy_m, .. } = loc.fix {
+        parts.push(format!("position known (accuracy {accuracy_m:.0} m)"));
+    }
+    if !loc.inside.is_empty() {
+        parts.push(format!("inside {} locked area(s) by Wi-Fi", loc.inside.len()));
+    }
+    if !loc.outside.is_empty() {
+        parts.push(format!("away from {} locked area(s) by Wi-Fi", loc.outside.len()));
+    }
+    if parts.is_empty() { "unknown".into() } else { parts.join(", ") }
+}
+
+/// Platform hook: remember the Wi-Fi networks in range as belonging to an
+/// area; returns how many are now known for it.
+pub type Learner = Box<dyn Fn(&GeoArea) -> std::io::Result<usize> + Send + Sync>;
 
 /// A browser extension connected through its native host.
 #[derive(Debug, Clone)]
@@ -41,6 +85,8 @@ pub struct Service {
     /// What enforcement threads read. Kept apart from `inner` so they never
     /// wait for a settings write to reach the disk.
     snapshot: RwLock<Arc<Snapshot>>,
+    location: RwLock<Arc<LocationState>>,
+    learner: std::sync::OnceLock<Learner>,
     /// Bumped on every settings change.
     generation: AtomicU64,
     events: Mutex<VecDeque<BlockEvent>>,
@@ -83,6 +129,8 @@ impl Service {
         let config = store.load()?;
         Ok(Self {
             snapshot: RwLock::new(Snapshot::of(&config)),
+            location: RwLock::new(Arc::new(LocationState::default())),
+            learner: std::sync::OnceLock::new(),
             inner: Mutex::new(Inner { config, challenges: HashMap::new() }),
             generation: AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
@@ -92,7 +140,7 @@ impl Service {
             recent_pages: Mutex::new(HashMap::new()),
             store,
             boot_id,
-            started_at: Now::system().unix,
+            started_at: crate::clock::now().unix,
         })
     }
 
@@ -121,7 +169,7 @@ impl Service {
         };
         eprintln!("al-dir: {verb} {target} for {user} (block \"{set_name}\": {})", hit.reason);
         let event = BlockEvent {
-            time: Now::system().unix,
+            time: crate::clock::now().unix,
             user: user.to_string(),
             kind,
             target: target.to_string(),
@@ -212,10 +260,38 @@ impl Service {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    fn lock_ctx(&self, now: Now) -> LockContext<'_> {
-        // Location fixes arrive with milestone M6; until then location
-        // locks fail closed (count as inside).
-        LockContext { now, boot_id: &self.boot_id, location: LocationFix::Unknown }
+    fn location(&self) -> Arc<LocationState> {
+        self.location.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn set_learner(&self, learner: Learner) {
+        let _ = self.learner.set(learner);
+    }
+
+    /// Latest location facts, from the platform's location watcher.
+    pub fn set_location(&self, state: LocationState) {
+        *self.location.write().unwrap_or_else(|e| e.into_inner()) = Arc::new(state);
+    }
+
+    fn lock_ctx<'a>(&'a self, now: Now, loc: &'a LocationState) -> LockContext<'a> {
+        LockContext { now, boot_id: &self.boot_id, location: loc.fix, inside: &loc.inside, outside: &loc.outside }
+    }
+
+    /// What the platform must enforce around locks right now.
+    pub fn lock_summary(&self) -> LockSummary {
+        let loc = self.location();
+        let ctx = self.lock_ctx(crate::clock::now(), &loc);
+        let inner = self.lock_inner();
+        let mut summary = LockSummary { hardened: inner.config.hardened, ..LockSummary::default() };
+        for s in &inner.config.block_sets {
+            let locked = lock::is_locked(s, &ctx);
+            summary.any_locked |= locked;
+            if let Some(Lock { kind: LockKind::Location { area }, .. }) = &s.lock {
+                summary.location_areas.push(area.clone());
+                summary.location_locked |= locked;
+            }
+        }
+        summary
     }
 
     /// Applies `change` to a copy of the config, persists it, and only then
@@ -241,8 +317,9 @@ impl Service {
 
     /// Periodic housekeeping: drops expired locks and applies due unlocks.
     pub fn tick(&self) {
-        let now = Now::system();
-        let ctx = self.lock_ctx(now);
+        let now = crate::clock::now();
+        let loc = self.location();
+        let ctx = self.lock_ctx(now, &loc);
         let mut inner = self.lock_inner();
         let due = inner.config.block_sets.iter().any(|s| {
             let mut probe = s.clone();
@@ -287,23 +364,27 @@ impl Service {
     }
 
     fn dispatch(&self, caller: &Caller, request: Request) -> Result<Response> {
-        let now = Now::system();
-        let ctx = self.lock_ctx(now);
+        let now = crate::clock::now();
+        let loc = self.location();
+        let ctx = self.lock_ctx(now, &loc);
         match request {
             Request::Status => {
                 let inner = self.lock_inner();
                 let sets = &inner.config.block_sets;
                 Ok(Response::Status {
-                    status: Status {
+                    status: Box::new(Status {
                         version: env!("CARGO_PKG_VERSION").into(),
                         protocol: PROTOCOL_VERSION,
                         user: caller.user.clone(),
                         admin: caller.admin,
                         sets: sets.len(),
                         locked_sets: sets.iter().filter(|s| lock::is_locked(s, &ctx)).count(),
+                        hardened: inner.config.hardened,
+                        clock: crate::clock::source().describe().into(),
+                        location: describe_location(&loc),
                         started_at: self.started_at,
                         extensions: self.extensions().iter().map(|e| format!("{} ({})", e.browser, e.user)).collect(),
-                    },
+                    }),
                 })
             }
             Request::ListSets => {
@@ -334,6 +415,26 @@ impl Service {
                 let mut inner = self.lock_inner();
                 inner.challenges.remove(&set.id);
                 self.commit(&mut inner, |c| c.upsert_set(set, &ctx))?;
+                Ok(Response::Done)
+            }
+            Request::LearnLocation { id } => {
+                let area = {
+                    let inner = self.lock_inner();
+                    match &find(&inner.config, id)?.lock {
+                        Some(Lock { kind: LockKind::Location { area }, .. }) => area.clone(),
+                        _ => return Err(Response::error(ErrorCode::BadRequest, "this block has no location lock")),
+                    }
+                };
+                let learner = self
+                    .learner
+                    .get()
+                    .ok_or_else(|| Response::error(ErrorCode::Internal, "location is not available on this system"))?;
+                let known = learner(&area).map_err(|e| Response::error(ErrorCode::Internal, e.to_string()))?;
+                Ok(Response::Learned { networks: known })
+            }
+            Request::SetHardened { on } => {
+                let mut inner = self.lock_inner();
+                self.commit(&mut inner, |c| c.set_hardened(on, &ctx))?;
                 Ok(Response::Done)
             }
             Request::RemoveSet { id } => {

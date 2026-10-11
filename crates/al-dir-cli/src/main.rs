@@ -100,6 +100,9 @@ enum Cmd {
         #[command(subcommand)]
         kind: LockCmd,
     },
+    /// "I am at this place now": remember the Wi-Fi networks in range for the
+    /// block's location lock (only ever adds; repeat to learn more).
+    LearnLocation { block: String },
     /// Open a password or random-text lock.
     Unlock { block: String },
     /// Cancel a pending (delayed) unlock.
@@ -112,6 +115,9 @@ enum Cmd {
     },
     /// Import blocks from an export file.
     Import { file: PathBuf },
+    /// Hardened mode: while anything is locked, take administrator rights
+    /// (sudo, password prompts) from the people being blocked.
+    Hardened { state: OnOff },
     /// Show what Al-Dir blocked recently.
     Events,
     /// Test what Al-Dir would decide.
@@ -296,6 +302,9 @@ fn run(cmd: Cmd) -> Result<()> {
             println!("running since {}", fmt_time(s.started_at));
             println!("you are {}{}", s.user, if s.admin { " (administrator)" } else { "" });
             println!("{} blocks, {} locked", s.sets, s.locked_sets);
+            println!("time: {}", s.clock);
+            println!("location: {}", s.location);
+            println!("hardened mode: {}", if s.hardened { "on" } else { "off" });
             if !s.extensions.is_empty() {
                 println!("browser extensions connected: {}", s.extensions.join(", "));
             }
@@ -432,6 +441,13 @@ fn run(cmd: Cmd) -> Result<()> {
             Ok(())
         })?,
         Cmd::Lock { block, delay, kind } => lock(&mut c, &block, delay, kind)?,
+        Cmd::LearnLocation { block } => {
+            let s = c.find(&block)?;
+            let Response::Learned { networks } = c.call(Request::LearnLocation { id: s.set.id })? else {
+                return Err("bad reply".into());
+            };
+            println!("This place now has {networks} Wi-Fi network(s) remembered for \"{}\".", s.set.name);
+        }
         Cmd::Unlock { block } => unlock(&mut c, &block)?,
         Cmd::CancelUnlock { block } => {
             let s = c.find(&block)?;
@@ -466,6 +482,15 @@ fn run(cmd: Cmd) -> Result<()> {
             }
             for (n, why) in rejected {
                 println!("rejected  {n}: {why}");
+            }
+        }
+        Cmd::Hardened { state } => {
+            let on = matches!(state, OnOff::On);
+            c.call(Request::SetHardened { on })?;
+            println!("Hardened mode {}.", if on { "on" } else { "off" });
+            if on {
+                println!("While a block is locked, sudo and administrator password prompts will not work");
+                println!("for the people it applies to. Emergency access: boot into recovery mode.");
             }
         }
         Cmd::Events => {
@@ -592,6 +617,9 @@ fn lock(c: &mut Conn, block: &str, delay: Option<String>, kind: LockCmd) -> Resu
         Ok(())
     })?;
     println!("\"{name}\" is now locked.");
+    if let Some(Lock { kind: LockKind::Location { .. }, .. }) = c.find(block)?.set.lock {
+        println!("If you are at that place now, run: al-dir-cli learn-location \"{name}\"");
+    }
     if let Some(p) = shown_password {
         println!();
         println!("Lock password: {p}");

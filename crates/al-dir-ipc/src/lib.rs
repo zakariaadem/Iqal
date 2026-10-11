@@ -30,6 +30,11 @@ pub enum Request {
     /// Create or replace a set. Refused if it would weaken a locked set.
     UpsertSet { set: Box<BlockSet> },
     RemoveSet { id: SetId },
+    /// Turn hardened mode on or off (off is refused while anything is locked).
+    SetHardened { on: bool },
+    /// "I am at this place now": remember the Wi-Fi networks in range for
+    /// the block's location lock. Only ever adds networks.
+    LearnLocation { id: SetId },
     Export { ids: Option<Vec<SetId>> },
     Import { json: String },
     /// Ask how a lock can be opened early.
@@ -64,7 +69,7 @@ pub enum CheckQuery {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case")]
 pub enum Response {
-    Status { status: Status },
+    Status { status: Box<Status> },
     Sets { sets: Vec<SetInfo> },
     Done,
     Exported { json: String },
@@ -76,6 +81,8 @@ pub enum Response {
     Subscribed,
     Event { event: Box<BlockEvent> },
     Page { page: PageInfo },
+    /// Wi-Fi networks now known for a location lock.
+    Learned { networks: usize },
     /// Rules or schedules changed: re-check open pages.
     Changed,
     Error { code: ErrorCode, message: String },
@@ -141,6 +148,13 @@ pub struct Status {
     /// Connected browser extensions, as "browser (user)".
     #[serde(default)]
     pub extensions: Vec<String>,
+    #[serde(default)]
+    pub hardened: bool,
+    /// Where the service gets the time from.
+    #[serde(default)]
+    pub clock: String,
+    #[serde(default)]
+    pub location: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

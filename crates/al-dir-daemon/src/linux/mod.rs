@@ -5,6 +5,8 @@ pub mod exec_hook;
 pub mod extension;
 pub mod firewall;
 pub mod guard;
+pub mod location;
+pub mod lockdown;
 pub mod policies;
 pub mod proc_watch;
 pub mod procs;
@@ -50,10 +52,14 @@ pub fn install_shutdown_handler() -> std::io::Result<()> {
 pub fn cleanup() {
     firewall::remove();
     policies::remove();
+    lockdown::remove();
+    location::cleanup();
 }
 
 /// Starts all enforcement. Needs root.
-pub fn start_enforcement(service: Arc<Service>) -> std::io::Result<()> {
+/// `network`: DNS filter, firewall and browser policies (off for test
+/// instances running next to the real service).
+pub fn start_enforcement(service: Arc<Service>, state_dir: std::path::PathBuf, network: bool) -> std::io::Result<()> {
     let guard = Arc::new(guard::AppGuard::new(service.clone()));
 
     if let Err(e) = exec_hook::start(service.clone(), guard.clone()) {
@@ -65,7 +71,20 @@ pub fn start_enforcement(service: Arc<Service>) -> std::io::Result<()> {
     if let Err(e) = windows::start(service.clone()) {
         eprintln!("al-dir: window watcher unavailable ({e})");
     }
-    start_network(service.clone())?;
+    if network {
+        start_network(service.clone())?;
+    }
+    location::start(service.clone(), state_dir)?;
+    {
+        let service = service.clone();
+        std::thread::Builder::new().name("al-dir-lockdown".into()).spawn(move || {
+            let users = procs::Users::load();
+            loop {
+                lockdown::apply(&service.lock_summary(), &users);
+                std::thread::sleep(Duration::from_secs(2));
+            }
+        })?;
+    }
 
     std::thread::Builder::new().name("al-dir-sweep".into()).spawn(move || {
         let mut seen = u64::MAX;
@@ -112,7 +131,7 @@ fn start_network(service: Arc<Service>) -> std::io::Result<()> {
             }
             last = std::time::Instant::now();
             let users = filter.ensure_listeners();
-            if users != applied || !firewall::present() {
+            if users != applied || !firewall::intact(&users) {
                 match firewall::apply(&users) {
                     Ok(()) => eprintln!("al-dir: firewall rules restored"),
                     Err(e) => eprintln!("al-dir: firewall rules failed: {e}"),

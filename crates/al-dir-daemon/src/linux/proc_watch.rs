@@ -8,7 +8,6 @@ use std::mem::size_of;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::sync::Arc;
 
-use al_dir_core::Now;
 
 use super::guard::AppGuard;
 use crate::service::Service;
@@ -41,7 +40,7 @@ pub fn start(service: Arc<Service>, guard: Arc<AppGuard>) -> io::Result<()> {
                 continue;
             }
             if let Some(pid) = exec_pid(&buf[..n as usize]) {
-                guard.enforce_running(pid, &service.engine(), Now::system());
+                guard.enforce_running(pid, &service.engine(), crate::clock::now());
             }
         }
     })?;

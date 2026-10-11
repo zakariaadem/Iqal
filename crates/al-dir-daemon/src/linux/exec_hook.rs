@@ -15,7 +15,6 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use al_dir_core::Now;
 use nix::errno::Errno;
 use nix::sys::fanotify::{
     EventFFlags, Fanotify, FanotifyResponse, InitFlags, MarkFlags, MaskFlags, Response,
@@ -73,7 +72,7 @@ fn event_loop(fan: &Fanotify, service: &Service, guard: &AppGuard) {
             }
         };
         let engine = service.engine();
-        let now = Now::system();
+        let now = crate::clock::now();
         for event in &events {
             let Some(fd) = event.fd() else { continue }; // queue overflow marker
             if !event.mask().contains(MaskFlags::FAN_OPEN_EXEC_PERM) {
