@@ -59,12 +59,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "al-dir-host"
+version = "0.1.0"
+dependencies = [
+ "al-dir-ipc",
+ "serde_json",
+]
+
+[[package]]
 name = "al-dir-ipc"
 version = "0.1.0"
 dependencies = [
  "al-dir-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "al-dir-pack"
+version = "0.1.0"
+dependencies = [
+ "sha2",
 ]
 
 [[package]]

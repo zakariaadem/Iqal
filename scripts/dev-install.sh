@@ -21,16 +21,17 @@ fi
 
 if [ "${1:-}" = "--uninstall" ]; then
     systemctl disable --now al-dir.service 2>/dev/null || true
-    [ -x "$LIBDIR/al-dir-daemon" ] && "$LIBDIR/al-dir-daemon" --cleanup
+    if [ -x "$LIBDIR/al-dir-daemon" ]; then "$LIBDIR/al-dir-daemon" --cleanup; fi
     pkill -x al-dir-agent 2>/dev/null || true
-    rm -f "$UNIT" "$AUTOSTART" "$BINDIR/al-dir-cli" "$BINDIR/al-dir-agent" "$LIBDIR/al-dir-daemon"
+    rm -f "$UNIT" "$AUTOSTART" "$BINDIR/al-dir-cli" "$BINDIR/al-dir-agent" "$LIBDIR/al-dir-daemon" "$LIBDIR/al-dir-nm-host"
+    rm -rf "$LIBDIR/extension"
     rmdir "$LIBDIR" 2>/dev/null || true
     systemctl daemon-reload
     echo "Al-Dir removed. Settings are kept in /var/lib/al-dir."
     exit 0
 fi
 
-for f in al-dir-daemon al-dir-cli al-dir-agent; do
+for f in al-dir-daemon al-dir-cli al-dir-agent al-dir-nm-host; do
     if [ ! -x "$SRC/target/release/$f" ]; then
         echo "Missing target/release/$f. Run 'cargo build --release' first (without sudo)." >&2
         exit 1
@@ -39,6 +40,17 @@ done
 
 install -d -m 0755 "$LIBDIR"
 install -m 0755 "$SRC/target/release/al-dir-daemon" "$LIBDIR/al-dir-daemon"
+install -m 0755 "$SRC/target/release/al-dir-nm-host" "$LIBDIR/al-dir-nm-host"
+if [ -f "$SRC/dist/extension/al-dir.crx" ]; then
+    install -d -m 0755 "$LIBDIR/extension"
+    for f in al-dir.xpi al-dir.crx chromium-id version; do
+        install -m 0644 "$SRC/dist/extension/$f" "$LIBDIR/extension/$f"
+    done
+    # A Mozilla-signed build replaces the unsigned one when present.
+    if [ -f "$SRC/dist/extension/al-dir-signed.xpi" ]; then
+        install -m 0644 "$SRC/dist/extension/al-dir-signed.xpi" "$LIBDIR/extension/al-dir.xpi"
+    fi
+fi
 install -m 0755 "$SRC/target/release/al-dir-cli" "$BINDIR/al-dir-cli"
 install -m 0755 "$SRC/target/release/al-dir-agent" "$BINDIR/al-dir-agent"
 sed "s|@BINDIR@|$BINDIR|" "$SRC/packaging/linux/al-dir-agent.desktop" > "$AUTOSTART"

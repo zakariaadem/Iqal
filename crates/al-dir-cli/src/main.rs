@@ -296,6 +296,9 @@ fn run(cmd: Cmd) -> Result<()> {
             println!("running since {}", fmt_time(s.started_at));
             println!("you are {}{}", s.user, if s.admin { " (administrator)" } else { "" });
             println!("{} blocks, {} locked", s.sets, s.locked_sets);
+            if !s.extensions.is_empty() {
+                println!("browser extensions connected: {}", s.extensions.join(", "));
+            }
         }
         Cmd::List => {
             let sets = c.sets()?;
@@ -476,6 +479,7 @@ fn run(cmd: Cmd) -> Result<()> {
                     EventKind::AppKilled => "closed",
                     EventKind::WindowClosed => "closed",
                     EventKind::SiteBlocked => "blocked",
+                    EventKind::PageBlocked => "page",
                 };
                 println!("{}  {:<10} {what:<8} {}  [{}: {}]", fmt_time(e.time), e.user, e.target, e.set_name, e.reason);
             }

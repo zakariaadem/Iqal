@@ -12,10 +12,20 @@ use al_dir_core::{
 };
 use al_dir_ipc::{
     BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo,
-    Status, UnlockInfo, PROTOCOL_VERSION,
+    PageInfo, Status, UnlockInfo, PROTOCOL_VERSION,
 };
 
 const MAX_EVENTS: usize = 500;
+const PROVEN_FILE: &str = "extensions-proven";
+
+/// A browser extension connected through its native host.
+#[derive(Debug, Clone)]
+pub struct ExtensionSession {
+    pub browser: String,
+    pub user: String,
+    /// Process id of the native host (a child of the browser).
+    pub host_pid: i32,
+}
 
 use crate::storage::Store;
 
@@ -36,6 +46,11 @@ pub struct Service {
     events: Mutex<VecDeque<BlockEvent>>,
     /// Live event feeds (session agents), by user.
     subscribers: Mutex<Vec<(String, mpsc::Sender<BlockEvent>)>>,
+    /// Live browser-extension sessions.
+    extensions: Mutex<HashMap<u64, ExtensionSession>>,
+    next_session: AtomicU64,
+    /// Recently reported block pages, to log each visit once.
+    recent_pages: Mutex<HashMap<(String, String), std::time::Instant>>,
     store: Store,
     boot_id: String,
     started_at: i64,
@@ -72,6 +87,9 @@ impl Service {
             generation: AtomicU64::new(0),
             events: Mutex::new(VecDeque::new()),
             subscribers: Mutex::new(Vec::new()),
+            extensions: Mutex::new(HashMap::new()),
+            next_session: AtomicU64::new(1),
+            recent_pages: Mutex::new(HashMap::new()),
             store,
             boot_id,
             started_at: Now::system().unix,
@@ -99,6 +117,7 @@ impl Service {
             EventKind::AppKilled => "closed",
             EventKind::WindowClosed => "closed window",
             EventKind::SiteBlocked => "blocked site",
+            EventKind::PageBlocked => "showed block page for",
         };
         eprintln!("al-dir: {verb} {target} for {user} (block \"{set_name}\": {})", hit.reason);
         let event = BlockEvent {
@@ -121,6 +140,65 @@ impl Service {
     }
 
     /// A feed of `user`'s block events from now on.
+    fn check_page(&self, caller: &Caller, url: &str, now: Now) -> PageInfo {
+        let snapshot = self.snapshot();
+        let ctx = Ctx::new(now, &caller.user);
+        let Some(view) = al_dir_core::UrlView::parse(url) else { return PageInfo::default() };
+        let decision = snapshot.engine.check_view(&view, &ctx);
+        let hide = snapshot.engine.hidden_selectors(&view.host, &ctx).into_iter().map(String::from).collect();
+        let Some(hit) = decision.block else {
+            return PageInfo { hide, metered: !decision.metered.is_empty(), ..PageInfo::default() };
+        };
+        let key = (caller.user.clone(), url.to_string());
+        let mut recent = self.recent_pages.lock().unwrap_or_else(|e| e.into_inner());
+        recent.retain(|_, t| t.elapsed() < Duration::from_secs(10));
+        if recent.insert(key, std::time::Instant::now()).is_none() {
+            drop(recent);
+            self.record_block(&caller.user, EventKind::PageBlocked, url, &hit);
+        }
+        PageInfo {
+            blocked: true,
+            set_name: snapshot.names.get(&hit.set).cloned(),
+            reason: Some(hit.reason.to_string()),
+            hide,
+            metered: false,
+        }
+    }
+
+    /// Registers a connected browser extension; returns its session id.
+    pub fn add_extension(&self, session: ExtensionSession) -> u64 {
+        let id = self.next_session.fetch_add(1, Ordering::Relaxed);
+        self.extensions.lock().unwrap_or_else(|e| e.into_inner()).insert(id, session);
+        id
+    }
+
+    pub fn remove_extension(&self, id: u64) {
+        self.extensions.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+    }
+
+    pub fn extensions(&self) -> Vec<ExtensionSession> {
+        self.extensions.lock().unwrap_or_else(|e| e.into_inner()).values().cloned().collect()
+    }
+
+    /// Browsers (by family) for which the extension has worked on this
+    /// machine. Only those are closed when running without it, so a broken
+    /// extension install can never lock anyone out of browsing.
+    pub fn extension_proven(&self, browser: &str) -> bool {
+        self.store.read_aux(PROVEN_FILE).is_some_and(|t| t.lines().any(|l| l == browser))
+    }
+
+    pub fn mark_extension_proven(&self, browser: &str) {
+        if self.extension_proven(browser) {
+            return;
+        }
+        let mut text = self.store.read_aux(PROVEN_FILE).unwrap_or_default();
+        text.push_str(browser);
+        text.push('\n');
+        if let Err(e) = self.store.write_aux(PROVEN_FILE, &text) {
+            eprintln!("al-dir: {e}");
+        }
+    }
+
     pub fn subscribe(&self, user: &str) -> mpsc::Receiver<BlockEvent> {
         let (tx, rx) = mpsc::channel();
         self.subscribers.lock().unwrap_or_else(|e| e.into_inner()).push((user.to_string(), tx));
@@ -185,7 +263,10 @@ impl Service {
     pub fn handle(&self, caller: &Caller, request: Request) -> Response {
         let mutating = !matches!(
             request,
-            Request::Status | Request::ListSets | Request::Check { .. } | Request::RecentEvents | Request::Subscribe
+            Request::Status | Request::ListSets | Request::Check { .. } | Request::RecentEvents
+                | Request::Subscribe
+                | Request::CheckPage { .. }
+                | Request::ExtensionSession { .. }
         );
         if mutating && !caller.admin {
             return Response::error(
@@ -218,6 +299,7 @@ impl Service {
                         sets: sets.len(),
                         locked_sets: sets.iter().filter(|s| lock::is_locked(s, &ctx)).count(),
                         started_at: self.started_at,
+                        extensions: self.extensions().iter().map(|e| format!("{} ({})", e.browser, e.user)).collect(),
                     },
                 })
             }
@@ -308,6 +390,8 @@ impl Service {
             }
             // The transport turns the connection into a feed; see server.rs.
             Request::Subscribe => Ok(Response::Subscribed),
+            Request::ExtensionSession { .. } => Ok(Response::Subscribed),
+            Request::CheckPage { url } => Ok(Response::Page { page: self.check_page(caller, &url, now) }),
             Request::RecentEvents => {
                 let events = self.events.lock().unwrap_or_else(|e| e.into_inner());
                 let events = events.iter().filter(|e| caller.admin || e.user == caller.user).cloned().collect();

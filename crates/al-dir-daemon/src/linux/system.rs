@@ -18,10 +18,10 @@ pub fn boot_id() -> String {
         .unwrap_or_else(|_| "unknown".into())
 }
 
-/// The uid of the process on the other end of a Unix socket.
-pub fn peer_uid(sock: &impl AsFd) -> std::io::Result<u32> {
+/// The uid and pid of the process on the other end of a Unix socket.
+pub fn peer(sock: &impl AsFd) -> std::io::Result<(u32, i32)> {
     let cred = getsockopt(sock, PeerCredentials).map_err(std::io::Error::from)?;
-    Ok(cred.uid())
+    Ok((cred.uid(), cred.pid()))
 }
 
 pub fn user_name(uid: u32) -> String {

@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "Website blocking for the Al-Dir blocker. Managed by Al-Dir; cannot be removed while Al-Dir is installed." },
+  "blockedTitle": { "message": "This page is blocked" },
+  "blockedBy": {
+    "message": "Blocked by “$SET$”",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}

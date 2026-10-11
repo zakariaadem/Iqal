@@ -1,0 +1,15 @@
+[package]
+name = "al-dir-host"
+description = "Native messaging host connecting the Al-Dir browser extension to the service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "al-dir-nm-host"
+path = "src/main.rs"
+
+[dependencies]
+al-dir-ipc = { path = "../al-dir-ipc" }
+serde_json.workspace = true

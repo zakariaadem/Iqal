@@ -16,6 +16,7 @@ use nix::unistd::Pid;
 use sha2::{Digest, Sha256};
 
 use super::appindex::{self, AppIndex};
+use super::browsers;
 use super::procs::{self, Users};
 use crate::service::Service;
 
@@ -73,9 +74,15 @@ impl AppGuard {
             return None;
         }
         let user = self.users.name(uid);
+        let ctx = Ctx::new(now, &user);
+        if browsers::is_unsupported(exe)
+            && let Some(set) = engine.web_active_set(&ctx)
+        {
+            return Some((Hit { set, reason: Reason::UnsupportedBrowser }, user));
+        }
         let sha = if engine.wants_exe_hash() { hash() } else { None };
         let process = ProcessInfo { exe_path: exe, cmdline, sha256: sha.as_deref() };
-        let hit = engine.check_process(&process, &Ctx::new(now, &user)).block?;
+        let hit = engine.check_process(&process, &ctx).block?;
         if hit.reason == Reason::NotAllowed && !self.index().is_user_app(exe) {
             return None; // allow-only mode only restricts apps, not system helpers
         }
@@ -131,8 +138,39 @@ impl AppGuard {
     pub fn sweep(&self) {
         let engine = self.service.engine();
         let now = Now::system();
-        for pid in procs::pids() {
+        let pids = procs::pids();
+        for &pid in &pids {
             self.enforce_running(pid, &engine, now);
+        }
+        self.close_unsupervised_browsers(&pids, &engine, now);
+    }
+
+    /// Closes supported browsers that have run for a while without the
+    /// extension while website rules are in force for their user.
+    fn close_unsupervised_browsers(&self, pids: &[i32], engine: &Engine, now: Now) {
+        let sessions = self.service.extensions();
+        let mut covered = None;
+        for &pid in pids {
+            let Some(exe) = procs::exe_of(pid) else { continue };
+            let Some(family) = browsers::family_of(&exe) else { continue };
+            let Some(uid) = procs::uid_of(pid) else { continue };
+            if !self.users.enforced(uid)
+                || !browsers::is_main_process(pid, family)
+                || browsers::age_secs(pid).is_none_or(|a| a < browsers::EXTENSION_GRACE_SECS)
+                || !self.service.extension_proven(family)
+            {
+                continue;
+            }
+            let user = self.users.name(uid);
+            let Some(set) = engine.web_active_set(&Ctx::new(now, &user)) else { continue };
+            let covered = covered.get_or_insert_with(|| browsers::covered(sessions.iter().map(|s| s.host_pid)));
+            if covered.contains(&pid) {
+                continue;
+            }
+            if kill(Pid::from_raw(pid), Signal::SIGKILL).is_ok() {
+                let hit = Hit { set, reason: Reason::ExtensionMissing };
+                self.service.record_block(&user, EventKind::AppKilled, &exe, &hit);
+            }
         }
     }
 

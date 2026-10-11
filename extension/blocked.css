@@ -1,0 +1,41 @@
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --text: #1d2430;
+  --muted: #5d6878;
+  --accent: #1f7a5c;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181e;
+    --card: #1d232b;
+    --text: #e7ebf0;
+    --muted: #9aa5b4;
+    --accent: #4cc19a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, "Noto Sans", "Noto Sans Arabic", sans-serif;
+  padding: 16px;
+}
+main {
+  background: var(--card);
+  max-width: 34rem;
+  width: 100%;
+  padding: 40px 32px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.08);
+}
+.shield { color: var(--accent); }
+h1 { font-size: 1.6rem; margin: 12px 0 4px; }
+p { margin: 6px 0; color: var(--muted); }
+.url { font-family: ui-monospace, monospace; word-break: break-all; color: var(--text); }
+.reason { font-size: 0.9rem; }

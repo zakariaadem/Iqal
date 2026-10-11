@@ -1,6 +1,8 @@
 pub mod appindex;
+pub mod browsers;
 pub mod dns;
 pub mod exec_hook;
+pub mod extension;
 pub mod firewall;
 pub mod guard;
 pub mod policies;
@@ -84,16 +86,31 @@ pub fn start_enforcement(service: Arc<Service>) -> std::io::Result<()> {
 }
 
 fn start_network(service: Arc<Service>) -> std::io::Result<()> {
-    let filter = dns::DnsFilter::new(service);
-    policies::apply();
+    let filter = dns::DnsFilter::new(service.clone());
+    policies::apply(service.engine().has_any_web_rules());
+    if let Err(e) = extension::serve_updates() {
+        eprintln!("al-dir: extension update server: {e}");
+    }
     let mut applied = filter.ensure_listeners();
     match firewall::apply(&applied) {
         Ok(()) => eprintln!("al-dir: DNS filtering active for {} account(s)", applied.len()),
         Err(e) => eprintln!("al-dir: firewall rules failed: {e}"),
     }
     std::thread::Builder::new().name("al-dir-network".into()).spawn(move || {
+        let mut generation = service.generation();
+        let mut last = std::time::Instant::now();
         loop {
-            std::thread::sleep(NETWORK_CHECK_EVERY);
+            std::thread::sleep(Duration::from_secs(1));
+            let g = service.generation();
+            if g != generation {
+                // Settings changed: private-window rules may need updating.
+                generation = g;
+                policies::apply(service.engine().has_any_web_rules());
+            }
+            if last.elapsed() < NETWORK_CHECK_EVERY {
+                continue;
+            }
+            last = std::time::Instant::now();
             let users = filter.ensure_listeners();
             if users != applied || !firewall::present() {
                 match firewall::apply(&users) {
@@ -102,7 +119,7 @@ fn start_network(service: Arc<Service>) -> std::io::Result<()> {
                 }
                 applied = users;
             }
-            policies::apply();
+            policies::apply(service.engine().has_any_web_rules());
         }
     })?;
     Ok(())

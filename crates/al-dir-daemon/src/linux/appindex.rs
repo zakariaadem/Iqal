@@ -15,7 +15,7 @@ use std::path::Path;
 /// in `*` are prefixes.
 const ESSENTIAL: &[&str] = &[
     // Al-Dir
-    "al-dir", "al-dir-daemon", "al-dir-cli", "al-dir-agent",
+    "al-dir", "al-dir-daemon", "al-dir-cli", "al-dir-agent", "al-dir-nm-host",
     // Shells used by session scripts
     "sh", "bash", "dash",
     // Display and login

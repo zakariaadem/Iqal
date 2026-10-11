@@ -59,6 +59,15 @@ impl Store {
         }
     }
 
+    /// Small auxiliary state files next to the config.
+    pub fn read_aux(&self, name: &str) -> Option<String> {
+        fs::read_to_string(self.dir.join(name)).ok()
+    }
+
+    pub fn write_aux(&self, name: &str, text: &str) -> io::Result<()> {
+        write_atomic(&self.dir, name, text.as_bytes())
+    }
+
     pub fn save(&self, config: &Config) -> io::Result<()> {
         let json = config.to_json();
         write_atomic(&self.dir, CONFIG, json.as_bytes())?;

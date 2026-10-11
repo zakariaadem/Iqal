@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/al-dir-core", "crates/al-dir-ipc", "crates/al-dir-daemon", "crates/al-dir-cli", "crates/al-dir-agent"]
+members = ["crates/al-dir-core", "crates/al-dir-ipc", "crates/al-dir-daemon", "crates/al-dir-cli", "crates/al-dir-agent", "crates/al-dir-host", "crates/al-dir-pack"]
 
 [workspace.package]
 version = "0.1.0"

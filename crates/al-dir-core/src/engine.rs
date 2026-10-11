@@ -61,6 +61,10 @@ pub enum Reason {
     Partial(&'static str),
     /// Allow-only mode and nothing on the allow list matched.
     NotAllowed,
+    /// A browser Al-Dir cannot supervise, while website blocking is on.
+    UnsupportedBrowser,
+    /// A supported browser running without the Al-Dir extension.
+    ExtensionMissing,
     AppName(String),
     AppPath(String),
     AppHash,
@@ -77,6 +81,8 @@ impl std::fmt::Display for Reason {
             Reason::SearchTerm(t) => write!(f, "search contains \"{t}\""),
             Reason::Partial(id) => write!(f, "partial block {id}"),
             Reason::NotAllowed => f.write_str("not on the allow list"),
+            Reason::UnsupportedBrowser => f.write_str("browser not supported while websites are blocked"),
+            Reason::ExtensionMissing => f.write_str("browser running without the Al-Dir extension"),
             Reason::AppName(n) => write!(f, "app {n}"),
             Reason::AppPath(p) => write!(f, "app path {p}"),
             Reason::AppHash => f.write_str("app file fingerprint"),
@@ -121,6 +127,7 @@ struct CompiledSet {
     web_allow: WebMatcher,
     partial: Vec<&'static PartialRule>,
     safe_search: bool,
+    has_web_rules: bool,
     app_mode: ListMode,
     app_block: AppMatcher,
     app_allow: AppMatcher,
@@ -187,6 +194,17 @@ impl Engine {
         out
     }
 
+    /// The first set in force for this user that blocks or restricts
+    /// websites, if any. While one exists, browsers must be supervised.
+    pub fn web_active_set(&self, ctx: &Ctx) -> Option<SetId> {
+        self.sets.iter().find(|s| s.has_web_rules && s.is_active(ctx)).map(|s| s.id)
+    }
+
+    /// Whether any enabled set has website rules (at any time, for anyone).
+    pub fn has_any_web_rules(&self) -> bool {
+        self.sets.iter().any(|s| s.enabled && s.has_web_rules)
+    }
+
     /// Ids of the sets currently in force for this user.
     pub fn active_sets<'s>(&'s self, ctx: &'s Ctx) -> impl Iterator<Item = SetId> + 's {
         self.sets.iter().filter(|s| s.is_active(ctx)).map(|s| s.id)
@@ -229,6 +247,11 @@ impl CompiledSet {
             web_allow,
             partial: set.web.partial.iter().filter_map(|id| partial::find(id)).collect(),
             safe_search: set.web.safe_search,
+            has_web_rules: set.web.mode == ListMode::AllowOnly
+                || !set.web.block.is_empty()
+                || !set.web.lists.is_empty()
+                || !set.web.partial.is_empty()
+                || set.web.safe_search,
             app_mode: set.apps.mode,
             app_block: AppMatcher::new(&set.apps.block),
             app_allow: AppMatcher::new(&set.apps.allow),

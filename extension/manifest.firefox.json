@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDescription__",
+  "version": "0.1.0",
+  "default_locale": "en",
+  "permissions": ["nativeMessaging", "tabs", "webNavigation", "<all_urls>"],
+  "background": { "scripts": ["background.js"], "persistent": true },
+  "incognito": "spanning",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{6b0e3c7a-4f1d-4c8e-9a52-7d3e1f0b8a91}",
+      "strict_min_version": "115.0"
+    }
+  }
+}

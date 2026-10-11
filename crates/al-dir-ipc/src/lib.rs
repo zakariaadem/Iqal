@@ -44,6 +44,12 @@ pub enum Request {
     /// Turn this connection into a feed of the caller's own block events
     /// (`Response::Event` messages, one per event, until disconnect).
     Subscribe,
+    /// Browser extension: what to do with a page the user is opening.
+    CheckPage { url: String },
+    /// Browser extension (through its native host): register as the
+    /// extension of a running browser. The connection then receives
+    /// `Response::Changed` whenever the rules may have changed.
+    ExtensionSession { browser: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +75,9 @@ pub enum Response {
     Events { events: Vec<BlockEvent> },
     Subscribed,
     Event { event: Box<BlockEvent> },
+    Page { page: PageInfo },
+    /// Rules or schedules changed: re-check open pages.
+    Changed,
     Error { code: ErrorCode, message: String },
 }
 
@@ -83,6 +92,20 @@ pub enum EventKind {
     WindowClosed,
     /// A website name was not resolved (DNS level).
     SiteBlocked,
+    /// The browser extension showed a block page.
+    PageBlocked,
+}
+
+/// The extension's verdict on a page.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PageInfo {
+    pub blocked: bool,
+    pub set_name: Option<String>,
+    pub reason: Option<String>,
+    /// CSS selectors to hide on the page (partial blocking).
+    pub hide: Vec<String>,
+    /// The page uses up a time allowance while open.
+    pub metered: bool,
 }
 
 /// Something the service blocked.
@@ -115,6 +138,9 @@ pub struct Status {
     pub sets: usize,
     pub locked_sets: usize,
     pub started_at: i64,
+    /// Connected browser extensions, as "browser (user)".
+    #[serde(default)]
+    pub extensions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

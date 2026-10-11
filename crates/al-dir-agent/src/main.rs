@@ -114,6 +114,8 @@ fn message(e: &BlockEvent) -> Option<(String, String)> {
         // Browsers look up and prefetch many names; the browser extension
         // shows a block page for sites actually opened.
         EventKind::SiteBlocked => return None,
+        // The block page in the browser says it all.
+        EventKind::PageBlocked => return None,
     })
 }
 

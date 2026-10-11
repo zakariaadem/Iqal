@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "Al-Dir" },
+  "extDescription": { "message": "حجب المواقع لبرنامج Al-Dir. يُدار بواسطة Al-Dir ولا يمكن إزالته ما دام البرنامج مثبّتًا." },
+  "blockedTitle": { "message": "هذه الصفحة محجوبة" },
+  "blockedBy": {
+    "message": "محجوبة بواسطة «$SET$»",
+    "placeholders": { "set": { "content": "$1" } }
+  }
+}
