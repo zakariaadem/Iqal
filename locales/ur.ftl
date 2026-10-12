@@ -286,3 +286,15 @@ notify-allowance-low = 5 منٹ باقی
 notify-allowance-low-body = «{ $block }» کا روزانہ وقت تقریباً ختم ہو گیا ہے۔
 notify-allowance-used = وقت ختم
 notify-allowance-used-body = «{ $block }» کا روزانہ وقت ختم ہو گیا۔ یہ کل تک بلاک رہے گا۔
+
+# Saving
+unsaved-changes = غیر محفوظ تبدیلیاں
+action-save = محفوظ کریں
+action-discard = رد کریں
+confirm-unsaved = کیا «{ $name }» کی تبدیلیاں محفوظ کریں؟
+confirm-unsaved-detail = اگر آپ محفوظ نہیں کریں گے تو آپ کی تبدیلیاں ضائع ہو جائیں گی۔
+save-has-errors = محفوظ کرنے سے پہلے یہ سطریں درست کریں
+line-invalid = سطر { $line }: «{ $rule }» استعمال نہیں ہو سکتا: { $problem }
+lines-invalid-more = (مزید { $count } سطریں درست کرنی ہیں)
+list-empty-hint = ہر سطر میں ایک، مثلاً: { $examples }
+lock-saves-changes = اس بلاک کی آپ کی دوسری غیر محفوظ تبدیلیاں بھی محفوظ ہو جائیں گی۔

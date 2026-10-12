@@ -286,3 +286,15 @@ notify-allowance-low = Noch 5 Minuten
 notify-allowance-low-body = Die tägliche Zeit für „{ $block }“ ist fast aufgebraucht.
 notify-allowance-used = Die Zeit ist um
 notify-allowance-used-body = Die tägliche Zeit für „{ $block }“ ist aufgebraucht. Bis morgen ist sie gesperrt.
+
+# Saving
+unsaved-changes = Ungespeicherte Änderungen
+action-save = Speichern
+action-discard = Verwerfen
+confirm-unsaved = Änderungen an „{ $name }“ speichern?
+confirm-unsaved-detail = Wenn du nicht speicherst, gehen deine Änderungen verloren.
+save-has-errors = Korrigiere diese Zeilen vor dem Speichern
+line-invalid = Zeile { $line }: „{ $rule }“ kann nicht verwendet werden: { $problem }
+lines-invalid-more = ({ $count } weitere Zeilen müssen korrigiert werden)
+list-empty-hint = Ein Eintrag pro Zeile, zum Beispiel: { $examples }
+lock-saves-changes = Deine anderen ungespeicherten Änderungen an dieser Sperre werden ebenfalls gespeichert.

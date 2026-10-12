@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use al_dir_core::{BlockSet, SetId};
 use al_dir_i18n::{t, ta};
 use al_dir_ipc::client::Client;
-use al_dir_ipc::{Request, Response, SetInfo, Status};
+use al_dir_ipc::{Request, Response, SetInfo, SetState, Status};
 
 pub struct Service {
     client: RefCell<Option<Client>>,
@@ -35,6 +35,14 @@ impl Service {
     pub fn sets(&self) -> Result<Vec<SetInfo>, String> {
         match self.call(Request::ListSets)? {
             Response::Sets { sets } => Ok(sets),
+            _ => Err(t("error-unexpected")),
+        }
+    }
+
+    /// The change counter and each block's state, without rules.
+    pub fn states(&self) -> Result<(u64, Vec<SetState>), String> {
+        match self.call(Request::SetStates)? {
+            Response::SetStates { generation, states } => Ok((generation, states)),
             _ => Err(t("error-unexpected")),
         }
     }

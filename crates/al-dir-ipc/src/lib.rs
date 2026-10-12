@@ -62,6 +62,9 @@ pub enum Request {
     ActiveTab { url: String },
     /// Statistics for the last `days` days.
     Stats { days: u32 },
+    /// Each block's state without its rules, and the change counter:
+    /// cheap enough to ask every few seconds.
+    SetStates,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,6 +97,8 @@ pub enum Response {
     Changed,
     Catalog { lists: Vec<ListSummary> },
     Stats { stats: Box<StatsReport> },
+    /// `generation` changes whenever any block changes.
+    SetStates { generation: u64, states: Vec<SetState> },
     Error { code: ErrorCode, message: String },
 }
 
@@ -195,6 +200,16 @@ pub struct Status {
     pub clock: String,
     #[serde(default)]
     pub location: String,
+}
+
+
+/// A block's state without its rules (see `Request::SetStates`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SetState {
+    pub id: SetId,
+    pub locked: bool,
+    pub active: bool,
+    pub used_today_secs: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -292,3 +292,15 @@ notify-allowance-low = Осталось 5 минут
 notify-allowance-low-body = Дневное время для «{ $block }» почти закончилось.
 notify-allowance-used = Время вышло
 notify-allowance-used-body = Дневное время для «{ $block }» закончилось. Блокировка до завтра.
+
+# Saving
+unsaved-changes = Несохранённые изменения
+action-save = Сохранить
+action-discard = Отменить изменения
+confirm-unsaved = Сохранить изменения в «{ $name }»?
+confirm-unsaved-detail = Если не сохранить, изменения будут потеряны.
+save-has-errors = Исправьте эти строки перед сохранением
+line-invalid = Строка { $line }: «{ $rule }» нельзя использовать: { $problem }
+lines-invalid-more = (ещё строк для исправления: { $count })
+list-empty-hint = По одному в строке, например: { $examples }
+lock-saves-changes = Другие несохранённые изменения этого блока тоже будут сохранены.

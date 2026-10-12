@@ -286,3 +286,15 @@ notify-allowance-low = 5 minutes left
 notify-allowance-low-body = The daily time for “{ $block }” is almost used up.
 notify-allowance-used = Time is up
 notify-allowance-used-body = The daily time for “{ $block }” is used up. It is blocked until tomorrow.
+
+# Saving
+unsaved-changes = Unsaved changes
+action-save = Save
+action-discard = Discard
+confirm-unsaved = Save the changes to “{ $name }”?
+confirm-unsaved-detail = If you don’t save, your changes will be lost.
+save-has-errors = Fix these lines before saving
+line-invalid = Line { $line }: “{ $rule }” cannot be used: { $problem }
+lines-invalid-more = ({ $count } more lines need fixing)
+list-empty-hint = One per line, for example: { $examples }
+lock-saves-changes = Your other unsaved changes to this block will be saved too.

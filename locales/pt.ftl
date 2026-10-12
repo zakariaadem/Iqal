@@ -286,3 +286,15 @@ notify-allowance-low = Faltam 5 minutos
 notify-allowance-low-body = O tempo diário de “{ $block }” está quase esgotado.
 notify-allowance-used = O tempo acabou
 notify-allowance-used-body = O tempo diário de “{ $block }” acabou. Fica bloqueado até amanhã.
+
+# Saving
+unsaved-changes = Alterações não salvas
+action-save = Salvar
+action-discard = Descartar
+confirm-unsaved = Salvar as alterações em “{ $name }”?
+confirm-unsaved-detail = Se você não salvar, suas alterações serão perdidas.
+save-has-errors = Corrija estas linhas antes de salvar
+line-invalid = Linha { $line }: “{ $rule }” não pode ser usado: { $problem }
+lines-invalid-more = (mais { $count } linhas precisam de correção)
+list-empty-hint = Um por linha, por exemplo: { $examples }
+lock-saves-changes = Suas outras alterações não salvas neste bloqueio também serão salvas.

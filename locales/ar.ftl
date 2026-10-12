@@ -298,3 +298,15 @@ notify-allowance-low = بقيت 5 دقائق
 notify-allowance-low-body = الوقت اليومي لـ«{ $block }» أوشك على الانتهاء.
 notify-allowance-used = انتهى الوقت
 notify-allowance-used-body = انتهى الوقت اليومي لـ«{ $block }». ستبقى محجوبة حتى الغد.
+
+# Saving
+unsaved-changes = تغييرات غير محفوظة
+action-save = حفظ
+action-discard = تجاهل
+confirm-unsaved = هل تريد حفظ التغييرات على «{ $name }»؟
+confirm-unsaved-detail = إذا لم تحفظها فستضيع تغييراتك.
+save-has-errors = صحّح هذه الأسطر قبل الحفظ
+line-invalid = السطر { $line }: لا يمكن استخدام «{ $rule }»: { $problem }
+lines-invalid-more = (وأسطر أخرى تحتاج إلى تصحيح: { $count })
+list-empty-hint = عنصر واحد في كل سطر، مثل: { $examples }
+lock-saves-changes = ستُحفظ أيضًا تغييراتك الأخرى غير المحفوظة على هذه الكتلة.

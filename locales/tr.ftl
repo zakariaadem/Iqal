@@ -286,3 +286,15 @@ notify-allowance-low = 5 dakika kaldı
 notify-allowance-low-body = “{ $block }” için günlük süre neredeyse doldu.
 notify-allowance-used = Süre doldu
 notify-allowance-used-body = “{ $block }” için günlük süre doldu. Yarına kadar engelli.
+
+# Saving
+unsaved-changes = Kaydedilmemiş değişiklikler
+action-save = Kaydet
+action-discard = Vazgeç
+confirm-unsaved = “{ $name }” üzerindeki değişiklikler kaydedilsin mi?
+confirm-unsaved-detail = Kaydetmezseniz değişiklikleriniz kaybolur.
+save-has-errors = Kaydetmeden önce bu satırları düzeltin
+line-invalid = Satır { $line }: “{ $rule }” kullanılamaz: { $problem }
+lines-invalid-more = (düzeltilmesi gereken { $count } satır daha)
+list-empty-hint = Her satıra bir tane, örneğin: { $examples }
+lock-saves-changes = Bu engeldeki kaydedilmemiş diğer değişiklikleriniz de kaydedilecek.

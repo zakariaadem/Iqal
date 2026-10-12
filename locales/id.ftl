@@ -277,3 +277,15 @@ notify-allowance-low = Tersisa 5 menit
 notify-allowance-low-body = Waktu harian untuk “{ $block }” hampir habis.
 notify-allowance-used = Waktu habis
 notify-allowance-used-body = Waktu harian untuk “{ $block }” sudah habis. Diblokir sampai besok.
+
+# Saving
+unsaved-changes = Perubahan belum disimpan
+action-save = Simpan
+action-discard = Buang
+confirm-unsaved = Simpan perubahan pada “{ $name }”?
+confirm-unsaved-detail = Jika tidak disimpan, perubahan Anda akan hilang.
+save-has-errors = Perbaiki baris-baris ini sebelum menyimpan
+line-invalid = Baris { $line }: “{ $rule }” tidak dapat digunakan: { $problem }
+lines-invalid-more = ({ $count } baris lain perlu diperbaiki)
+list-empty-hint = Satu per baris, misalnya: { $examples }
+lock-saves-changes = Perubahan lain yang belum disimpan pada blok ini juga akan disimpan.

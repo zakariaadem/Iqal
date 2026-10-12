@@ -11,7 +11,7 @@ use al_dir_core::{
     PasswordHash, ProcessInfo, SetId,
 };
 use al_dir_ipc::{
-    BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo,
+    BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo, SetState,
     ListSummary, PageInfo, Status, UnlockInfo, PROTOCOL_VERSION,
 };
 
@@ -384,7 +384,7 @@ impl Service {
     pub fn handle(&self, caller: &Caller, request: Request) -> Response {
         let mutating = !matches!(
             request,
-            Request::Status | Request::ListSets | Request::Check { .. } | Request::RecentEvents
+            Request::Status | Request::ListSets | Request::SetStates | Request::Check { .. } | Request::RecentEvents
                 | Request::Subscribe
                 | Request::CheckPage { .. }
                 | Request::ExtensionSession { .. }
@@ -431,21 +431,32 @@ impl Service {
                     }),
                 })
             }
-            Request::ListSets => {
+            Request::ListSets | Request::SetStates => {
+                let generation = self.generation();
                 let engine = self.engine();
                 let usage = self.usage_for(&caller.user);
                 let user_ctx = Ctx { now, user: &caller.user, usage: usage.as_deref() };
                 let active: Vec<SetId> = engine.active_sets(&user_ctx).collect();
                 let inner = self.lock_inner();
+                let states = inner.config.block_sets.iter().map(|s| SetState {
+                    id: s.id,
+                    locked: lock::is_locked(s, &ctx),
+                    active: active.contains(&s.id),
+                    used_today_secs: usage.as_ref().and_then(|u| u.get(&s.id)).copied().unwrap_or(0),
+                });
+                if matches!(request, Request::SetStates) {
+                    return Ok(Response::SetStates { generation, states: states.collect() });
+                }
                 let sets = inner
                     .config
                     .block_sets
                     .iter()
-                    .map(|s| SetInfo {
+                    .zip(states)
+                    .map(|(s, st)| SetInfo {
                         set: if caller.admin { s.clone() } else { redact(s) },
-                        locked: lock::is_locked(s, &ctx),
-                        active: active.contains(&s.id),
-                        used_today_secs: usage.as_ref().and_then(|u| u.get(&s.id)).copied().unwrap_or(0),
+                        locked: st.locked,
+                        active: st.active,
+                        used_today_secs: st.used_today_secs,
                     })
                     .collect();
                 Ok(Response::Sets { sets })
@@ -835,6 +846,26 @@ mod tests {
         let Response::Sets { sets } = svc.handle(&admin(), Request::ListSets) else { panic!() };
         assert!(sets[0].locked);
         assert_eq!(sets[0].set.lock.as_ref().unwrap().kind, LockKind::UntilRestart { boot_id: "boot".into() });
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn set_states_follow_changes() {
+        let (svc, dir) = service("states");
+        let states = |svc: &Service| match svc.handle(&admin(), Request::SetStates) {
+            Response::SetStates { generation, states } => (generation, states),
+            r => panic!("{r:?}"),
+        };
+        let (g0, s0) = states(&svc);
+        assert!(s0.is_empty());
+        let set = BlockSet::new("s");
+        let id = set.id;
+        svc.handle(&admin(), Request::UpsertSet { set: Box::new(set) });
+        let (g1, s1) = states(&svc);
+        assert_ne!(g0, g1);
+        assert_eq!(s1, vec![SetState { id, locked: false, active: true, used_today_secs: 0 }]);
+        // Asking does not count as a change.
+        assert_eq!(states(&svc).0, g1);
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

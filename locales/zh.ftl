@@ -277,3 +277,15 @@ notify-allowance-low = 还剩 5 分钟
 notify-allowance-low-body = “{ $block }”的每日时长即将用完。
 notify-allowance-used = 时间到了
 notify-allowance-used-body = “{ $block }”的每日时长已用完，明天之前将被拦截。
+
+# Saving
+unsaved-changes = 有未保存的更改
+action-save = 保存
+action-discard = 放弃更改
+confirm-unsaved = 保存对“{ $name }”的更改吗？
+confirm-unsaved-detail = 如果不保存，您的更改将会丢失。
+save-has-errors = 请先修正这些行再保存
+line-invalid = 第 { $line } 行：“{ $rule }”无法使用：{ $problem }
+lines-invalid-more = （还有 { $count } 行需要修正）
+list-empty-hint = 每行一项，例如：{ $examples }
+lock-saves-changes = 此拦截组中其他未保存的更改也会一并保存。

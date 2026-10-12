@@ -1,18 +1,22 @@
-//! The editor for one block: name and switches on top, then tabs.
+//! The editor for one block: name and switches on top, then tabs, and a
+//! save bar while there are unsaved changes.
+//!
+//! Controls that already show their new value use `Ui::edit`; changes that
+//! show or hide parts of the editor use `Ui::modify`, which redraws it.
 
 use std::rc::Rc;
 
 use al_dir_core::import::parse_rules_text;
 use al_dir_core::partial;
 use al_dir_core::schedule::{DateRange, Day, Schedule, WeeklyRange};
-use al_dir_core::{Allowance, AppRule, BlockSet, ListMode, UserScope, WebRule};
+use al_dir_core::{Allowance, BlockSet, ListMode, UserScope};
 use al_dir_i18n::{t, ta};
 use al_dir_ipc::{Request, Response, SetInfo};
 use gtk::prelude::*;
 use gtk::{gio, glib};
 
-use crate::ui::{summary, Ui};
-use crate::widgets::{describe_schedule, day_name, heading, hbox, label, note, page, rule_list, setting_row, vbox};
+use crate::ui::{summary, ListKey, Ui};
+use crate::widgets::{describe_schedule, day_name, heading, hbox, label, note, page, rule_list, rule_text, setting_row, vbox};
 use crate::{appspicker, dialogs, lockui};
 
 pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
@@ -46,12 +50,40 @@ pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
     for (key, widget) in pages {
         tabs.append_page(&widget, Some(&gtk::Label::new(Some(&t(key)))));
     }
-    // Developer aid (screenshots, testing): open a given tab.
-    if let Some(n) = std::env::var("AL_DIR_GUI_TAB").ok().and_then(|v| v.parse::<u32>().ok()) {
-        tabs.set_current_page(Some(n));
-    }
     root.append(&tabs);
+    let bar = save_bar(ui);
+    root.append(&bar);
+    ui.editor_built(&tabs, &bar);
     root.upcast()
+}
+
+/// Shown while there are unsaved changes.
+fn save_bar(ui: &Rc<Ui>) -> gtk::Revealer {
+    let bar = gtk::ActionBar::new();
+    let text = gtk::Label::new(Some(&t("unsaved-changes")));
+    text.add_css_class("heading");
+    bar.pack_start(&text);
+    let save = gtk::Button::with_label(&t("action-save"));
+    save.add_css_class("suggested-action");
+    save.set_tooltip_text(Some("Ctrl+S"));
+    let weak = ui.weak();
+    save.connect_clicked(move |_| {
+        if let Some(ui) = weak.upgrade() {
+            glib::idle_add_local_once(move || {
+                ui.save();
+            });
+        }
+    });
+    let discard = gtk::Button::with_label(&t("action-discard"));
+    let weak = ui.weak();
+    discard.connect_clicked(move |_| {
+        if let Some(ui) = weak.upgrade() {
+            glib::idle_add_local_once(move || ui.discard());
+        }
+    });
+    bar.pack_end(&save);
+    bar.pack_end(&discard);
+    gtk::Revealer::builder().child(&bar).transition_type(gtk::RevealerTransitionType::SlideUp).build()
 }
 
 fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
@@ -60,26 +92,10 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     let name = gtk::Entry::builder().text(&info.set.name).hexpand(true).build();
     name.add_css_class("title-3");
     let weak = ui.weak();
-    name.connect_activate(move |e| {
+    name.connect_changed(move |e| {
         let text = e.text().trim().to_string();
         if let (Some(ui), false) = (weak.upgrade(), text.is_empty()) {
-            ui.modify(|s| {
-                s.name = text;
-                Ok(())
-            });
-        }
-    });
-    let weak = ui.weak();
-    name.connect_has_focus_notify(move |e| {
-        let text = e.text().trim().to_string();
-        if let (Some(ui), false) = (weak.upgrade(), e.has_focus())
-            && !text.is_empty()
-            && ui.current().is_some_and(|c| c.set.name != text)
-        {
-            ui.modify(|s| {
-                s.name = text;
-                Ok(())
-            });
+            ui.edit(|s| s.name = text);
         }
     });
     bar.append(&name);
@@ -93,14 +109,9 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     let weak = ui.weak();
     enabled.connect_state_set(move |_, on| {
         if let Some(ui) = weak.upgrade() {
-            glib::idle_add_local_once(move || {
-                ui.modify(|s| {
-                    s.enabled = on;
-                    Ok(())
-                })
-            });
+            ui.edit(|s| s.enabled = on);
         }
-        glib::Propagation::Stop
+        glib::Propagation::Proceed
     });
     bar.append(&enabled);
 
@@ -110,7 +121,7 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     let id = info.set.id;
     export.connect_clicked(move |_| {
         if let Some(ui) = weak.upgrade() {
-            dialogs::export(&ui, Some(vec![id]));
+            ui.after_unsaved(move |ui| dialogs::export(ui, Some(vec![id])));
         }
     });
     bar.append(&export);
@@ -151,6 +162,7 @@ fn mode_dropdown(ui: &Rc<Ui>, current: ListMode, labels: [String; 2], apply: fn(
         if mode != current
             && let Some(ui) = weak.upgrade()
         {
+            // The list titles change with the mode: redraw.
             glib::idle_add_local_once(move || {
                 ui.modify(|s| {
                     apply(s, mode);
@@ -162,8 +174,56 @@ fn mode_dropdown(ui: &Rc<Ui>, current: ListMode, labels: [String; 2], apply: fn(
     dd
 }
 
-fn invalid(input: &str, err: impl std::fmt::Display) -> String {
-    ta("rule-invalid", &[("rule", input.to_string().into()), ("problem", err.to_string().into())])
+/// A switch that changes the draft; `redraw` when it shows or hides parts.
+fn switch(ui: &Rc<Ui>, on: bool, redraw: bool, apply: impl Fn(&mut BlockSet, bool) + Clone + 'static) -> gtk::Switch {
+    let sw = gtk::Switch::builder().active(on).build();
+    let weak = ui.weak();
+    sw.connect_state_set(move |_, on| {
+        let Some(ui) = weak.upgrade() else { return glib::Propagation::Proceed };
+        let apply = apply.clone();
+        if redraw {
+            glib::idle_add_local_once(move || {
+                ui.modify(|s| {
+                    apply(s, on);
+                    Ok(())
+                })
+            });
+            glib::Propagation::Stop
+        } else {
+            ui.edit(|s| apply(s, on));
+            glib::Propagation::Proceed
+        }
+    });
+    sw
+}
+
+/// A check button that adds or removes `id` in a list of the draft.
+fn list_check(ui: &Rc<Ui>, text: &str, active: bool, id: String, list: fn(&mut BlockSet) -> &mut Vec<String>) -> gtk::CheckButton {
+    let check = gtk::CheckButton::with_label(text);
+    check.set_active(active);
+    let weak = ui.weak();
+    check.connect_toggled(move |c| {
+        let on = c.is_active();
+        if let Some(ui) = weak.upgrade() {
+            ui.edit(|s| {
+                let l = list(s);
+                l.retain(|x| *x != id);
+                if on {
+                    l.push(id.clone());
+                }
+            });
+        }
+    });
+    check
+}
+
+fn rules_box(ui: &Rc<Ui>, title: &str, key: ListKey, examples: &str) -> gtk::Box {
+    let weak = ui.weak();
+    rule_text(title, &ui.list_text(key), examples, move |line| key.check(line), move |text| {
+        if let Some(ui) = weak.upgrade() {
+            ui.set_list_text(key, text);
+        }
+    })
 }
 
 fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
@@ -176,32 +236,9 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     );
     body.append(&setting_row(&t("web-mode"), &mode));
 
-    let weak = ui.weak();
-    let weak2 = ui.weak();
-    body.append(&rule_list(
-        &t(if set.web.mode == ListMode::AllowOnly { "web-also-blocked" } else { "web-blocked" }),
-        set.web.block.iter().map(ToString::to_string).collect(),
-        &t("web-placeholder"),
-        move |text| {
-            if let Some(ui) = weak.upgrade() {
-                ui.modify(|s| {
-                    let r = WebRule::parse(&text).map_err(|e| invalid(&text, e))?;
-                    if !s.web.block.contains(&r) {
-                        s.web.block.push(r);
-                    }
-                    Ok(())
-                });
-            }
-        },
-        move |text| {
-            if let Some(ui) = weak2.upgrade() {
-                ui.modify(|s| {
-                    s.web.block.retain(|r| r.to_string() != text);
-                    Ok(())
-                });
-            }
-        },
-    ));
+    let allow_only = set.web.mode == ListMode::AllowOnly;
+    let examples = t("web-placeholder");
+    body.append(&rules_box(ui, &t(if allow_only { "web-also-blocked" } else { "web-blocked" }), ListKey::WebBlock, &examples));
     body.append(&note(&t("web-syntax")));
 
     let import = gtk::Button::with_label(&t("action-import-text"));
@@ -214,46 +251,9 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     });
     body.append(&import);
 
-    let weak = ui.weak();
-    let weak2 = ui.weak();
-    body.append(&rule_list(
-        &t(if set.web.mode == ListMode::AllowOnly { "web-allowed" } else { "web-exceptions" }),
-        set.web.allow.iter().map(ToString::to_string).collect(),
-        &t("web-placeholder"),
-        move |text| {
-            if let Some(ui) = weak.upgrade() {
-                ui.modify(|s| {
-                    let r = WebRule::parse(&text).map_err(|e| invalid(&text, e))?;
-                    if !s.web.allow.contains(&r) {
-                        s.web.allow.push(r);
-                    }
-                    Ok(())
-                });
-            }
-        },
-        move |text| {
-            if let Some(ui) = weak2.upgrade() {
-                ui.modify(|s| {
-                    s.web.allow.retain(|r| r.to_string() != text);
-                    Ok(())
-                });
-            }
-        },
-    ));
+    body.append(&rules_box(ui, &t(if allow_only { "web-allowed" } else { "web-exceptions" }), ListKey::WebAllow, &examples));
 
-    let safe = gtk::Switch::builder().active(set.web.safe_search).build();
-    let weak = ui.weak();
-    safe.connect_state_set(move |_, on| {
-        if let Some(ui) = weak.upgrade() {
-            glib::idle_add_local_once(move || {
-                ui.modify(|s| {
-                    s.web.safe_search = on;
-                    Ok(())
-                })
-            });
-        }
-        glib::Propagation::Stop
-    });
+    let safe = switch(ui, set.web.safe_search, false, |s, on| s.web.safe_search = on);
     body.append(&setting_row(&t("web-safesearch"), &safe));
 
     body.append(&heading(&t("web-lists")));
@@ -264,55 +264,21 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     };
     for list in catalog {
         let text = format!("{}  ·  {}", t(&format!("list-{}", list.id)), ta("list-count", &[("count", (list.rules as i64).into())]));
-        let check = gtk::CheckButton::with_label(&text);
-        check.set_active(set.web.lists.contains(&list.id));
-        let weak = ui.weak();
-        let id = list.id.clone();
-        check.connect_toggled(move |c| {
-            let on = c.is_active();
-            let id = id.clone();
-            if let Some(ui) = weak.upgrade() {
-                glib::idle_add_local_once(move || {
-                    ui.modify(|s| {
-                        s.web.lists.retain(|l| *l != id);
-                        if on {
-                            s.web.lists.push(id);
-                        }
-                        Ok(())
-                    })
-                });
-            }
-        });
-        body.append(&check);
+        let active = set.web.lists.contains(&list.id);
+        body.append(&list_check(ui, &text, active, list.id, |s| &mut s.web.lists));
     }
 
     body.append(&heading(&t("web-partial")));
     body.append(&note(&t("web-partial-detail")));
     for rule in partial::BUILTIN {
-        let check = gtk::CheckButton::with_label(&t(&format!("partial-{}", rule.id)));
-        check.set_active(set.web.partial.iter().any(|p| p == rule.id));
-        let weak = ui.weak();
-        let id = rule.id.to_string();
-        check.connect_toggled(move |c| {
-            let on = c.is_active();
-            let id = id.clone();
-            if let Some(ui) = weak.upgrade() {
-                glib::idle_add_local_once(move || {
-                    ui.modify(|s| {
-                        s.web.partial.retain(|p| *p != id);
-                        if on {
-                            s.web.partial.push(id);
-                        }
-                        Ok(())
-                    })
-                });
-            }
-        });
-        body.append(&check);
+        let active = set.web.partial.iter().any(|p| p == rule.id);
+        body.append(&list_check(ui, &t(&format!("partial-{}", rule.id)), active, rule.id.to_string(), |s| &mut s.web.partial));
     }
     scroll.upcast()
 }
 
+/// Adds the rules of a text file (a list, or a hosts file) to the blocked
+/// websites.
 fn import_text(ui: &Rc<Ui>) {
     let dialog = gtk::FileDialog::builder().title(t("action-import-text")).modal(true).build();
     let weak = ui.weak();
@@ -325,19 +291,11 @@ fn import_text(ui: &Rc<Ui>) {
         };
         let parsed = parse_rules_text(&text);
         let skipped = parsed.errors.len();
-        let mut added = 0i64;
-        ui.modify(|s| {
-            for r in parsed.rules {
-                if !s.web.block.contains(&r) {
-                    s.web.block.push(r);
-                    added += 1;
-                }
-            }
-            Ok(())
-        });
+        let lines: Vec<String> = parsed.rules.iter().map(ToString::to_string).collect();
+        let added = ui.append_lines(ListKey::WebBlock, &lines);
         ui.info(
             &t("import-done"),
-            &ta("import-result", &[("added", added.into()), ("skipped", (skipped as i64).into())]),
+            &ta("import-result", &[("added", (added as i64).into()), ("skipped", (skipped as i64).into())]),
         );
     });
 }
@@ -352,36 +310,15 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     );
     body.append(&setting_row(&t("apps-mode"), &mode));
 
-    for allow in [false, true] {
-        let list: Vec<String> =
-            if allow { &set.apps.allow } else { &set.apps.block }.iter().map(ToString::to_string).collect();
-        let title = match (allow, set.apps.mode) {
-            (false, ListMode::Block) => "apps-blocked",
-            (false, ListMode::AllowOnly) => "apps-also-blocked",
-            (true, ListMode::Block) => "apps-exceptions",
-            (true, ListMode::AllowOnly) => "apps-allowed",
+    let examples = t("apps-placeholder");
+    for key in [ListKey::AppBlock, ListKey::AppAllow] {
+        let title = match (key, set.apps.mode) {
+            (ListKey::AppBlock, ListMode::Block) => "apps-blocked",
+            (ListKey::AppBlock, ListMode::AllowOnly) => "apps-also-blocked",
+            (_, ListMode::Block) => "apps-exceptions",
+            (_, ListMode::AllowOnly) => "apps-allowed",
         };
-        let weak = ui.weak();
-        let weak2 = ui.weak();
-        body.append(&rule_list(
-            &t(title),
-            list,
-            &t("apps-placeholder"),
-            move |text| {
-                if let Some(ui) = weak.upgrade() {
-                    add_app_rule(&ui, &text, allow);
-                }
-            },
-            move |text| {
-                if let Some(ui) = weak2.upgrade() {
-                    ui.modify(|s| {
-                        let list = if allow { &mut s.apps.allow } else { &mut s.apps.block };
-                        list.retain(|r| r.to_string() != text);
-                        Ok(())
-                    });
-                }
-            },
-        ));
+        body.append(&rules_box(ui, &t(title), key, &examples));
         let buttons = hbox(6);
         let installed = gtk::Button::with_label(&t("action-add-installed-app"));
         let weak = ui.weak();
@@ -390,7 +327,7 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
                 let weak = ui.weak();
                 appspicker::pick(&ui, move |exe| {
                     if let Some(ui) = weak.upgrade() {
-                        add_app_rule(&ui, &exe, allow);
+                        ui.append_lines(key, &[exe]);
                     }
                 });
             }
@@ -405,7 +342,7 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
                 if let (Some(ui), Ok(f)) = (weak.upgrade(), res)
                     && let Some(p) = f.path()
                 {
-                    add_app_rule(&ui, &format!("path:{}", p.display()), allow);
+                    ui.append_lines(key, &[format!("path:{}", p.display())]);
                 }
             });
         });
@@ -415,18 +352,6 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     }
     body.append(&note(&t("apps-syntax")));
     scroll.upcast()
-}
-
-fn add_app_rule(ui: &Rc<Ui>, text: &str, allow: bool) {
-    let text = text.to_string();
-    ui.modify(|s| {
-        let r = AppRule::parse(&text).map_err(|e| invalid(&text, e))?;
-        let list = if allow { &mut s.apps.allow } else { &mut s.apps.block };
-        if !list.contains(&r) {
-            list.push(r);
-        }
-        Ok(())
-    });
 }
 
 /// People's accounts on this computer (uid 1000–60000).
@@ -494,20 +419,14 @@ fn users(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
             let weak = ui.weak();
             check.connect_toggled(move |c| {
                 let on = c.is_active();
-                let user = user.clone();
                 if let Some(ui) = weak.upgrade() {
-                    glib::idle_add_local_once(move || {
-                        ui.modify(|s| {
-                            let list = match &mut s.users {
-                                UserScope::AllExcept(n) | UserScope::Only(n) => n,
-                                UserScope::All => return Ok(()),
-                            };
+                    ui.edit(|s| {
+                        if let UserScope::AllExcept(list) | UserScope::Only(list) = &mut s.users {
                             list.retain(|n| *n != user);
                             if on {
-                                list.push(user);
+                                list.push(user.clone());
                             }
-                            Ok(())
-                        })
+                        }
                     });
                 }
             });
@@ -565,19 +484,7 @@ pub fn weekly_editor() -> (gtk::Box, impl Fn() -> Option<WeeklyRange>) {
 fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
     let set = &info.set;
     let (scroll, body) = page();
-    let limited = gtk::Switch::builder().active(set.schedule.is_some()).build();
-    let weak = ui.weak();
-    limited.connect_state_set(move |_, on| {
-        if let Some(ui) = weak.upgrade() {
-            glib::idle_add_local_once(move || {
-                ui.modify(|s| {
-                    s.schedule = on.then(Schedule::default);
-                    Ok(())
-                })
-            });
-        }
-        glib::Propagation::Stop
-    });
+    let limited = switch(ui, set.schedule.is_some(), true, |s, on| s.schedule = on.then(Schedule::default));
     body.append(&setting_row(&t("schedule-limited"), &limited));
     body.append(&note(&t(if set.schedule.is_some() { "schedule-limited-detail" } else { "schedule-always" })));
 
@@ -642,19 +549,8 @@ fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
     }
 
     body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-    let allowance = gtk::Switch::builder().active(set.allowance.is_some()).build();
-    let weak = ui.weak();
-    allowance.connect_state_set(move |_, on| {
-        if let Some(ui) = weak.upgrade() {
-            glib::idle_add_local_once(move || {
-                ui.modify(|s| {
-                    s.allowance = on.then_some(Allowance { daily_secs: 30 * 60 });
-                    Ok(())
-                })
-            });
-        }
-        glib::Propagation::Stop
-    });
+    let allowance =
+        switch(ui, set.allowance.is_some(), true, |s, on| s.allowance = on.then_some(Allowance { daily_secs: 30 * 60 }));
     body.append(&setting_row(&t("allowance"), &allowance));
     body.append(&note(&t("allowance-detail")));
     if let Some(a) = set.allowance {
@@ -664,12 +560,7 @@ fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
         minutes.connect_value_changed(move |m| {
             let v = m.value() as u32;
             if let Some(ui) = weak.upgrade() {
-                glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || {
-                    ui.modify(|s| {
-                        s.allowance = Some(Allowance { daily_secs: v * 60 });
-                        Ok(())
-                    })
-                });
+                ui.edit(|s| s.allowance = Some(Allowance { daily_secs: v * 60 }));
             }
         });
         body.append(&setting_row(&t("allowance-minutes"), &minutes));

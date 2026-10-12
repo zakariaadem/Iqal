@@ -286,3 +286,15 @@ notify-allowance-low = Plus que 5 minutes
 notify-allowance-low-body = Le temps quotidien de « { $block } » est presque écoulé.
 notify-allowance-used = Le temps est écoulé
 notify-allowance-used-body = Le temps quotidien de « { $block } » est écoulé. Il est bloqué jusqu’à demain.
+
+# Saving
+unsaved-changes = Modifications non enregistrées
+action-save = Enregistrer
+action-discard = Annuler les modifications
+confirm-unsaved = Enregistrer les modifications de « { $name } » ?
+confirm-unsaved-detail = Si vous n’enregistrez pas, vos modifications seront perdues.
+save-has-errors = Corrigez ces lignes avant d’enregistrer
+line-invalid = Ligne { $line } : « { $rule } » ne peut pas être utilisé : { $problem }
+lines-invalid-more = ({ $count } autres lignes à corriger)
+list-empty-hint = Une entrée par ligne, par exemple : { $examples }
+lock-saves-changes = Vos autres modifications non enregistrées de ce bloc seront aussi enregistrées.

@@ -1,9 +1,13 @@
 //! The main window: block list on one side, editor on the other.
+//!
+//! Edits go to a draft of the selected block and reach the service only
+//! when the person presses Save; Discard throws the draft away. Lock
+//! changes are the exception: they are saved at once (see `commit`).
 
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
-use al_dir_core::{BlockSet, SetId};
+use al_dir_core::{AppRule, BlockSet, SetId, WebRule};
 use al_dir_i18n::{t, ta};
 use al_dir_ipc::{SetInfo, Status};
 use gtk::glib;
@@ -13,6 +17,144 @@ use crate::service::Service;
 use crate::widgets::{hbox, note, set_margins, vbox};
 use crate::{dialogs, editor};
 
+/// The rule lists edited as text, one rule per line.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ListKey {
+    WebBlock,
+    WebAllow,
+    AppBlock,
+    AppAllow,
+}
+
+impl ListKey {
+    pub const ALL: [ListKey; 4] = [ListKey::WebBlock, ListKey::WebAllow, ListKey::AppBlock, ListKey::AppAllow];
+
+    fn index(self) -> usize {
+        self as usize
+    }
+
+    pub fn is_web(self) -> bool {
+        matches!(self, ListKey::WebBlock | ListKey::WebAllow)
+    }
+
+    /// The saved rules of this list, one per line.
+    pub fn text_of(self, set: &BlockSet) -> String {
+        let lines: Vec<String> = match self {
+            ListKey::WebBlock => set.web.block.iter().map(ToString::to_string).collect(),
+            ListKey::WebAllow => set.web.allow.iter().map(ToString::to_string).collect(),
+            ListKey::AppBlock => set.apps.block.iter().map(ToString::to_string).collect(),
+            ListKey::AppAllow => set.apps.allow.iter().map(ToString::to_string).collect(),
+        };
+        lines.join("\n")
+    }
+
+    /// Checks one line; the error is already translated.
+    pub fn check(self, line: &str) -> Result<(), String> {
+        if self.is_web() {
+            WebRule::parse(line).map(drop).map_err(|e| e.to_string())
+        } else {
+            AppRule::parse(line).map(drop).map_err(|e| e.to_string())
+        }
+    }
+
+    /// Parses the text into the set. Returns the bad lines (1-based number,
+    /// line, problem) and leaves the set unchanged if there are any.
+    fn apply(self, text: &str, set: &mut BlockSet) -> Vec<(usize, String, String)> {
+        let mut bad = Vec::new();
+        let mut web = Vec::new();
+        let mut apps = Vec::new();
+        for (n, line) in text.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            if self.is_web() {
+                match WebRule::parse(line) {
+                    Ok(r) if !web.contains(&r) => web.push(r),
+                    Ok(_) => {}
+                    Err(e) => bad.push((n + 1, line.to_string(), e.to_string())),
+                }
+            } else {
+                match AppRule::parse(line) {
+                    Ok(r) if !apps.contains(&r) => apps.push(r),
+                    Ok(_) => {}
+                    Err(e) => bad.push((n + 1, line.to_string(), e.to_string())),
+                }
+            }
+        }
+        if bad.is_empty() {
+            match self {
+                ListKey::WebBlock => set.web.block = web,
+                ListKey::WebAllow => set.web.allow = web,
+                ListKey::AppBlock => set.apps.block = apps,
+                ListKey::AppAllow => set.apps.allow = apps,
+            }
+        }
+        bad
+    }
+}
+
+/// Lines that mean something: trimmed, without blanks.
+fn meaningful(text: &str) -> Vec<&str> {
+    text.lines().map(str::trim).filter(|l| !l.is_empty()).collect()
+}
+
+/// Unsaved edits to one block.
+struct Draft {
+    /// The block as the service last reported it.
+    base: BlockSet,
+    /// The edited block. Its rule lists are not used: `texts` hold them.
+    set: BlockSet,
+    texts: [String; 4],
+}
+
+impl Draft {
+    fn new(base: BlockSet) -> Self {
+        let texts = ListKey::ALL.map(|k| k.text_of(&base));
+        Draft { set: base.clone(), base, texts }
+    }
+
+    /// The edited block with the fields the editor never changes (lists,
+    /// lock) taken from the saved one, for comparing.
+    fn comparable(&self) -> BlockSet {
+        let mut s = self.set.clone();
+        s.web.block = self.base.web.block.clone();
+        s.web.allow = self.base.web.allow.clone();
+        s.apps.block = self.base.apps.block.clone();
+        s.apps.allow = self.base.apps.allow.clone();
+        s.lock = self.base.lock.clone();
+        s.pending_unlock_at = self.base.pending_unlock_at;
+        s
+    }
+
+    fn dirty(&self) -> bool {
+        self.comparable() != self.base
+            || ListKey::ALL.iter().any(|k| meaningful(&self.texts[k.index()]) != meaningful(&k.text_of(&self.base)))
+    }
+
+    /// The block to save, or the lines that cannot be used.
+    fn finish(&self) -> Result<BlockSet, String> {
+        let mut set = self.set.clone();
+        set.lock = self.base.lock.clone();
+        set.pending_unlock_at = self.base.pending_unlock_at;
+        let mut problems = Vec::new();
+        for k in ListKey::ALL {
+            for (n, line, problem) in k.apply(&self.texts[k.index()], &mut set) {
+                problems.push(ta(
+                    "line-invalid",
+                    &[("line", (n as i64).into()), ("rule", line.into()), ("problem", problem.into())],
+                ));
+            }
+        }
+        if problems.is_empty() {
+            Ok(set)
+        } else {
+            problems.truncate(8);
+            Err(problems.join("\n"))
+        }
+    }
+}
+
 pub struct Ui {
     pub window: gtk::ApplicationWindow,
     pub service: Service,
@@ -20,6 +162,26 @@ pub struct Ui {
     content: gtk::Box,
     state: RefCell<State>,
     rebuilding: Cell<bool>,
+    /// Set while the editor is replaced: its tabs report switches then.
+    replacing: Cell<bool>,
+    /// The editor tab shown, kept across rebuilds and blocks.
+    tab: Cell<u32>,
+    notebook: RefCell<Option<gtk::Notebook>>,
+    save_bar: RefCell<Option<gtk::Revealer>>,
+    was_dirty: Cell<bool>,
+    /// (service start, change counter) of the blocks last fetched.
+    loaded: Cell<Option<(i64, u64)>>,
+    /// What the block list shows, to redraw it only on change.
+    sidebar_rows: RefCell<Option<Vec<SidebarRow>>>,
+}
+
+/// One line of the block list.
+#[derive(PartialEq)]
+struct SidebarRow {
+    name: String,
+    unsaved: bool,
+    state: &'static str,
+    locked: bool,
 }
 
 #[derive(Default)]
@@ -28,6 +190,7 @@ struct State {
     selected: Option<SetId>,
     /// What the editor currently shows, to rebuild it only on change.
     shown: Option<(BlockSet, bool)>,
+    draft: Option<Draft>,
     status: Option<Box<Status>>,
     error: Option<String>,
 }
@@ -47,6 +210,8 @@ impl Ui {
         let content = vbox(0);
         content.set_hexpand(true);
 
+        // Developer aid (screenshots, testing): open a given tab.
+        let tab = std::env::var("AL_DIR_GUI_TAB").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
         let ui = Rc::new(Ui {
             window,
             service: Service::new(),
@@ -54,6 +219,13 @@ impl Ui {
             content,
             state: RefCell::new(State::default()),
             rebuilding: Cell::new(false),
+            replacing: Cell::new(false),
+            tab: Cell::new(tab),
+            notebook: RefCell::new(None),
+            save_bar: RefCell::new(None),
+            was_dirty: Cell::new(false),
+            loaded: Cell::new(None),
+            sidebar_rows: RefCell::new(None),
         });
         ui.build();
         // Every handler holds only a weak reference (no cycles between the
@@ -95,7 +267,7 @@ impl Ui {
         let weak = Rc::downgrade(self);
         new_button.connect_clicked(move |_| {
             if let Some(ui) = weak.upgrade() {
-                dialogs::new_block(&ui);
+                ui.after_unsaved(dialogs::new_block);
             }
         });
         side.append(&new_button);
@@ -113,7 +285,18 @@ impl Ui {
                 return;
             }
             let id = row.and_then(|r| ui.state.borrow().sets.get(r.index() as usize).map(|s| s.set.id));
-            ui.select(id);
+            if id == ui.state.borrow().selected {
+                return;
+            }
+            // Not from inside the signal: both lists are rebuilt. The current
+            // block stays selected until unsaved changes are saved or
+            // discarded.
+            glib::idle_add_local_once(move || {
+                if ui.is_dirty() {
+                    ui.rebuild_sidebar();
+                }
+                ui.after_unsaved(move |ui| ui.select(id));
+            });
         });
 
         let paned = gtk::Paned::new(gtk::Orientation::Horizontal);
@@ -122,6 +305,32 @@ impl Ui {
         paned.set_resize_start_child(false);
         paned.set_shrink_start_child(false);
         self.window.set_child(Some(&paned));
+
+        let weak = Rc::downgrade(self);
+        self.window.connect_close_request(move |w| {
+            let Some(ui) = weak.upgrade() else { return glib::Propagation::Proceed };
+            if !ui.is_dirty() {
+                return glib::Propagation::Proceed;
+            }
+            let w = w.clone();
+            ui.after_unsaved(move |_| w.destroy());
+            glib::Propagation::Stop
+        });
+
+        // Ctrl+S saves.
+        let keys = gtk::ShortcutController::new();
+        keys.set_scope(gtk::ShortcutScope::Global);
+        let weak = Rc::downgrade(self);
+        keys.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("<Control>s"),
+            Some(gtk::CallbackAction::new(move |_, _| {
+                if let Some(ui) = weak.upgrade() {
+                    ui.save();
+                }
+                glib::Propagation::Stop
+            })),
+        ));
+        self.window.add_controller(keys);
     }
 
     fn menu_popover(self: &Rc<Self>) -> gtk::Popover {
@@ -176,18 +385,21 @@ impl Ui {
     }
 
     /// Reloads from the service. The editor is rebuilt only if what it
-    /// shows changed (or when `force`), so typing is not interrupted.
+    /// shows changed (or when `force`), and never over unsaved changes.
     pub fn refresh(self: &Rc<Self>, force: bool) {
-        let result = self.service.sets().and_then(|sets| Ok((sets, self.service.status()?)));
+        let result = self.load(force);
         {
             let mut st = self.state.borrow_mut();
             match result {
                 Ok((sets, status)) => {
-                    st.sets = sets;
+                    if let Some(sets) = sets {
+                        st.sets = sets;
+                    }
                     st.status = Some(status);
                     st.error = None;
                 }
                 Err(e) => {
+                    self.loaded.set(None);
                     st.sets.clear();
                     st.status = None;
                     st.error = Some(e);
@@ -195,12 +407,22 @@ impl Ui {
             }
             if st.selected.is_some_and(|id| !st.sets.iter().any(|s| s.set.id == id)) {
                 st.selected = None;
+                st.draft = None;
             }
             if st.selected.is_none() {
                 st.selected = st.sets.first().map(|s| s.set.id);
             }
+            let latest = st.selected.and_then(|id| st.sets.iter().find(|s| s.set.id == id)).map(|i| i.set.clone());
+            match (&mut st.draft, latest) {
+                (Some(d), Some(base)) if d.dirty() => d.base = base,
+                (draft, _) => *draft = None,
+            }
         }
         self.rebuild_sidebar();
+        if self.is_dirty() {
+            self.update_dirty();
+            return;
+        }
         let current = self.current().map(|i| (i.set, i.locked));
         let changed = force || self.state.borrow().shown != current;
         if changed {
@@ -208,94 +430,355 @@ impl Ui {
         }
     }
 
+    /// Asks the service what changed. The blocks with all their rules are
+    /// fetched only when one changed (or `full`); otherwise just their
+    /// states are updated, which stays cheap with long lists.
+    fn load(&self, full: bool) -> Result<(Option<Vec<SetInfo>>, Box<Status>), String> {
+        let status = self.service.status()?;
+        let (generation, states) = self.service.states()?;
+        let key = (status.started_at, generation);
+        {
+            let mut st = self.state.borrow_mut();
+            let same_blocks = st.sets.len() == states.len() && st.sets.iter().zip(&states).all(|(a, b)| a.set.id == b.id);
+            if !full && self.loaded.get() == Some(key) && same_blocks {
+                for (info, state) in st.sets.iter_mut().zip(states) {
+                    info.locked = state.locked;
+                    info.active = state.active;
+                    info.used_today_secs = state.used_today_secs;
+                }
+                return Ok((None, status));
+            }
+        }
+        let sets = self.service.sets()?;
+        self.loaded.set(Some(key));
+        Ok((Some(sets), status))
+    }
+
+    /// Redraws the block list if what it shows changed, and selects the
+    /// selected block in it.
     fn rebuild_sidebar(&self) {
+        let dirty = self.is_dirty();
+        let (rows, selected) = {
+            let st = self.state.borrow();
+            let rows: Vec<SidebarRow> = st
+                .sets
+                .iter()
+                .map(|info| SidebarRow {
+                    name: info.set.name.clone(),
+                    unsaved: dirty && Some(info.set.id) == st.selected,
+                    state: if !info.set.enabled {
+                        "state-off"
+                    } else if info.active {
+                        "state-active"
+                    } else {
+                        "state-scheduled"
+                    },
+                    locked: info.locked,
+                })
+                .collect();
+            (rows, st.sets.iter().position(|s| Some(s.set.id) == st.selected))
+        };
         self.rebuilding.set(true);
-        while let Some(child) = self.sidebar.first_child() {
-            self.sidebar.remove(&child);
-        }
-        let st = self.state.borrow();
-        let mut selected_row = None;
-        for (i, info) in st.sets.iter().enumerate() {
-            let row = hbox(8);
-            set_margins(&row, 8);
-            let name = gtk::Label::new(Some(&info.set.name));
-            name.set_xalign(0.0);
-            name.set_hexpand(true);
-            name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            row.append(&name);
-            let state = if !info.set.enabled {
-                t("state-off")
-            } else if info.active {
-                t("state-active")
-            } else {
-                t("state-scheduled")
-            };
-            let badge = gtk::Label::new(Some(&state));
-            badge.add_css_class("dim-label");
-            badge.add_css_class("caption");
-            row.append(&badge);
-            if info.locked {
-                let lock = gtk::Image::from_icon_name("changes-prevent-symbolic");
-                lock.set_tooltip_text(Some(&t("state-locked")));
-                row.append(&lock);
+        if self.sidebar_rows.borrow().as_ref() != Some(&rows) {
+            while let Some(child) = self.sidebar.first_child() {
+                self.sidebar.remove(&child);
             }
-            self.sidebar.append(&row);
-            if Some(info.set.id) == st.selected {
-                selected_row = self.sidebar.row_at_index(i as i32);
+            for r in &rows {
+                let row = hbox(8);
+                set_margins(&row, 8);
+                let name = gtk::Label::new(Some(&if r.unsaved { format!("{} •", r.name) } else { r.name.clone() }));
+                if r.unsaved {
+                    name.set_tooltip_text(Some(&t("unsaved-changes")));
+                }
+                name.set_xalign(0.0);
+                name.set_hexpand(true);
+                name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                row.append(&name);
+                let badge = gtk::Label::new(Some(&t(r.state)));
+                badge.add_css_class("dim-label");
+                badge.add_css_class("caption");
+                row.append(&badge);
+                if r.locked {
+                    let lock = gtk::Image::from_icon_name("changes-prevent-symbolic");
+                    lock.set_tooltip_text(Some(&t("state-locked")));
+                    row.append(&lock);
+                }
+                self.sidebar.append(&row);
             }
+            *self.sidebar_rows.borrow_mut() = Some(rows);
         }
-        self.sidebar.select_row(selected_row.as_ref());
+        let row = selected.and_then(|i| self.sidebar.row_at_index(i as i32));
+        if self.sidebar.selected_row() != row {
+            self.sidebar.select_row(row.as_ref());
+        }
         self.rebuilding.set(false);
     }
 
+    /// Rebuilds the editor, keeping the tab and, for the same block, how
+    /// far each tab was scrolled.
     fn rebuild_content(self: &Rc<Self>) {
+        let same_block = {
+            let st = self.state.borrow();
+            st.shown.as_ref().map(|(s, _)| s.id) == st.selected
+        };
+        let scrolled: Vec<f64> = match (same_block, self.notebook.borrow().as_ref()) {
+            (true, Some(nb)) => (0..nb.n_pages())
+                .map(|i| nb.nth_page(Some(i)).and_downcast::<gtk::ScrolledWindow>().map_or(0.0, |s| s.vadjustment().value()))
+                .collect(),
+            _ => Vec::new(),
+        };
+        self.replacing.set(true);
         while let Some(child) = self.content.first_child() {
             self.content.remove(&child);
         }
-        let (error, current) = {
+        *self.notebook.borrow_mut() = None;
+        *self.save_bar.borrow_mut() = None;
+        let (error, server) = {
             let st = self.state.borrow();
             (st.error.clone(), self.current_from(&st))
         };
-        self.state.borrow_mut().shown = current.as_ref().map(|i| (i.set.clone(), i.locked));
-        let widget: gtk::Widget = match (error, current) {
+        self.state.borrow_mut().shown = server.as_ref().map(|i| (i.set.clone(), i.locked));
+        let widget: gtk::Widget = match (error, self.view()) {
             (Some(e), _) => placeholder(&t("error-title"), &e).upcast(),
             (None, Some(info)) => editor::build(self, &info),
             (None, None) => placeholder(&t("empty-title"), &t("empty-detail")).upcast(),
         };
         widget.set_vexpand(true);
         self.content.append(&widget);
+        self.replacing.set(false);
+        self.was_dirty.set(!self.is_dirty());
+        self.update_dirty();
+
+        if let Some(nb) = self.notebook.borrow().as_ref() {
+            for (i, value) in scrolled.into_iter().enumerate() {
+                if let Some(s) = nb.nth_page(Some(i as u32)).and_downcast::<gtk::ScrolledWindow>() {
+                    // The page has no height until it is laid out.
+                    glib::idle_add_local_once(move || s.vadjustment().set_value(value));
+                }
+            }
+        }
+    }
+
+    /// Called by the editor for its tabs and save bar.
+    pub fn editor_built(self: &Rc<Self>, notebook: &gtk::Notebook, save_bar: &gtk::Revealer) {
+        notebook.set_current_page(Some(self.tab.get().min(notebook.n_pages().saturating_sub(1))));
+        let weak = self.weak();
+        notebook.connect_switch_page(move |nb, _, n| {
+            // A notebook being taken down reports switches too; only the
+            // one on screen counts.
+            if let Some(ui) = weak.upgrade()
+                && !ui.replacing.get()
+                && ui.notebook.borrow().as_ref() == Some(nb)
+            {
+                ui.tab.set(n);
+            }
+        });
+        *self.notebook.borrow_mut() = Some(notebook.clone());
+        *self.save_bar.borrow_mut() = Some(save_bar.clone());
     }
 
     fn current_from(&self, st: &State) -> Option<SetInfo> {
         st.selected.and_then(|id| st.sets.iter().find(|s| s.set.id == id).cloned())
     }
 
+    /// The selected block as saved in the service.
     pub fn current(&self) -> Option<SetInfo> {
         self.current_from(&self.state.borrow())
+    }
+
+    /// The selected block as the editor shows it: with unsaved changes.
+    pub fn view(&self) -> Option<SetInfo> {
+        let st = self.state.borrow();
+        let mut info = self.current_from(&st)?;
+        if let Some(d) = &st.draft {
+            let lock = info.set.lock.take();
+            let pending = info.set.pending_unlock_at;
+            info.set = d.set.clone();
+            info.set.lock = lock;
+            info.set.pending_unlock_at = pending;
+        }
+        Some(info)
+    }
+
+    /// The text of a rule list as the editor shows it.
+    pub fn list_text(&self, key: ListKey) -> String {
+        let st = self.state.borrow();
+        match &st.draft {
+            Some(d) => d.texts[key.index()].clone(),
+            None => self.current_from(&st).map(|i| key.text_of(&i.set)).unwrap_or_default(),
+        }
     }
 
     pub fn status(&self) -> Option<Box<Status>> {
         self.state.borrow().status.clone()
     }
 
+    pub fn is_dirty(&self) -> bool {
+        self.state.borrow().draft.as_ref().is_some_and(Draft::dirty)
+    }
+
     pub fn select(self: &Rc<Self>, id: Option<SetId>) {
         if self.state.borrow().selected == id {
             return;
         }
-        self.state.borrow_mut().selected = id;
+        {
+            let mut st = self.state.borrow_mut();
+            st.selected = id;
+            st.draft = None;
+        }
+        self.rebuild_sidebar();
         self.rebuild_content();
     }
 
-    /// Changes the selected block and saves it. The service refuses
-    /// changes that would weaken a locked block; that is shown as an error.
-    pub fn modify(self: &Rc<Self>, change: impl FnOnce(&mut BlockSet) -> Result<(), String>) {
-        let Some(info) = self.current() else { return };
-        let mut set = info.set;
-        let result = change(&mut set).and_then(|()| self.service.save(set));
-        if let Err(e) = result {
-            self.error(&e);
+    /// Runs `then` once there are no unsaved changes, asking first whether
+    /// to save or discard them.
+    pub fn after_unsaved(self: &Rc<Self>, then: impl Fn(&Rc<Ui>) + 'static) {
+        if !self.is_dirty() {
+            return then(self);
         }
-        self.refresh(true);
+        let name = self.view().map(|i| i.set.name).unwrap_or_default();
+        let d = gtk::AlertDialog::builder()
+            .modal(true)
+            .message(ta("confirm-unsaved", &[("name", name.into())]))
+            .detail(t("confirm-unsaved-detail"))
+            .buttons([t("action-cancel"), t("action-discard"), t("action-save")])
+            .cancel_button(0)
+            .default_button(2)
+            .build();
+        let weak = self.weak();
+        d.choose(Some(&self.window), None::<&gtk::gio::Cancellable>, move |r| {
+            let Some(ui) = weak.upgrade() else { return };
+            match r {
+                Ok(1) => {
+                    ui.state.borrow_mut().draft = None;
+                    ui.rebuild_sidebar();
+                    ui.rebuild_content();
+                    then(&ui);
+                }
+                Ok(2) if ui.save() => then(&ui),
+                _ => {}
+            }
+        });
+    }
+
+    fn with_draft<R>(&self, f: impl FnOnce(&mut Draft) -> R) -> Option<R> {
+        let mut st = self.state.borrow_mut();
+        if st.draft.is_none() {
+            let base = self.current_from(&st)?.set;
+            st.draft = Some(Draft::new(base));
+        }
+        st.draft.as_mut().map(f)
+    }
+
+    /// Changes the selected block's draft, without redrawing the editor:
+    /// for controls that already show the new value.
+    pub fn edit(self: &Rc<Self>, change: impl FnOnce(&mut BlockSet)) {
+        self.with_draft(|d| change(&mut d.set));
+        self.update_dirty();
+    }
+
+    /// Changes the draft and redraws the editor: for changes that show or
+    /// hide parts of it.
+    pub fn modify(self: &Rc<Self>, change: impl FnOnce(&mut BlockSet) -> Result<(), String>) {
+        match self.with_draft(|d| change(&mut d.set)) {
+            Some(Err(e)) => self.error(&e),
+            Some(Ok(())) => self.rebuild_content(),
+            None => {}
+        }
+    }
+
+    /// Records the text of a rule list as typed.
+    pub fn set_list_text(self: &Rc<Self>, key: ListKey, text: String) {
+        self.with_draft(|d| d.texts[key.index()] = text);
+        self.update_dirty();
+    }
+
+    /// Adds rules to the end of a list (from a file or the app picker).
+    pub fn append_lines(self: &Rc<Self>, key: ListKey, lines: &[String]) -> usize {
+        let added = self
+            .with_draft(|d| {
+                let text = &mut d.texts[key.index()];
+                let present: Vec<String> = meaningful(text).into_iter().map(str::to_string).collect();
+                let mut added = 0;
+                for l in lines {
+                    let l = l.trim();
+                    if l.is_empty() || present.iter().any(|p| p == l) {
+                        continue;
+                    }
+                    if !text.is_empty() && !text.ends_with('\n') {
+                        text.push('\n');
+                    }
+                    text.push_str(l);
+                    added += 1;
+                }
+                added
+            })
+            .unwrap_or(0);
+        self.rebuild_content();
+        added
+    }
+
+    /// Saves the draft. Returns whether everything is saved.
+    pub fn save(self: &Rc<Self>) -> bool {
+        if !self.is_dirty() {
+            return true;
+        }
+        let finished = self.state.borrow().draft.as_ref().map(Draft::finish);
+        match finished {
+            Some(Ok(set)) => match self.service.save(set) {
+                Ok(()) => {
+                    self.state.borrow_mut().draft = None;
+                    self.refresh(true);
+                    true
+                }
+                Err(e) => {
+                    self.error(&e);
+                    false
+                }
+            },
+            Some(Err(problems)) => {
+                self.info(&t("save-has-errors"), &problems);
+                false
+            }
+            None => true,
+        }
+    }
+
+    pub fn discard(self: &Rc<Self>) {
+        self.state.borrow_mut().draft = None;
+        self.rebuild_sidebar();
+        self.rebuild_content();
+    }
+
+    /// Changes the block and saves at once, with any other unsaved edits:
+    /// used for locks, which take effect when confirmed. If saving fails
+    /// the change is undone and the other edits are kept.
+    pub fn commit(self: &Rc<Self>, change: impl FnOnce(&mut BlockSet)) {
+        let Some(info) = self.current() else { return };
+        let mut set = match self.state.borrow().draft.as_ref().map(Draft::finish) {
+            Some(Ok(set)) => set,
+            Some(Err(problems)) => return self.info(&t("save-has-errors"), &problems),
+            None => info.set,
+        };
+        change(&mut set);
+        match self.service.save(set) {
+            Ok(()) => {
+                self.state.borrow_mut().draft = None;
+                self.refresh(true);
+            }
+            Err(e) => self.error(&e),
+        }
+    }
+
+    /// Shows or hides the save bar and the sidebar mark.
+    fn update_dirty(&self) {
+        let dirty = self.is_dirty();
+        if let Some(bar) = self.save_bar.borrow().as_ref() {
+            bar.set_reveal_child(dirty);
+        }
+        if self.was_dirty.replace(dirty) != dirty {
+            self.rebuild_sidebar();
+        }
     }
 
     pub fn error(&self, message: &str) {
@@ -348,7 +831,7 @@ fn placeholder(title: &str, detail: &str) -> gtk::Box {
     b
 }
 
-/// Shown in the sidebar footer and the editor: counts for a set.
+/// Shown in the editor header: counts for a set.
 pub fn summary(info: &SetInfo) -> String {
     let s = &info.set;
     ta(

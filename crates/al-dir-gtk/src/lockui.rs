@@ -80,10 +80,7 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
                 let weak = ui.weak();
                 remove.connect_clicked(move |_| {
                     if let Some(ui) = weak.upgrade() {
-                        ui.modify(|s| {
-                            s.lock = None;
-                            Ok(())
-                        });
+                        ui.commit(|s| s.lock = None);
                     }
                 });
                 body.append(&remove);
@@ -284,15 +281,17 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
         };
         let lock = Lock { kind: lock_kind, unlock_delay_secs: (delay.value() as u32) * 60 };
         let description = describe_lock(&lock);
+        let mut detail = ta("lock-confirm-detail", &[("lock", description.into())]);
+        if ui.is_dirty() {
+            detail.push_str("\n\n");
+            detail.push_str(&t("lock-saves-changes"));
+        }
         let weak = ui.weak();
         let win = win2.clone();
-        ui.confirm(&t("lock-confirm"), &ta("lock-confirm-detail", &[("lock", description.into())]), &t("action-lock"), move || {
+        ui.confirm(&t("lock-confirm"), &detail, &t("action-lock"), move || {
             let Some(ui) = weak.upgrade() else { return };
             let lock = lock.clone();
-            ui.modify(|s| {
-                s.lock = Some(lock);
-                Ok(())
-            });
+            ui.commit(|s| s.lock = Some(lock));
             win.close();
             if let Some(p) = &shown_password {
                 ui.info(&t("password-generated"), &ta("password-generated-detail", &[("password", p.clone().into())]));

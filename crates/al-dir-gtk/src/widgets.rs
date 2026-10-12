@@ -3,6 +3,7 @@
 use al_dir_core::schedule::{Day, Schedule};
 use al_dir_core::{GeoArea, Lock, LockKind};
 use al_dir_i18n::{t, ta};
+use gtk::glib;
 use gtk::prelude::*;
 
 pub fn vbox(spacing: i32) -> gtk::Box {
@@ -107,6 +108,112 @@ pub fn rule_list(
     add_row.append(&entry);
     add_row.append(&add);
     b.append(&add_row);
+    b
+}
+
+/// A text box of rules, one per line. Lines `check` rejects are underlined
+/// and the first one is explained below the box, with the number of rules.
+pub fn rule_text(
+    title: &str,
+    text: &str,
+    examples: &str,
+    check: impl Fn(&str) -> Result<(), String> + 'static,
+    on_change: impl Fn(String) + 'static,
+) -> gtk::Box {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let b = vbox(6);
+    b.append(&heading(title));
+    let buffer = gtk::TextBuffer::new(None);
+    buffer.set_text(text);
+    let invalid = gtk::TextTag::builder().name("invalid").underline(gtk::pango::Underline::Error).build();
+    buffer.tag_table().add(&invalid);
+    let view = gtk::TextView::builder()
+        .buffer(&buffer)
+        .monospace(true)
+        .accepts_tab(false)
+        .top_margin(8)
+        .bottom_margin(8)
+        .left_margin(10)
+        .right_margin(10)
+        .build();
+    // Addresses and program names read left to right in every language.
+    view.set_direction(gtk::TextDirection::Ltr);
+    let scroll = gtk::ScrolledWindow::builder()
+        .child(&view)
+        .min_content_height(120)
+        .max_content_height(360)
+        .propagate_natural_height(true)
+        .build();
+    scroll.add_css_class("frame");
+    b.append(&scroll);
+    let status = note("");
+    b.append(&status);
+    let problem_label = label("");
+    problem_label.add_css_class("error");
+    problem_label.set_visible(false);
+    b.append(&problem_label);
+
+    let examples = examples.to_string();
+    let validate = move |buffer: &gtk::TextBuffer| {
+        buffer.remove_tag_by_name("invalid", &buffer.start_iter(), &buffer.end_iter());
+        let (mut count, mut bad, mut first) = (0i64, 0i64, None);
+        for i in 0..buffer.line_count() {
+            let Some(start) = buffer.iter_at_line(i) else { continue };
+            let mut end = start;
+            if !end.ends_line() {
+                end.forward_to_line_end();
+            }
+            let line = buffer.text(&start, &end, false);
+            let rule = line.trim();
+            if rule.is_empty() {
+                continue;
+            }
+            match check(rule) {
+                Ok(()) => count += 1,
+                Err(problem) => {
+                    buffer.apply_tag(&invalid, &start, &end);
+                    bad += 1;
+                    first.get_or_insert((i + 1, rule.to_string(), problem));
+                }
+            }
+        }
+        status.set_text(&if count == 0 && bad == 0 {
+            ta("list-empty-hint", &[("examples", examples.clone().into())])
+        } else {
+            ta("rules-count", &[("count", count.into())])
+        });
+        match first {
+            Some((line, rule, problem)) => {
+                let mut text =
+                    ta("line-invalid", &[("line", (line as i64).into()), ("rule", rule.into()), ("problem", problem.into())]);
+                if bad > 1 {
+                    text.push(' ');
+                    text.push_str(&ta("lines-invalid-more", &[("count", (bad - 1).into())]));
+                }
+                problem_label.set_text(&text);
+                problem_label.set_visible(true);
+            }
+            None => problem_label.set_visible(false),
+        }
+    };
+    validate(&buffer);
+
+    // Checking waits for a pause in typing, so long lists stay quick.
+    let pending: Rc<Cell<Option<glib::SourceId>>> = Rc::default();
+    let validate = Rc::new(validate);
+    buffer.connect_changed(move |buffer| {
+        on_change(buffer.text(&buffer.start_iter(), &buffer.end_iter(), false).to_string());
+        if let Some(id) = pending.take() {
+            id.remove();
+        }
+        let (buffer, validate, slot) = (buffer.clone(), validate.clone(), pending.clone());
+        pending.set(Some(glib::timeout_add_local_once(std::time::Duration::from_millis(250), move || {
+            slot.set(None);
+            validate(&buffer);
+        })));
+    });
     b
 }
 
