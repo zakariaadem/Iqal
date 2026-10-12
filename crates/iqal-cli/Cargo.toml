@@ -1,0 +1,14 @@
+[package]
+name = "iqal-cli"
+description = "Command-line control for the Iqal blocker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+iqal-core = { path = "../iqal-core" }
+iqal-ipc = { path = "../iqal-ipc" }
+clap.workspace = true
+jiff.workspace = true
+rpassword.workspace = true

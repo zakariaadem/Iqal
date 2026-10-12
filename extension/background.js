@@ -1,6 +1,6 @@
-// Al-Dir browser extension.
+// Iqal browser extension.
 //
-// Asks the Al-Dir service (through the native host) about every page the
+// Asks the Iqal service (through the native host) about every page the
 // user opens, and replaces blocked pages with a block page. Hides parts of
 // pages for partial blocks. All decisions are made by the service; this
 // script only reports URLs and applies the answers.
@@ -8,7 +8,7 @@
 "use strict";
 
 const api = globalThis.browser ?? globalThis.chrome;
-const HOST = "org.aldir.host";
+const HOST = "org.iqal.host";
 const CHECK_TIMEOUT_MS = 3000;
 const RECONNECT_MS = 2000;
 

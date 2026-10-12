@@ -1,13 +1,13 @@
-# Al-Dir — English
+# Iqal — English
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Website and app blocker
 menu = Menu
 menu-import = Import blocks…
 menu-export-all = Export all blocks…
 menu-activity = Recent activity
 menu-settings = Settings
-menu-about = About Al-Dir
+menu-about = About Iqal
 
 action-new-block = New block
 action-remove = Remove
@@ -38,12 +38,12 @@ state-scheduled = Scheduled
 state-locked = Locked
 
 error-title = Something went wrong
-error-service-unreachable = The Al-Dir service is not running. Install or start it, then try again.
-error-unexpected = The Al-Dir service gave an unexpected answer.
+error-service-unreachable = The Iqal service is not running. Install or start it, then try again.
+error-unexpected = The Iqal service gave an unexpected answer.
 error-locked = This block is locked, and this change { $reason }. Locked blocks can only be made stricter.
 error-wrong-answer = That is not correct.
 error-cannot-unlock-early = This lock cannot be opened early.
-error-not-admin = Only administrators can change Al-Dir settings.
+error-not-admin = Only administrators can change Iqal settings.
 
 reason-disables = would turn it off
 reason-fewer-users = would apply it to fewer people
@@ -168,7 +168,7 @@ lock-none-detail = Without a lock, this block can be changed or turned off at an
 lock-active = Locked
 lock-inactive = Lock set, not in force right now
 lock-pending = The lock opens at { $time }.
-location-learn-detail = If you are at this place now, let Al-Dir remember its Wi-Fi networks. This is how Al-Dir knows you are there, even without internet.
+location-learn-detail = If you are at this place now, let Iqal remember its Wi-Fi networks. This is how Iqal knows you are there, even without internet.
 location-learned = Place remembered
 location-learned-detail = { $count } Wi-Fi networks are now remembered for this place.
 location-none-chosen = No area chosen yet.
@@ -188,7 +188,7 @@ unit-metres = metres
 password = Password
 password-repeat = Repeat the password
 password-generate = Make a password for someone else to keep
-password-generate-detail = Al-Dir creates a password and shows it once. Give it to someone you trust.
+password-generate-detail = Iqal creates a password and shows it once. Give it to someone you trust.
 password-mismatch = The passwords are empty or do not match.
 password-generated = The lock password
 password-generated-detail = { $password }
@@ -196,7 +196,7 @@ password-generated-detail = { $password }
     Give it to someone you trust. It will not be shown again.
 random-length = Characters to type
 lock-restart-detail = The block stays locked until this computer is restarted.
-lock-location-detail = The block stays locked while this computer is inside the area, and also whenever Al-Dir cannot tell where it is.
+lock-location-detail = The block stays locked while this computer is inside the area, and also whenever Iqal cannot tell where it is.
 unlock-delay = Wait after unlocking
 unlock-delay-detail = With a wait, a correct answer opens the lock only after this time. It helps with sudden urges.
 lock-duration-zero = Choose a length of time.
@@ -230,11 +230,11 @@ event-page-blocked = Page blocked
 
 settings-language = Language
 settings-language-system = Same as the system
-settings-language-restart = Restart Al-Dir to use the new language.
+settings-language-restart = Restart Iqal to use the new language.
 settings-hardened = Hardened mode
-settings-hardened-detail = While any block is locked, the people it applies to cannot use sudo or administrator password prompts, so they cannot stop Al-Dir. Emergency access: restart into recovery mode. Cannot be turned off while something is locked.
+settings-hardened-detail = While any block is locked, the people it applies to cannot use sudo or administrator password prompts, so they cannot stop Iqal. Emergency access: restart into recovery mode. Cannot be turned off while something is locked.
 settings-status = Status
-status-service = Al-Dir service { $version }
+status-service = Iqal service { $version }
 status-time = Time: { $source }
 status-location = Location: { $state }
 status-extensions = Browser extensions: { $list }

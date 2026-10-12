@@ -1,12 +1,12 @@
 #!/bin/sh
-# Al-Dir: after installing or upgrading.
+# Iqal: after installing or upgrading.
 set -e
 
 if [ "$1" = "configure" ]; then
     systemctl daemon-reload || true
-    systemctl enable al-dir.service >/dev/null 2>&1 || true
+    systemctl enable iqal.service >/dev/null 2>&1 || true
     # Start, or pick up the new version after an upgrade.
-    systemctl restart al-dir.service || true
+    systemctl restart iqal.service || true
     gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
     update-desktop-database -q /usr/share/applications 2>/dev/null || true
 fi

@@ -1,4 +1,4 @@
-# Al-Dir — Build Plan
+# Iqal — Build Plan
 
 Open-source (GPL-3.0) website and app blocker for **Linux Mint** (first) and **Windows 11** (second).
 Native only: Rust core, GTK4 UI on Linux, raw Win32 UI on Windows. No web UI.
@@ -9,12 +9,12 @@ Native only: Rust core, GTK4 UI on Linux, raw Win32 UI on Windows. No web UI.
 
 ```
 ┌──────────────┐   Unix socket    ┌─────────────────────────────┐
-│ al-dir (GTK) │◄────────────────►│ al-dir-daemon  (root,       │
-│ al-dir-cli   │   (peer-cred     │   systemd, Rust)            │
+│ iqal (GTK) │◄────────────────►│ iqal-daemon  (root,       │
+│ iqal-cli   │   (peer-cred     │   systemd, Rust)            │
 └──────────────┘    checked)      │  • rule engine (core crate) │
                                   │  • locks + tamper guard     │
 ┌──────────────┐                  │  • fanotify exec blocker    │
-│ al-dir-agent │◄────────────────►│  • DNS filter + nftables    │
+│ iqal-agent │◄────────────────►│  • DNS filter + nftables    │
 │ (per user,   │                  │  • location monitor         │
 │  X11 titles, │                  │  • stats, list updater      │
 │  block page) │                  └─────────────▲───────────────┘
@@ -34,14 +34,14 @@ The UI is only an editor. Killing it changes nothing. All enforcement is in the 
 
 | Crate | Purpose | Platform |
 |---|---|---|
-| `al-dir-core` | Rule model, matching engine (domain trie, Aho-Corasick for URL/keyword/title), locks, schedules, allowances, profiles, import/export format | any |
-| `al-dir-ipc` | Message types + framed transport for UI/CLI/agent/extension ↔ daemon | any |
-| `al-dir-i18n` | Fluent translations, locale detection, RTL flag | any |
-| `al-dir-daemon` | The privileged service (`linux/`, later `windows/` modules) | per OS |
-| `al-dir-agent` | Per-session agent: window titles, block overlay, notifications | per OS |
-| `al-dir-gtk` | Linux GUI (GTK4, libshumate map) | Linux |
-| `al-dir-win32` | Windows GUI (later) | Windows |
-| `al-dir-cli` | Command-line tool | any |
+| `iqal-core` | Rule model, matching engine (domain trie, Aho-Corasick for URL/keyword/title), locks, schedules, allowances, profiles, import/export format | any |
+| `iqal-ipc` | Message types + framed transport for UI/CLI/agent/extension ↔ daemon | any |
+| `iqal-i18n` | Fluent translations, locale detection, RTL flag | any |
+| `iqal-daemon` | The privileged service (`linux/`, later `windows/` modules) | per OS |
+| `iqal-agent` | Per-session agent: window titles, block overlay, notifications | per OS |
+| `iqal-gtk` | Linux GUI (GTK4, libshumate map) | Linux |
+| `iqal-win32` | Windows GUI (later) | Windows |
+| `iqal-cli` | Command-line tool | any |
 | `extension/` | WebExtension (one codebase, Chromium + Firefox manifests) | — |
 | `lists/` | Pre-made lists + update manifest | — |
 | `locales/` | `.ftl` translation files (en, ar, fr, es, de, tr, ur, id, ...) | — |
@@ -67,7 +67,7 @@ The UI is only an editor. Killing it changes nothing. All enforcement is in the 
 | Website exceptions | Allow rules beat block rules at the same or more specific level (e.g. block `youtube.com`, allow `youtube.com/watch?v=…` lecture). |
 | Pre-made lists | Social media, adult, gambling, search engines, news, (+ games, shopping, video). Bundled, signed (minisign), and updated automatically from upstream open-source lists. |
 | Import from text file | One domain/URL/keyword per line. `#` comments. hosts-file and Adblock syntax recognised. |
-| Export / import blocks | `.aldir` file (versioned JSON, optionally signed). Importing can **never** weaken a locked block. |
+| Export / import blocks | `.iqal` file (versioned JSON, optionally signed). Importing can **never** weaken a locked block. |
 
 ### Locks
 
@@ -84,7 +84,7 @@ The UI is only an editor. Killing it changes nothing. All enforcement is in the 
 **Clock tampering:** lock deadlines are tracked with `CLOCK_BOOTTIME` plus periodic NTP verification. Moving the system clock forward doesn't end a lock.
 
 **Location lock details**
-- **Learned Wi-Fi networks (main source).** "I am at this place now" (`al-dir-cli learn-location`, later a GUI button) remembers every network in range, neighbours' included. It's also learned automatically while a precise position says you're there. Learning only ever adds networks.
+- **Learned Wi-Fi networks (main source).** "I am at this place now" (`iqal-cli learn-location`, later a GUI button) remembers every network in range, neighbours' included. It's also learned automatically while a precise position says you're there. Learning only ever adds networks.
   - Any remembered network in range → **inside**.
   - Wi-Fi working, at least 2 networks in range, none remembered → **away**.
 - **OS location service (GeoClue2).** The service registers its own GeoClue agent (root has none) and points GeoClue's Wi-Fi lookup at BeaconDB, the open successor of Mozilla's retired service. Only positions better than 1 km count; IP-based guesses (fakeable with a VPN) are ignored. BeaconDB's coverage is still sparse (it had no data for the test PC in Norway), so this is a secondary source.
@@ -97,7 +97,7 @@ Allowance (X min/day per site/app, across browsers) · delayed unlock · random-
 
 ### Tamper resistance (Linux)
 - systemd unit with `Restart=always` and a watchdog. The agent re-launches itself via XDG autostart + a systemd user unit.
-- Config in `/var/lib/al-dir` (root 0600). The UI only edits through the daemon, which refuses to weaken locked rules.
+- Config in `/var/lib/iqal` (root 0600). The UI only edits through the daemon, which refuses to weaken locked rules.
 - The daemon re-asserts its nftables rules, policy files and polkit rules if they're removed.
 - Package removal blocked while a lock is active (dpkg pre-remove hook refuses).
 - **Honest limit:** a user with `sudo` can still defeat any Linux blocker. Optional "hardened lock" mode: while a lock is active, the daemon removes the locked user's sudo rights (with an emergency recovery path documented), turning "trivial" into "requires booting another OS".
@@ -116,8 +116,8 @@ Allowance (X min/day per site/app, across browsers) · delayed unlock · random-
 
 | # | Milestone | Done when |
 |---|---|---|
-| M0 | Workspace, `al-dir-core` (rules, matcher, schedules, locks logic, import/export), unit tests, CI | `cargo test` green; matcher benchmarks |
-| M1 | Daemon skeleton, IPC, CLI, config storage, systemd unit | `al-dir-cli` can add/list rules on Mint |
+| M0 | Workspace, `iqal-core` (rules, matcher, schedules, locks logic, import/export), unit tests, CI | `cargo test` green; matcher benchmarks |
+| M1 | Daemon skeleton, IPC, CLI, config storage, systemd unit | `iqal-cli` can add/list rules on Mint |
 | M2 | App blocking: fanotify exec, user scope, allow-only | Blocked app can't launch |
 | M3 | X11 agent: window-title blocking, block overlay | Matching window closes instantly |
 | M4 | DNS filter + per-UID nftables + DoH lockdown + SafeSearch | Blocked domains fail in every app |

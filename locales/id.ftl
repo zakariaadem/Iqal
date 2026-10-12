@@ -1,13 +1,13 @@
-# Al-Dir — Bahasa Indonesia
+# Iqal — Bahasa Indonesia
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Pemblokir situs web dan aplikasi
 menu = Menu
 menu-import = Impor blok…
 menu-export-all = Ekspor semua blok…
 menu-activity = Aktivitas terbaru
 menu-settings = Pengaturan
-menu-about = Tentang Al-Dir
+menu-about = Tentang Iqal
 
 action-new-block = Blok baru
 action-remove = Hapus dari daftar
@@ -38,12 +38,12 @@ state-scheduled = Terjadwal
 state-locked = Terkunci
 
 error-title = Terjadi kesalahan
-error-service-unreachable = Layanan Al-Dir tidak berjalan. Pasang atau jalankan, lalu coba lagi.
-error-unexpected = Layanan Al-Dir memberikan jawaban yang tidak terduga.
+error-service-unreachable = Layanan Iqal tidak berjalan. Pasang atau jalankan, lalu coba lagi.
+error-unexpected = Layanan Iqal memberikan jawaban yang tidak terduga.
 error-locked = Blok ini terkunci, dan perubahan ini { $reason }. Blok yang terkunci hanya bisa dibuat lebih ketat.
 error-wrong-answer = Itu tidak benar.
 error-cannot-unlock-early = Kunci ini tidak bisa dibuka lebih awal.
-error-not-admin = Hanya administrator yang dapat mengubah pengaturan Al-Dir.
+error-not-admin = Hanya administrator yang dapat mengubah pengaturan Iqal.
 
 reason-disables = akan mematikannya
 reason-fewer-users = akan menerapkannya ke lebih sedikit orang
@@ -165,7 +165,7 @@ lock-none-detail = Tanpa kunci, blok ini bisa diubah atau dimatikan kapan saja. 
 lock-active = Terkunci
 lock-inactive = Kunci terpasang, belum berlaku sekarang
 lock-pending = Kunci terbuka pada { $time }.
-location-learn-detail = Jika Anda sedang berada di tempat ini, biarkan Al-Dir mengingat jaringan Wi-Fi-nya. Dengan begitu Al-Dir tahu Anda ada di sana, bahkan tanpa internet.
+location-learn-detail = Jika Anda sedang berada di tempat ini, biarkan Iqal mengingat jaringan Wi-Fi-nya. Dengan begitu Iqal tahu Anda ada di sana, bahkan tanpa internet.
 location-learned = Tempat diingat
 location-learned-detail = Sekarang { $count } jaringan Wi-Fi diingat untuk tempat ini.
 location-none-chosen = Belum ada area yang dipilih.
@@ -185,7 +185,7 @@ unit-metres = meter
 password = Kata sandi
 password-repeat = Ulangi kata sandi
 password-generate = Buat kata sandi untuk disimpan orang lain
-password-generate-detail = Al-Dir membuat kata sandi dan menampilkannya sekali. Berikan kepada orang yang Anda percaya.
+password-generate-detail = Iqal membuat kata sandi dan menampilkannya sekali. Berikan kepada orang yang Anda percaya.
 password-mismatch = Kata sandi kosong atau tidak cocok.
 password-generated = Kata sandi kunci
 password-generated-detail = { $password }
@@ -193,7 +193,7 @@ password-generated-detail = { $password }
     Berikan kepada orang yang Anda percaya. Ini tidak akan ditampilkan lagi.
 random-length = Jumlah karakter yang diketik
 lock-restart-detail = Blok tetap terkunci sampai komputer ini dinyalakan ulang.
-lock-location-detail = Blok tetap terkunci selama komputer ini berada di dalam area, dan juga setiap kali Al-Dir tidak bisa mengetahui lokasinya.
+lock-location-detail = Blok tetap terkunci selama komputer ini berada di dalam area, dan juga setiap kali Iqal tidak bisa mengetahui lokasinya.
 unlock-delay = Jeda setelah membuka kunci
 unlock-delay-detail = Dengan jeda, jawaban yang benar baru membuka kunci setelah waktu ini. Ini membantu menahan dorongan sesaat.
 lock-duration-zero = Pilih lamanya waktu.
@@ -227,11 +227,11 @@ event-page-blocked = Halaman diblokir
 
 settings-language = Bahasa
 settings-language-system = Sama dengan sistem
-settings-language-restart = Mulai ulang Al-Dir untuk memakai bahasa baru.
+settings-language-restart = Mulai ulang Iqal untuk memakai bahasa baru.
 settings-hardened = Mode ketat
-settings-hardened-detail = Selama ada blok yang terkunci, orang yang terkena blok tidak dapat memakai sudo atau permintaan kata sandi administrator, sehingga tidak dapat menghentikan Al-Dir. Akses darurat: mulai ulang ke mode pemulihan. Tidak dapat dimatikan selama ada yang terkunci.
+settings-hardened-detail = Selama ada blok yang terkunci, orang yang terkena blok tidak dapat memakai sudo atau permintaan kata sandi administrator, sehingga tidak dapat menghentikan Iqal. Akses darurat: mulai ulang ke mode pemulihan. Tidak dapat dimatikan selama ada yang terkunci.
 settings-status = Status
-status-service = Layanan Al-Dir { $version }
+status-service = Layanan Iqal { $version }
 status-time = Waktu: { $source }
 status-location = Lokasi: { $state }
 status-extensions = Ekstensi peramban: { $list }

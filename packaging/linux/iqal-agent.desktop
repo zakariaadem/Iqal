@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Iqal Agent
+Comment=Shows notifications when Iqal blocks something
+Exec=@BINDIR@/iqal-agent
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-AutoRestart=true

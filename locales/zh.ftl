@@ -1,13 +1,13 @@
-# Al-Dir — 简体中文
+# Iqal — 简体中文
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = 网站和应用拦截器
 menu = 菜单
 menu-import = 导入拦截组…
 menu-export-all = 导出全部拦截组…
 menu-activity = 最近活动
 menu-settings = 设置
-menu-about = 关于 Al-Dir
+menu-about = 关于 Iqal
 
 action-new-block = 新建拦截组
 action-remove = 移除
@@ -38,12 +38,12 @@ state-scheduled = 按时间表
 state-locked = 已上锁
 
 error-title = 出错了
-error-service-unreachable = Al-Dir 服务未运行。请安装或启动它，然后重试。
-error-unexpected = Al-Dir 服务返回了意外的结果。
+error-service-unreachable = Iqal 服务未运行。请安装或启动它，然后重试。
+error-unexpected = Iqal 服务返回了意外的结果。
 error-locked = 此拦截组已上锁，而这项更改{ $reason }。已上锁的拦截组只能变得更严格。
 error-wrong-answer = 不正确。
 error-cannot-unlock-early = 此锁不能提前打开。
-error-not-admin = 只有管理员可以更改 Al-Dir 的设置。
+error-not-admin = 只有管理员可以更改 Iqal 的设置。
 
 reason-disables = 会关闭它
 reason-fewer-users = 会让它适用于更少的人
@@ -165,7 +165,7 @@ lock-none-detail = 没有锁时，这个拦截组可以随时更改或关闭。�
 lock-active = 已上锁
 lock-inactive = 已设置锁，目前未生效
 lock-pending = 锁将在 { $time } 打开。
-location-learn-detail = 如果你现在就在这个地方，让 Al-Dir 记住这里的 Wi-Fi 网络。这样即使没有网络，Al-Dir 也知道你在这里。
+location-learn-detail = 如果你现在就在这个地方，让 Iqal 记住这里的 Wi-Fi 网络。这样即使没有网络，Iqal 也知道你在这里。
 location-learned = 已记住此地点
 location-learned-detail = 此地点现已记住 { $count } 个 Wi-Fi 网络。
 location-none-chosen = 尚未选择区域。
@@ -185,7 +185,7 @@ unit-metres = 米
 password = 密码
 password-repeat = 再次输入密码
 password-generate = 生成一个由别人保管的密码
-password-generate-detail = Al-Dir 会生成一个密码并只显示一次。请交给你信任的人。
+password-generate-detail = Iqal 会生成一个密码并只显示一次。请交给你信任的人。
 password-mismatch = 密码为空或两次不一致。
 password-generated = 锁的密码
 password-generated-detail = { $password }
@@ -193,7 +193,7 @@ password-generated-detail = { $password }
     请交给你信任的人。它不会再次显示。
 random-length = 需要输入的字符数
 lock-restart-detail = 在这台电脑重启之前，拦截组会一直保持锁定。
-lock-location-detail = 当这台电脑在区域内时，以及每当 Al-Dir 无法判断它在哪里时，拦截组都会保持锁定。
+lock-location-detail = 当这台电脑在区域内时，以及每当 Iqal 无法判断它在哪里时，拦截组都会保持锁定。
 unlock-delay = 解锁后等待
 unlock-delay-detail = 设置等待后，正确的回答要过这段时间才会打开锁。这有助于克服一时的冲动。
 lock-duration-zero = 请选择时长。
@@ -227,11 +227,11 @@ event-page-blocked = 页面被拦截
 
 settings-language = 语言
 settings-language-system = 与系统相同
-settings-language-restart = 重启 Al-Dir 以使用新语言。
+settings-language-restart = 重启 Iqal 以使用新语言。
 settings-hardened = 强化模式
-settings-hardened-detail = 只要有拦截组处于锁定状态，受其约束的人就无法使用 sudo 或管理员密码提示，因此无法停止 Al-Dir。紧急访问：重启进入恢复模式。有内容被锁定时无法关闭。
+settings-hardened-detail = 只要有拦截组处于锁定状态，受其约束的人就无法使用 sudo 或管理员密码提示，因此无法停止 Iqal。紧急访问：重启进入恢复模式。有内容被锁定时无法关闭。
 settings-status = 状态
-status-service = Al-Dir 服务 { $version }
+status-service = Iqal 服务 { $version }
 status-time = 时间：{ $source }
 status-location = 位置：{ $state }
 status-extensions = 浏览器扩展：{ $list }

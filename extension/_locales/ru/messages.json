@@ -1,6 +1,6 @@
 {
-  "extName": { "message": "Al-Dir" },
-  "extDescription": { "message": "Блокировка сайтов для Al-Dir. Управляется Al-Dir; нельзя удалить, пока Al-Dir установлен." },
+  "extName": { "message": "Iqal" },
+  "extDescription": { "message": "Блокировка сайтов для Iqal. Управляется Iqal; нельзя удалить, пока Iqal установлен." },
   "blockedTitle": { "message": "Эта страница заблокирована" },
   "blockedBy": {
     "message": "Заблокировано блоком «$SET$»",

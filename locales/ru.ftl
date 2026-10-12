@@ -1,13 +1,13 @@
-# Al-Dir — Русский
+# Iqal — Русский
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Блокировщик сайтов и приложений
 menu = Меню
 menu-import = Импортировать блоки…
 menu-export-all = Экспортировать все блоки…
 menu-activity = Недавние события
 menu-settings = Настройки
-menu-about = О программе Al-Dir
+menu-about = О программе Iqal
 
 action-new-block = Новый блок
 action-remove = Убрать
@@ -38,12 +38,12 @@ state-scheduled = По расписанию
 state-locked = Заперт
 
 error-title = Что-то пошло не так
-error-service-unreachable = Служба Al-Dir не запущена. Установите или запустите её и повторите попытку.
-error-unexpected = Служба Al-Dir дала неожиданный ответ.
+error-service-unreachable = Служба Iqal не запущена. Установите или запустите её и повторите попытку.
+error-unexpected = Служба Iqal дала неожиданный ответ.
 error-locked = Этот блок заперт, а это изменение { $reason }. Запертый блок можно только ужесточить.
 error-wrong-answer = Неверно.
 error-cannot-unlock-early = Этот замок нельзя открыть досрочно.
-error-not-admin = Изменять настройки Al-Dir могут только администраторы.
+error-not-admin = Изменять настройки Iqal могут только администраторы.
 
 reason-disables = выключило бы его
 reason-fewer-users = применило бы его к меньшему числу людей
@@ -170,7 +170,7 @@ lock-none-detail = Без замка этот блок можно изменит
 lock-active = Заперт
 lock-inactive = Замок задан, сейчас не действует
 lock-pending = Замок откроется { $time }.
-location-learn-detail = Если вы сейчас в этом месте, позвольте Al-Dir запомнить здешние сети Wi-Fi. Так Al-Dir узнаёт, что вы здесь, даже без интернета.
+location-learn-detail = Если вы сейчас в этом месте, позвольте Iqal запомнить здешние сети Wi-Fi. Так Iqal узнаёт, что вы здесь, даже без интернета.
 location-learned = Место запомнено
 location-learned-detail = Для этого места запомнено сетей Wi-Fi: { $count }.
 location-none-chosen = Область ещё не выбрана.
@@ -190,7 +190,7 @@ unit-metres = метров
 password = Пароль
 password-repeat = Повторите пароль
 password-generate = Создать пароль, который будет хранить другой человек
-password-generate-detail = Al-Dir создаёт пароль и показывает его один раз. Отдайте его человеку, которому доверяете.
+password-generate-detail = Iqal создаёт пароль и показывает его один раз. Отдайте его человеку, которому доверяете.
 password-mismatch = Пароли пусты или не совпадают.
 password-generated = Пароль замка
 password-generated-detail = { $password }
@@ -198,7 +198,7 @@ password-generated-detail = { $password }
     Отдайте его человеку, которому доверяете. Больше он показан не будет.
 random-length = Количество символов для ввода
 lock-restart-detail = Блок остаётся запертым до перезагрузки этого компьютера.
-lock-location-detail = Блок остаётся запертым, пока этот компьютер находится в области, а также всякий раз, когда Al-Dir не может определить, где он.
+lock-location-detail = Блок остаётся запертым, пока этот компьютер находится в области, а также всякий раз, когда Iqal не может определить, где он.
 unlock-delay = Ожидание после разблокировки
 unlock-delay-detail = С ожиданием правильный ответ открывает замок только по истечении этого времени. Это помогает против внезапных порывов.
 lock-duration-zero = Выберите продолжительность.
@@ -232,11 +232,11 @@ event-page-blocked = Страница заблокирована
 
 settings-language = Язык
 settings-language-system = Как в системе
-settings-language-restart = Перезапустите Al-Dir, чтобы применить новый язык.
+settings-language-restart = Перезапустите Iqal, чтобы применить новый язык.
 settings-hardened = Усиленный режим
-settings-hardened-detail = Пока какой-либо блок заперт, люди, к которым он применяется, не могут пользоваться sudo и запросами пароля администратора и поэтому не могут остановить Al-Dir. Экстренный доступ: перезагрузка в режим восстановления. Нельзя выключить, пока что-то заперто.
+settings-hardened-detail = Пока какой-либо блок заперт, люди, к которым он применяется, не могут пользоваться sudo и запросами пароля администратора и поэтому не могут остановить Iqal. Экстренный доступ: перезагрузка в режим восстановления. Нельзя выключить, пока что-то заперто.
 settings-status = Состояние
-status-service = Служба Al-Dir { $version }
+status-service = Служба Iqal { $version }
 status-time = Время: { $source }
 status-location = Местоположение: { $state }
 status-extensions = Расширения браузера: { $list }

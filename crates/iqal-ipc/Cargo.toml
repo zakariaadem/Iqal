@@ -1,0 +1,12 @@
+[package]
+name = "iqal-ipc"
+description = "Protocol between the Iqal service and its clients"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+iqal-core = { path = "../iqal-core" }
+serde.workspace = true
+serde_json.workspace = true

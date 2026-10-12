@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/al-dir-core", "crates/al-dir-ipc", "crates/al-dir-daemon", "crates/al-dir-cli", "crates/al-dir-agent", "crates/al-dir-host", "crates/al-dir-pack", "crates/al-dir-i18n", "crates/al-dir-gtk"]
+members = ["crates/iqal-core", "crates/iqal-ipc", "crates/iqal-daemon", "crates/iqal-cli", "crates/iqal-agent", "crates/iqal-host", "crates/iqal-pack", "crates/iqal-i18n", "crates/iqal-gtk"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
-authors = ["Al-Dir contributors"]
+authors = ["Iqal contributors"]
 
 [workspace.dependencies]
 aho-corasick = "1.1.5"

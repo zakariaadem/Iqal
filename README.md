@@ -1,4 +1,4 @@
-# Al-Dir
+# Iqal
 
 A native, open-source website and app blocker for Linux Mint and Windows 11.
 
@@ -8,15 +8,15 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 
 | Path | What |
 |---|---|
-| `crates/al-dir-core` | Platform-independent rule engine: rules, matching, schedules, locks, import/export |
-| `crates/al-dir-ipc` | Messages between the service and its clients |
-| `crates/al-dir-daemon` | The background service (runs as root under systemd) |
-| `crates/al-dir-cli` | Command-line tool (`al-dir-cli --help`) |
-| `crates/al-dir-agent` | Per-session agent: desktop notifications when something is blocked |
-| `crates/al-dir-gtk` | The graphical app (`al-dir`), GTK 4 |
-| `crates/al-dir-i18n` | Translations (Fluent); texts in `locales/` |
-| `crates/al-dir-host` | Native messaging host between the browser extension and the service |
-| `crates/al-dir-pack` | Dev tool: packages the extension (`.xpi`, signed `.crx`) |
+| `crates/iqal-core` | Platform-independent rule engine: rules, matching, schedules, locks, import/export |
+| `crates/iqal-ipc` | Messages between the service and its clients |
+| `crates/iqal-daemon` | The background service (runs as root under systemd) |
+| `crates/iqal-cli` | Command-line tool (`iqal-cli --help`) |
+| `crates/iqal-agent` | Per-session agent: desktop notifications when something is blocked |
+| `crates/iqal-gtk` | The graphical app (`iqal`), GTK 4 |
+| `crates/iqal-i18n` | Translations (Fluent); texts in `locales/` |
+| `crates/iqal-host` | Native messaging host between the browser extension and the service |
+| `crates/iqal-pack` | Dev tool: packages the extension (`.xpi`, signed `.crx`) |
 | `extension` | Browser extension (Firefox and Chromium family) |
 | `lists` | Curated starter lists for the pre-made categories |
 | `locales` | Interface translations (11 languages) |
@@ -28,14 +28,14 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 ```bash
 sudo apt install build-essential pkg-config libgtk-4-dev libshumate-dev
 cargo build --release
-cargo run -p al-dir-pack            # browser extension
-packaging/linux/build-deb.sh        # -> dist/al-dir_<version>_amd64.deb
-sudo apt install ./dist/al-dir_*_amd64.deb
+cargo run -p iqal-pack            # browser extension
+packaging/linux/build-deb.sh        # -> dist/iqal_<version>_amd64.deb
+sudo apt install ./dist/iqal_*_amd64.deb
 ```
 
-Removing the package is refused while any block is locked. `apt purge al-dir` also deletes the settings in `/var/lib/al-dir`.
+Removing the package is refused while any block is locked. `apt purge iqal` also deletes the settings in `/var/lib/iqal`.
 
-Firefox only accepts a Mozilla-signed extension: put it at `dist/extension/al-dir-signed.xpi` before building.
+Firefox only accepts a Mozilla-signed extension: put it at `dist/extension/iqal-signed.xpi` before building.
 
 ### Development install (without a package)
 
@@ -49,16 +49,16 @@ Do not mix this with the package.
 ## Development without root
 
 ```bash
-export AL_DIR_SOCKET=/tmp/al-dir-dev.sock
-target/release/al-dir-daemon --socket $AL_DIR_SOCKET --state-dir /tmp/al-dir-dev &
-target/release/al-dir-cli status
+export IQAL_SOCKET=/tmp/iqal-dev.sock
+target/release/iqal-daemon --socket $IQAL_SOCKET --state-dir /tmp/iqal-dev &
+target/release/iqal-cli status
 ```
 
 Tests and lookup benchmark:
 
 ```bash
 cargo test
-cargo run --release --example bench -p al-dir-core
+cargo run --release --example bench -p iqal-core
 ```
 
 ## License

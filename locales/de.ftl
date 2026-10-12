@@ -1,13 +1,13 @@
-# Al-Dir — Deutsch
+# Iqal — Deutsch
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Sperre für Websites und Apps
 menu = Menü
 menu-import = Sperren importieren…
 menu-export-all = Alle Sperren exportieren…
 menu-activity = Letzte Aktivität
 menu-settings = Einstellungen
-menu-about = Über Al-Dir
+menu-about = Über Iqal
 
 action-new-block = Neue Sperre
 action-remove = Entfernen
@@ -38,12 +38,12 @@ state-scheduled = Geplant
 state-locked = Abgeschlossen
 
 error-title = Etwas ist schiefgelaufen
-error-service-unreachable = Der Al-Dir-Dienst läuft nicht. Installieren oder starten Sie ihn und versuchen Sie es erneut.
-error-unexpected = Der Al-Dir-Dienst hat unerwartet geantwortet.
+error-service-unreachable = Der Iqal-Dienst läuft nicht. Installieren oder starten Sie ihn und versuchen Sie es erneut.
+error-unexpected = Der Iqal-Dienst hat unerwartet geantwortet.
 error-locked = Diese Sperre ist abgeschlossen, und diese Änderung { $reason }. Abgeschlossene Sperren können nur verschärft werden.
 error-wrong-answer = Das ist nicht richtig.
 error-cannot-unlock-early = Dieses Schloss kann nicht vorzeitig geöffnet werden.
-error-not-admin = Nur Administratoren können die Einstellungen von Al-Dir ändern.
+error-not-admin = Nur Administratoren können die Einstellungen von Iqal ändern.
 
 reason-disables = würde sie ausschalten
 reason-fewer-users = würde sie auf weniger Personen anwenden
@@ -168,7 +168,7 @@ lock-none-detail = Ohne Schloss kann diese Sperre jederzeit geändert oder ausge
 lock-active = Abgeschlossen
 lock-inactive = Schloss eingerichtet, derzeit nicht aktiv
 lock-pending = Das Schloss öffnet sich am { $time }.
-location-learn-detail = Wenn Sie jetzt an diesem Ort sind, lassen Sie Al-Dir seine WLAN-Netze merken. So erkennt Al-Dir, dass Sie dort sind, auch ohne Internet.
+location-learn-detail = Wenn Sie jetzt an diesem Ort sind, lassen Sie Iqal seine WLAN-Netze merken. So erkennt Iqal, dass Sie dort sind, auch ohne Internet.
 location-learned = Ort gemerkt
 location-learned-detail = Für diesen Ort sind jetzt { $count } WLAN-Netze gespeichert.
 location-none-chosen = Noch kein Bereich gewählt.
@@ -188,7 +188,7 @@ unit-metres = Meter
 password = Passwort
 password-repeat = Passwort wiederholen
 password-generate = Ein Passwort für jemand anderen erstellen
-password-generate-detail = Al-Dir erstellt ein Passwort und zeigt es einmal an. Geben Sie es einer Person Ihres Vertrauens.
+password-generate-detail = Iqal erstellt ein Passwort und zeigt es einmal an. Geben Sie es einer Person Ihres Vertrauens.
 password-mismatch = Die Passwörter sind leer oder stimmen nicht überein.
 password-generated = Das Passwort des Schlosses
 password-generated-detail = { $password }
@@ -196,7 +196,7 @@ password-generated-detail = { $password }
     Geben Sie es einer Person Ihres Vertrauens. Es wird nicht noch einmal angezeigt.
 random-length = Einzutippende Zeichen
 lock-restart-detail = Die Sperre bleibt abgeschlossen, bis dieser Computer neu gestartet wird.
-lock-location-detail = Die Sperre bleibt abgeschlossen, solange dieser Computer im Bereich ist, und auch immer dann, wenn Al-Dir nicht erkennen kann, wo er ist.
+lock-location-detail = Die Sperre bleibt abgeschlossen, solange dieser Computer im Bereich ist, und auch immer dann, wenn Iqal nicht erkennen kann, wo er ist.
 unlock-delay = Wartezeit nach dem Entsperren
 unlock-delay-detail = Mit Wartezeit öffnet eine richtige Antwort das Schloss erst nach dieser Zeit. Das hilft gegen plötzliche Impulse.
 lock-duration-zero = Wählen Sie eine Dauer.
@@ -230,11 +230,11 @@ event-page-blocked = Seite gesperrt
 
 settings-language = Sprache
 settings-language-system = Wie das System
-settings-language-restart = Starten Sie Al-Dir neu, um die neue Sprache zu verwenden.
+settings-language-restart = Starten Sie Iqal neu, um die neue Sprache zu verwenden.
 settings-hardened = Verschärfter Modus
-settings-hardened-detail = Solange eine Sperre abgeschlossen ist, können die betroffenen Personen weder sudo noch Administrator-Passwortabfragen nutzen und Al-Dir daher nicht stoppen. Notzugang: im Wiederherstellungsmodus neu starten. Kann nicht ausgeschaltet werden, solange etwas abgeschlossen ist.
+settings-hardened-detail = Solange eine Sperre abgeschlossen ist, können die betroffenen Personen weder sudo noch Administrator-Passwortabfragen nutzen und Iqal daher nicht stoppen. Notzugang: im Wiederherstellungsmodus neu starten. Kann nicht ausgeschaltet werden, solange etwas abgeschlossen ist.
 settings-status = Status
-status-service = Al-Dir-Dienst { $version }
+status-service = Iqal-Dienst { $version }
 status-time = Zeit: { $source }
 status-location = Ort: { $state }
 status-extensions = Browser-Erweiterungen: { $list }

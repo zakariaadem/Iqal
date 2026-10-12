@@ -1,5 +1,5 @@
 #!/bin/sh
-# Al-Dir: after removing.
+# Iqal: after removing.
 set -e
 
 case "$1" in
@@ -8,7 +8,7 @@ case "$1" in
         ;;
     purge)
         # Settings, statistics and downloaded lists.
-        rm -rf /var/lib/al-dir
+        rm -rf /var/lib/iqal
         systemctl daemon-reload || true
         ;;
 esac

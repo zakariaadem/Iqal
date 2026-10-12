@@ -1,13 +1,13 @@
-# الدرع — العربية
+# عِقال — العربية
 
-app-name = الدرع
+app-name = عِقال
 app-description = حاجب المواقع والتطبيقات
 menu = القائمة
 menu-import = استيراد كتل…
 menu-export-all = تصدير كل الكتل…
 menu-activity = النشاط الأخير
 menu-settings = الإعدادات
-menu-about = عن الدرع
+menu-about = عن عِقال
 
 action-new-block = كتلة جديدة
 action-remove = إزالة
@@ -38,12 +38,12 @@ state-scheduled = مجدولة
 state-locked = مقفلة
 
 error-title = حدث خطأ
-error-service-unreachable = خدمة الدرع لا تعمل. ثبّتها أو شغّلها ثم حاول مرة أخرى.
-error-unexpected = أعطت خدمة الدرع إجابة غير متوقعة.
+error-service-unreachable = خدمة عِقال لا تعمل. ثبّتها أو شغّلها ثم حاول مرة أخرى.
+error-unexpected = أعطت خدمة عِقال إجابة غير متوقعة.
 error-locked = هذه الكتلة مقفلة، وهذا التغيير { $reason }. لا يمكن إلا تشديد الكتل المقفلة.
 error-wrong-answer = هذا غير صحيح.
 error-cannot-unlock-early = لا يمكن فتح هذا القفل مبكرًا.
-error-not-admin = لا يغيّر إعدادات الدرع إلا المسؤولون.
+error-not-admin = لا يغيّر إعدادات عِقال إلا المسؤولون.
 
 reason-disables = سيوقفها
 reason-fewer-users = سيطبّقها على عدد أقل من الأشخاص
@@ -172,7 +172,7 @@ lock-none-detail = بدون قفل يمكن تغيير هذه الكتلة أو 
 lock-active = مقفلة
 lock-inactive = القفل مضبوط، لكنه غير نافذ الآن
 lock-pending = يُفتح القفل في { $time }.
-location-learn-detail = إن كنت في هذا المكان الآن، فدع الدرع يتذكر شبكات Wi-Fi فيه. بهذا يعرف الدرع أنك هناك، حتى دون إنترنت.
+location-learn-detail = إن كنت في هذا المكان الآن، فدع عِقال يتذكر شبكات Wi-Fi فيه. بهذا يعرف عِقال أنك هناك، حتى دون إنترنت.
 location-learned = تم تذكّر المكان
 location-learned-detail = عدد شبكات Wi-Fi المحفوظة لهذا المكان الآن: { $count }.
 location-none-chosen = لم تُختر منطقة بعد.
@@ -192,7 +192,7 @@ unit-metres = متر
 password = كلمة المرور
 password-repeat = أعد كتابة كلمة المرور
 password-generate = أنشئ كلمة مرور يحتفظ بها شخص آخر
-password-generate-detail = ينشئ الدرع كلمة مرور ويعرضها مرة واحدة. أعطها لشخص تثق به.
+password-generate-detail = ينشئ عِقال كلمة مرور ويعرضها مرة واحدة. أعطها لشخص تثق به.
 password-mismatch = كلمتا المرور فارغتان أو غير متطابقتين.
 password-generated = كلمة مرور القفل
 password-generated-detail = { $password }
@@ -200,7 +200,7 @@ password-generated-detail = { $password }
     أعطها لشخص تثق به. لن تُعرض مرة أخرى.
 random-length = عدد الأحرف المطلوب كتابتها
 lock-restart-detail = تبقى الكتلة مقفلة حتى يُعاد تشغيل هذا الحاسوب.
-lock-location-detail = تبقى الكتلة مقفلة ما دام هذا الحاسوب داخل المنطقة، وكذلك كلما تعذّر على الدرع معرفة مكانه.
+lock-location-detail = تبقى الكتلة مقفلة ما دام هذا الحاسوب داخل المنطقة، وكذلك كلما تعذّر على عِقال معرفة مكانه.
 unlock-delay = الانتظار بعد الفتح
 unlock-delay-detail = مع الانتظار، لا تفتح الإجابة الصحيحة القفل إلا بعد هذه المدة. هذا يساعد على تجاوز الرغبة المفاجئة.
 lock-duration-zero = اختر مدة من الوقت.
@@ -234,11 +234,11 @@ event-page-blocked = حُجبت صفحة
 
 settings-language = اللغة
 settings-language-system = مثل لغة النظام
-settings-language-restart = أعد تشغيل الدرع لاستخدام اللغة الجديدة.
+settings-language-restart = أعد تشغيل عِقال لاستخدام اللغة الجديدة.
 settings-hardened = الوضع المشدّد
-settings-hardened-detail = ما دامت أي كتلة مقفلة، لا يستطيع الأشخاص المطبّقة عليهم استخدام sudo أو نوافذ كلمة مرور المسؤول، فلا يستطيعون إيقاف الدرع. للدخول الطارئ: أعد التشغيل في وضع الاسترداد. لا يمكن إيقافه ما دام شيء مقفلًا.
+settings-hardened-detail = ما دامت أي كتلة مقفلة، لا يستطيع الأشخاص المطبّقة عليهم استخدام sudo أو نوافذ كلمة مرور المسؤول، فلا يستطيعون إيقاف عِقال. للدخول الطارئ: أعد التشغيل في وضع الاسترداد. لا يمكن إيقافه ما دام شيء مقفلًا.
 settings-status = الحالة
-status-service = خدمة الدرع { $version }
+status-service = خدمة عِقال { $version }
 status-time = الوقت: { $source }
 status-location = الموقع: { $state }
 status-extensions = إضافات المتصفح: { $list }

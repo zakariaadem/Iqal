@@ -1,6 +1,6 @@
 {
-  "extName": { "message": "Al-Dir" },
-  "extDescription": { "message": "Bloqueo de sitios web de Al-Dir. Gestionado por Al-Dir; no se puede quitar mientras Al-Dir esté instalado." },
+  "extName": { "message": "Iqal" },
+  "extDescription": { "message": "Bloqueo de sitios web de Iqal. Gestionado por Iqal; no se puede quitar mientras Iqal esté instalado." },
   "blockedTitle": { "message": "Esta página está bloqueada" },
   "blockedBy": {
     "message": "Bloqueada por «$SET$»",

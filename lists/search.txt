@@ -1,4 +1,4 @@
-# Al-Dir pre-made list: search engines
+# Iqal pre-made list: search engines
 google.com
 google.co.uk
 google.de

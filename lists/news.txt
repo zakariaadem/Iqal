@@ -1,4 +1,4 @@
-# Al-Dir pre-made list: news
+# Iqal pre-made list: news
 cnn.com
 bbc.com
 bbc.co.uk

@@ -1,13 +1,13 @@
-# Al-Dir — Français
+# Iqal — Français
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Bloqueur de sites web et d’applications
 menu = Menu
 menu-import = Importer des blocs…
 menu-export-all = Exporter tous les blocs…
 menu-activity = Activité récente
 menu-settings = Paramètres
-menu-about = À propos d’Al-Dir
+menu-about = À propos d’Iqal
 
 action-new-block = Nouveau bloc
 action-remove = Retirer
@@ -38,12 +38,12 @@ state-scheduled = Programmé
 state-locked = Verrouillé
 
 error-title = Un problème est survenu
-error-service-unreachable = Le service Al-Dir ne fonctionne pas. Installez-le ou démarrez-le, puis réessayez.
-error-unexpected = Le service Al-Dir a donné une réponse inattendue.
+error-service-unreachable = Le service Iqal ne fonctionne pas. Installez-le ou démarrez-le, puis réessayez.
+error-unexpected = Le service Iqal a donné une réponse inattendue.
 error-locked = Ce bloc est verrouillé, et cette modification { $reason }. Un bloc verrouillé ne peut être que renforcé.
 error-wrong-answer = Ce n’est pas correct.
 error-cannot-unlock-early = Ce verrou ne peut pas être ouvert plus tôt.
-error-not-admin = Seuls les administrateurs peuvent modifier les réglages d’Al-Dir.
+error-not-admin = Seuls les administrateurs peuvent modifier les réglages d’Iqal.
 
 reason-disables = le désactiverait
 reason-fewer-users = l’appliquerait à moins de personnes
@@ -168,7 +168,7 @@ lock-none-detail = Sans verrou, ce bloc peut être modifié ou désactivé à to
 lock-active = Verrouillé
 lock-inactive = Verrou défini, inactif pour le moment
 lock-pending = Le verrou s’ouvre le { $time }.
-location-learn-detail = Si vous êtes à cet endroit maintenant, laissez Al-Dir mémoriser ses réseaux Wi-Fi. C’est ainsi qu’Al-Dir sait que vous y êtes, même sans Internet.
+location-learn-detail = Si vous êtes à cet endroit maintenant, laissez Iqal mémoriser ses réseaux Wi-Fi. C’est ainsi qu’Iqal sait que vous y êtes, même sans Internet.
 location-learned = Endroit mémorisé
 location-learned-detail = { $count } réseaux Wi-Fi sont maintenant mémorisés pour cet endroit.
 location-none-chosen = Aucune zone choisie.
@@ -188,7 +188,7 @@ unit-metres = mètres
 password = Mot de passe
 password-repeat = Répétez le mot de passe
 password-generate = Créer un mot de passe que quelqu’un d’autre gardera
-password-generate-detail = Al-Dir crée un mot de passe et l’affiche une seule fois. Confiez-le à une personne de confiance.
+password-generate-detail = Iqal crée un mot de passe et l’affiche une seule fois. Confiez-le à une personne de confiance.
 password-mismatch = Les mots de passe sont vides ou ne correspondent pas.
 password-generated = Le mot de passe du verrou
 password-generated-detail = { $password }
@@ -196,7 +196,7 @@ password-generated-detail = { $password }
     Confiez-le à une personne de confiance. Il ne sera plus affiché.
 random-length = Caractères à taper
 lock-restart-detail = Le bloc reste verrouillé jusqu’au redémarrage de cet ordinateur.
-lock-location-detail = Le bloc reste verrouillé tant que cet ordinateur est dans la zone, et aussi chaque fois qu’Al-Dir ne peut pas savoir où il se trouve.
+lock-location-detail = Le bloc reste verrouillé tant que cet ordinateur est dans la zone, et aussi chaque fois qu’Iqal ne peut pas savoir où il se trouve.
 unlock-delay = Attente après déverrouillage
 unlock-delay-detail = Avec une attente, une bonne réponse n’ouvre le verrou qu’après ce délai. Cela aide face aux envies soudaines.
 lock-duration-zero = Choisissez une durée.
@@ -230,11 +230,11 @@ event-page-blocked = Page bloquée
 
 settings-language = Langue
 settings-language-system = Comme le système
-settings-language-restart = Redémarrez Al-Dir pour utiliser la nouvelle langue.
+settings-language-restart = Redémarrez Iqal pour utiliser la nouvelle langue.
 settings-hardened = Mode renforcé
-settings-hardened-detail = Tant qu’un bloc est verrouillé, les personnes concernées ne peuvent pas utiliser sudo ni les demandes de mot de passe administrateur, et ne peuvent donc pas arrêter Al-Dir. Accès d’urgence : redémarrer en mode de récupération. Impossible à désactiver tant que quelque chose est verrouillé.
+settings-hardened-detail = Tant qu’un bloc est verrouillé, les personnes concernées ne peuvent pas utiliser sudo ni les demandes de mot de passe administrateur, et ne peuvent donc pas arrêter Iqal. Accès d’urgence : redémarrer en mode de récupération. Impossible à désactiver tant que quelque chose est verrouillé.
 settings-status = État
-status-service = Service Al-Dir { $version }
+status-service = Service Iqal { $version }
 status-time = Heure : { $source }
 status-location = Position : { $state }
 status-extensions = Extensions de navigateur : { $list }

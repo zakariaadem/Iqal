@@ -12,104 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "al-dir-agent"
-version = "0.1.0"
-dependencies = [
- "al-dir-i18n",
- "al-dir-ipc",
- "serde_json",
- "zbus",
-]
-
-[[package]]
-name = "al-dir-cli"
-version = "0.1.0"
-dependencies = [
- "al-dir-core",
- "al-dir-ipc",
- "clap",
- "jiff",
- "rpassword",
-]
-
-[[package]]
-name = "al-dir-core"
-version = "0.1.0"
-dependencies = [
- "aho-corasick",
- "argon2",
- "getrandom",
- "jiff",
- "serde",
- "serde_json",
- "thiserror",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "al-dir-daemon"
-version = "0.1.0"
-dependencies = [
- "al-dir-core",
- "al-dir-ipc",
- "jiff",
- "libc",
- "nix",
- "serde",
- "serde_json",
- "sha2",
- "x11rb",
- "zbus",
-]
-
-[[package]]
-name = "al-dir-gtk"
-version = "0.1.0"
-dependencies = [
- "al-dir-core",
- "al-dir-i18n",
- "al-dir-ipc",
- "gtk4",
- "jiff",
- "libshumate",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "al-dir-host"
-version = "0.1.0"
-dependencies = [
- "al-dir-ipc",
- "serde_json",
-]
-
-[[package]]
-name = "al-dir-i18n"
-version = "0.1.0"
-dependencies = [
- "fluent-bundle",
- "unic-langid",
-]
-
-[[package]]
-name = "al-dir-ipc"
-version = "0.1.0"
-dependencies = [
- "al-dir-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "al-dir-pack"
-version = "0.1.0"
-dependencies = [
- "sha2",
-]
-
-[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1196,6 +1098,104 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "078ea7b7c29a2b4df841a7f6ac8775ff6074020c6776d48491ce2268e068f972"
 dependencies = [
  "unic-langid",
+]
+
+[[package]]
+name = "iqal-agent"
+version = "0.1.0"
+dependencies = [
+ "iqal-i18n",
+ "iqal-ipc",
+ "serde_json",
+ "zbus",
+]
+
+[[package]]
+name = "iqal-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "iqal-core",
+ "iqal-ipc",
+ "jiff",
+ "rpassword",
+]
+
+[[package]]
+name = "iqal-core"
+version = "0.1.0"
+dependencies = [
+ "aho-corasick",
+ "argon2",
+ "getrandom",
+ "jiff",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "iqal-daemon"
+version = "0.1.0"
+dependencies = [
+ "iqal-core",
+ "iqal-ipc",
+ "jiff",
+ "libc",
+ "nix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "x11rb",
+ "zbus",
+]
+
+[[package]]
+name = "iqal-gtk"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
+ "iqal-core",
+ "iqal-i18n",
+ "iqal-ipc",
+ "jiff",
+ "libshumate",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "iqal-host"
+version = "0.1.0"
+dependencies = [
+ "iqal-ipc",
+ "serde_json",
+]
+
+[[package]]
+name = "iqal-i18n"
+version = "0.1.0"
+dependencies = [
+ "fluent-bundle",
+ "unic-langid",
+]
+
+[[package]]
+name = "iqal-ipc"
+version = "0.1.0"
+dependencies = [
+ "iqal-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "iqal-pack"
+version = "0.1.0"
+dependencies = [
+ "sha2",
 ]
 
 [[package]]

@@ -1,13 +1,13 @@
-# Al-Dir — Türkçe
+# Iqal — Türkçe
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Web sitesi ve uygulama engelleyici
 menu = Menü
 menu-import = Engelleri içe aktar…
 menu-export-all = Tüm engelleri dışa aktar…
 menu-activity = Son etkinlik
 menu-settings = Ayarlar
-menu-about = Al-Dir hakkında
+menu-about = Iqal hakkında
 
 action-new-block = Yeni engel
 action-remove = Kaldır
@@ -38,12 +38,12 @@ state-scheduled = Zamanlanmış
 state-locked = Kilitli
 
 error-title = Bir sorun oluştu
-error-service-unreachable = Al-Dir hizmeti çalışmıyor. Kurun veya başlatın, sonra yeniden deneyin.
-error-unexpected = Al-Dir hizmeti beklenmeyen bir yanıt verdi.
+error-service-unreachable = Iqal hizmeti çalışmıyor. Kurun veya başlatın, sonra yeniden deneyin.
+error-unexpected = Iqal hizmeti beklenmeyen bir yanıt verdi.
 error-locked = Bu engel kilitli ve bu değişiklik { $reason }. Kilitli engeller yalnızca sıkılaştırılabilir.
 error-wrong-answer = Bu doğru değil.
 error-cannot-unlock-early = Bu kilit erken açılamaz.
-error-not-admin = Al-Dir ayarlarını yalnızca yöneticiler değiştirebilir.
+error-not-admin = Iqal ayarlarını yalnızca yöneticiler değiştirebilir.
 
 reason-disables = engeli kapatır
 reason-fewer-users = engeli daha az kişiye uygular
@@ -168,7 +168,7 @@ lock-none-detail = Kilit olmadan bu engel her zaman değiştirilebilir veya kapa
 lock-active = Kilitli
 lock-inactive = Kilit ayarlı, şu anda geçerli değil
 lock-pending = Kilit { $time } tarihinde açılır.
-location-learn-detail = Şu anda bu yerdeyseniz Al-Dir’in buradaki Wi-Fi ağlarını hatırlamasına izin verin. Al-Dir, internet olmadan bile orada olduğunuzu böyle anlar.
+location-learn-detail = Şu anda bu yerdeyseniz Iqal’in buradaki Wi-Fi ağlarını hatırlamasına izin verin. Iqal, internet olmadan bile orada olduğunuzu böyle anlar.
 location-learned = Yer hatırlandı
 location-learned-detail = Bu yer için artık { $count } Wi-Fi ağı hatırlanıyor.
 location-none-chosen = Henüz alan seçilmedi.
@@ -188,7 +188,7 @@ unit-metres = metre
 password = Parola
 password-repeat = Parolayı tekrarlayın
 password-generate = Başka birinin saklayacağı bir parola oluştur
-password-generate-detail = Al-Dir bir parola oluşturur ve yalnızca bir kez gösterir. Güvendiğiniz birine verin.
+password-generate-detail = Iqal bir parola oluşturur ve yalnızca bir kez gösterir. Güvendiğiniz birine verin.
 password-mismatch = Parolalar boş ya da eşleşmiyor.
 password-generated = Kilit parolası
 password-generated-detail = { $password }
@@ -196,7 +196,7 @@ password-generated-detail = { $password }
     Güvendiğiniz birine verin. Bir daha gösterilmeyecek.
 random-length = Yazılacak karakter sayısı
 lock-restart-detail = Engel, bu bilgisayar yeniden başlatılana kadar kilitli kalır.
-lock-location-detail = Engel, bu bilgisayar alanın içindeyken ve Al-Dir nerede olduğunu anlayamadığı her durumda kilitli kalır.
+lock-location-detail = Engel, bu bilgisayar alanın içindeyken ve Iqal nerede olduğunu anlayamadığı her durumda kilitli kalır.
 unlock-delay = Kilit açtıktan sonra bekleme
 unlock-delay-detail = Beklemeyle, doğru yanıt kilidi ancak bu süreden sonra açar. Ani isteklere karşı yardımcı olur.
 lock-duration-zero = Bir süre seçin.
@@ -230,11 +230,11 @@ event-page-blocked = Sayfa engellendi
 
 settings-language = Dil
 settings-language-system = Sistemle aynı
-settings-language-restart = Yeni dili kullanmak için Al-Dir’i yeniden başlatın.
+settings-language-restart = Yeni dili kullanmak için Iqal’i yeniden başlatın.
 settings-hardened = Sıkı mod
-settings-hardened-detail = Bir engel kilitli olduğu sürece, engelin uygulandığı kişiler sudo’yu veya yönetici parola isteklerini kullanamaz; bu yüzden Al-Dir’i durduramazlar. Acil erişim: kurtarma kipinde yeniden başlatın. Bir şey kilitliyken kapatılamaz.
+settings-hardened-detail = Bir engel kilitli olduğu sürece, engelin uygulandığı kişiler sudo’yu veya yönetici parola isteklerini kullanamaz; bu yüzden Iqal’i durduramazlar. Acil erişim: kurtarma kipinde yeniden başlatın. Bir şey kilitliyken kapatılamaz.
 settings-status = Durum
-status-service = Al-Dir hizmeti { $version }
+status-service = Iqal hizmeti { $version }
 status-time = Saat: { $source }
 status-location = Konum: { $state }
 status-extensions = Tarayıcı uzantıları: { $list }

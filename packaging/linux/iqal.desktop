@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Iqal
+Name[ar]=عِقال
+Comment=Block websites and apps
+Comment[ar]=حجب المواقع والتطبيقات
+Exec=@BINDIR@/iqal
+Icon=iqal
+Terminal=false
+Categories=Utility;Security;Settings;
+Keywords=blocker;focus;distraction;parental;website;
+StartupWMClass=iqal

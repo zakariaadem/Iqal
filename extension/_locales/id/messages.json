@@ -1,6 +1,6 @@
 {
-  "extName": { "message": "Al-Dir" },
-  "extDescription": { "message": "Pemblokiran situs untuk Al-Dir. Dikelola oleh Al-Dir; tidak dapat dihapus selama Al-Dir terpasang." },
+  "extName": { "message": "Iqal" },
+  "extDescription": { "message": "Pemblokiran situs untuk Iqal. Dikelola oleh Iqal; tidak dapat dihapus selama Iqal terpasang." },
   "blockedTitle": { "message": "Halaman ini diblokir" },
   "blockedBy": {
     "message": "Diblokir oleh “$SET$”",

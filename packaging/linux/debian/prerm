@@ -1,18 +1,18 @@
 #!/bin/sh
-# Al-Dir: before removing or upgrading.
+# Iqal: before removing or upgrading.
 set -e
 
 case "$1" in
     remove)
         # Refuses (and so stops the removal) while any block is locked;
         # otherwise removes the firewall rules, browser policies and other
-        # system settings Al-Dir made.
-        if ! /usr/lib/al-dir/al-dir-daemon --cleanup; then
-            echo "Al-Dir cannot be removed while a block is locked." >&2
+        # system settings Iqal made.
+        if ! /usr/lib/iqal/iqal-daemon --cleanup; then
+            echo "Iqal cannot be removed while a block is locked." >&2
             exit 1
         fi
-        systemctl disable --now al-dir.service >/dev/null 2>&1 || true
-        pkill -x al-dir-agent 2>/dev/null || true
+        systemctl disable --now iqal.service >/dev/null 2>&1 || true
+        pkill -x iqal-agent 2>/dev/null || true
         ;;
     upgrade|deconfigure|failed-upgrade)
         ;;

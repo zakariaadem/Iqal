@@ -1,13 +1,13 @@
-# Al-Dir — اردو
+# Iqal — اردو
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = ویب سائٹ اور ایپ بلاکر
 menu = مینو
 menu-import = بلاک درآمد کریں…
 menu-export-all = تمام بلاک برآمد کریں…
 menu-activity = حالیہ سرگرمی
 menu-settings = ترتیبات
-menu-about = Al-Dir کے بارے میں
+menu-about = Iqal کے بارے میں
 
 action-new-block = نیا بلاک
 action-remove = ہٹائیں
@@ -38,12 +38,12 @@ state-scheduled = طے شدہ
 state-locked = مقفل
 
 error-title = کچھ غلط ہو گیا
-error-service-unreachable = Al-Dir سروس نہیں چل رہی۔ اسے انسٹال کریں یا شروع کریں، پھر دوبارہ کوشش کریں۔
-error-unexpected = Al-Dir سروس نے غیر متوقع جواب دیا۔
+error-service-unreachable = Iqal سروس نہیں چل رہی۔ اسے انسٹال کریں یا شروع کریں، پھر دوبارہ کوشش کریں۔
+error-unexpected = Iqal سروس نے غیر متوقع جواب دیا۔
 error-locked = یہ بلاک مقفل ہے، اور یہ تبدیلی { $reason }۔ مقفل بلاک کو صرف مزید سخت کیا جا سکتا ہے۔
 error-wrong-answer = یہ درست نہیں ہے۔
 error-cannot-unlock-early = یہ تالا وقت سے پہلے نہیں کھولا جا سکتا۔
-error-not-admin = صرف منتظمین Al-Dir کی ترتیبات بدل سکتے ہیں۔
+error-not-admin = صرف منتظمین Iqal کی ترتیبات بدل سکتے ہیں۔
 
 reason-disables = اسے بند کر دے گی
 reason-fewer-users = اسے کم لوگوں پر لاگو کرے گی
@@ -168,7 +168,7 @@ lock-none-detail = تالے کے بغیر یہ بلاک کسی بھی وقت ب�
 lock-active = مقفل
 lock-inactive = تالا لگا ہے، ابھی نافذ نہیں
 lock-pending = تالا { $time } کو کھلے گا۔
-location-learn-detail = اگر آپ اس وقت اسی جگہ پر ہیں تو Al-Dir کو یہاں کے Wi-Fi نیٹ ورک یاد رکھنے دیں۔ اسی طرح Al-Dir جانتا ہے کہ آپ وہاں ہیں، انٹرنیٹ کے بغیر بھی۔
+location-learn-detail = اگر آپ اس وقت اسی جگہ پر ہیں تو Iqal کو یہاں کے Wi-Fi نیٹ ورک یاد رکھنے دیں۔ اسی طرح Iqal جانتا ہے کہ آپ وہاں ہیں، انٹرنیٹ کے بغیر بھی۔
 location-learned = جگہ یاد کر لی گئی
 location-learned-detail = اس جگہ کے لیے اب { $count } Wi-Fi نیٹ ورک یاد ہیں۔
 location-none-chosen = ابھی کوئی علاقہ منتخب نہیں ہوا۔
@@ -188,7 +188,7 @@ unit-metres = میٹر
 password = پاس ورڈ
 password-repeat = پاس ورڈ دوبارہ لکھیں
 password-generate = کسی اور کے پاس رکھنے کے لیے پاس ورڈ بنائیں
-password-generate-detail = Al-Dir ایک پاس ورڈ بنا کر ایک بار دکھاتا ہے۔ اسے کسی قابلِ اعتماد شخص کو دیں۔
+password-generate-detail = Iqal ایک پاس ورڈ بنا کر ایک بار دکھاتا ہے۔ اسے کسی قابلِ اعتماد شخص کو دیں۔
 password-mismatch = پاس ورڈ خالی ہیں یا آپس میں نہیں ملتے۔
 password-generated = تالے کا پاس ورڈ
 password-generated-detail = { $password }
@@ -196,7 +196,7 @@ password-generated-detail = { $password }
     اسے کسی قابلِ اعتماد شخص کو دیں۔ یہ دوبارہ نہیں دکھایا جائے گا۔
 random-length = لکھنے کے لیے حروف
 lock-restart-detail = بلاک اس کمپیوٹر کے دوبارہ شروع ہونے تک مقفل رہتا ہے۔
-lock-location-detail = بلاک تب تک مقفل رہتا ہے جب تک یہ کمپیوٹر علاقے کے اندر ہو، اور جب بھی Al-Dir یہ نہ جان سکے کہ یہ کہاں ہے۔
+lock-location-detail = بلاک تب تک مقفل رہتا ہے جب تک یہ کمپیوٹر علاقے کے اندر ہو، اور جب بھی Iqal یہ نہ جان سکے کہ یہ کہاں ہے۔
 unlock-delay = تالا کھولنے کے بعد انتظار
 unlock-delay-detail = انتظار کے ساتھ، درست جواب تالا اسی وقت کے بعد کھولتا ہے۔ یہ اچانک خواہش میں مدد دیتا ہے۔
 lock-duration-zero = وقت کی مدت منتخب کریں۔
@@ -230,11 +230,11 @@ event-page-blocked = صفحہ بلاک ہوا
 
 settings-language = زبان
 settings-language-system = سسٹم کے مطابق
-settings-language-restart = نئی زبان استعمال کرنے کے لیے Al-Dir دوبارہ شروع کریں۔
+settings-language-restart = نئی زبان استعمال کرنے کے لیے Iqal دوبارہ شروع کریں۔
 settings-hardened = سخت موڈ
-settings-hardened-detail = جب تک کوئی بلاک مقفل ہے، جن لوگوں پر یہ لاگو ہے وہ sudo یا منتظم پاس ورڈ کی درخواستیں استعمال نہیں کر سکتے، اس لیے Al-Dir کو روک نہیں سکتے۔ ہنگامی رسائی: ریکوری موڈ میں دوبارہ شروع کریں۔ کچھ مقفل ہونے کے دوران بند نہیں ہو سکتا۔
+settings-hardened-detail = جب تک کوئی بلاک مقفل ہے، جن لوگوں پر یہ لاگو ہے وہ sudo یا منتظم پاس ورڈ کی درخواستیں استعمال نہیں کر سکتے، اس لیے Iqal کو روک نہیں سکتے۔ ہنگامی رسائی: ریکوری موڈ میں دوبارہ شروع کریں۔ کچھ مقفل ہونے کے دوران بند نہیں ہو سکتا۔
 settings-status = حالت
-status-service = Al-Dir سروس { $version }
+status-service = Iqal سروس { $version }
 status-time = وقت: { $source }
 status-location = مقام: { $state }
 status-extensions = براؤزر ایکسٹینشنز: { $list }

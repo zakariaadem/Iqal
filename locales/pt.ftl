@@ -1,13 +1,13 @@
-# Al-Dir — Português
+# Iqal — Português
 
-app-name = Al-Dir
+app-name = Iqal
 app-description = Bloqueador de sites e aplicativos
 menu = Menu
 menu-import = Importar bloqueios…
 menu-export-all = Exportar todos os bloqueios…
 menu-activity = Atividade recente
 menu-settings = Configurações
-menu-about = Sobre o Al-Dir
+menu-about = Sobre o Iqal
 
 action-new-block = Novo bloqueio
 action-remove = Remover
@@ -38,12 +38,12 @@ state-scheduled = Agendado
 state-locked = Trancado
 
 error-title = Algo deu errado
-error-service-unreachable = O serviço Al-Dir não está em execução. Instale-o ou inicie-o e tente de novo.
-error-unexpected = O serviço Al-Dir deu uma resposta inesperada.
+error-service-unreachable = O serviço Iqal não está em execução. Instale-o ou inicie-o e tente de novo.
+error-unexpected = O serviço Iqal deu uma resposta inesperada.
 error-locked = Este bloqueio está trancado, e esta alteração { $reason }. Bloqueios trancados só podem ficar mais rígidos.
 error-wrong-answer = Não está correto.
 error-cannot-unlock-early = Esta tranca não pode ser aberta antes da hora.
-error-not-admin = Só administradores podem alterar as configurações do Al-Dir.
+error-not-admin = Só administradores podem alterar as configurações do Iqal.
 
 reason-disables = o desligaria
 reason-fewer-users = o aplicaria a menos pessoas
@@ -168,7 +168,7 @@ lock-none-detail = Sem tranca, este bloqueio pode ser alterado ou desligado a qu
 lock-active = Trancado
 lock-inactive = Tranca definida, não ativa agora
 lock-pending = A tranca abre em { $time }.
-location-learn-detail = Se você está neste lugar agora, deixe o Al-Dir lembrar as redes Wi-Fi daqui. É assim que o Al-Dir sabe que você está lá, mesmo sem internet.
+location-learn-detail = Se você está neste lugar agora, deixe o Iqal lembrar as redes Wi-Fi daqui. É assim que o Iqal sabe que você está lá, mesmo sem internet.
 location-learned = Lugar memorizado
 location-learned-detail = Agora { $count } redes Wi-Fi estão memorizadas para este lugar.
 location-none-chosen = Nenhuma área escolhida ainda.
@@ -188,7 +188,7 @@ unit-metres = metros
 password = Senha
 password-repeat = Repita a senha
 password-generate = Criar uma senha para outra pessoa guardar
-password-generate-detail = O Al-Dir cria uma senha e a mostra uma única vez. Entregue-a a alguém de confiança.
+password-generate-detail = O Iqal cria uma senha e a mostra uma única vez. Entregue-a a alguém de confiança.
 password-mismatch = As senhas estão vazias ou não coincidem.
 password-generated = A senha da tranca
 password-generated-detail = { $password }
@@ -196,7 +196,7 @@ password-generated-detail = { $password }
     Entregue-a a alguém de confiança. Ela não será mostrada de novo.
 random-length = Caracteres a digitar
 lock-restart-detail = O bloqueio fica trancado até este computador ser reiniciado.
-lock-location-detail = O bloqueio fica trancado enquanto este computador estiver dentro da área e também sempre que o Al-Dir não souber onde ele está.
+lock-location-detail = O bloqueio fica trancado enquanto este computador estiver dentro da área e também sempre que o Iqal não souber onde ele está.
 unlock-delay = Espera após destrancar
 unlock-delay-detail = Com uma espera, a resposta correta só abre a tranca depois desse tempo. Isso ajuda contra impulsos repentinos.
 lock-duration-zero = Escolha uma duração.
@@ -230,11 +230,11 @@ event-page-blocked = Página bloqueada
 
 settings-language = Idioma
 settings-language-system = Igual ao sistema
-settings-language-restart = Reinicie o Al-Dir para usar o novo idioma.
+settings-language-restart = Reinicie o Iqal para usar o novo idioma.
 settings-hardened = Modo reforçado
-settings-hardened-detail = Enquanto houver um bloqueio trancado, as pessoas afetadas não podem usar sudo nem pedidos de senha de administrador, portanto não podem parar o Al-Dir. Acesso de emergência: reiniciar no modo de recuperação. Não pode ser desligado enquanto algo estiver trancado.
+settings-hardened-detail = Enquanto houver um bloqueio trancado, as pessoas afetadas não podem usar sudo nem pedidos de senha de administrador, portanto não podem parar o Iqal. Acesso de emergência: reiniciar no modo de recuperação. Não pode ser desligado enquanto algo estiver trancado.
 settings-status = Estado
-status-service = Serviço Al-Dir { $version }
+status-service = Serviço Iqal { $version }
 status-time = Hora: { $source }
 status-location = Localização: { $state }
 status-extensions = Extensões do navegador: { $list }

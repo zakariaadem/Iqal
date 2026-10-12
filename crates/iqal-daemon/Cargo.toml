@@ -1,0 +1,21 @@
+[package]
+name = "iqal-daemon"
+description = "The Iqal background service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+iqal-core = { path = "../iqal-core" }
+iqal-ipc = { path = "../iqal-ipc" }
+jiff.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+nix = { workspace = true, features = ["socket", "user", "fs", "fanotify", "signal", "hostname"] }
+sha2.workspace = true
+x11rb.workspace = true
+zbus.workspace = true

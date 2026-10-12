@@ -1,0 +1,15 @@
+[package]
+name = "iqal-host"
+description = "Native messaging host connecting the Iqal browser extension to the service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "iqal-nm-host"
+path = "src/main.rs"
+
+[dependencies]
+iqal-ipc = { path = "../iqal-ipc" }
+serde_json.workspace = true

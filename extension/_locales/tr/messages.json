@@ -1,6 +1,6 @@
 {
-  "extName": { "message": "Al-Dir" },
-  "extDescription": { "message": "Al-Dir için web sitesi engelleme. Al-Dir tarafından yönetilir; Al-Dir yüklü olduğu sürece kaldırılamaz." },
+  "extName": { "message": "Iqal" },
+  "extDescription": { "message": "Iqal için web sitesi engelleme. Iqal tarafından yönetilir; Iqal yüklü olduğu sürece kaldırılamaz." },
   "blockedTitle": { "message": "Bu sayfa engellendi" },
   "blockedBy": {
     "message": "“$SET$” tarafından engellendi",

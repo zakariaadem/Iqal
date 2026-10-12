@@ -1,8 +1,8 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Al-Dir
+Upstream-Name: Iqal
 
 Files: *
-Copyright: Al-Dir contributors
+Copyright: Iqal contributors
 License: GPL-3+
 
 Comment:
