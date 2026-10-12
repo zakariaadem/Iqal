@@ -146,6 +146,31 @@ pub struct StatsReport {
     pub top_targets: Vec<(String, u32)>,
     pub by_block: Vec<(String, u32)>,
     pub allowance_by_block: Vec<(String, u32)>,
+    /// Most blocked websites and apps, with their kind (up to 50).
+    #[serde(default)]
+    pub top: Vec<TargetCount>,
+    /// Blocks of websites and of apps in the period.
+    #[serde(default)]
+    pub websites: u32,
+    #[serde(default)]
+    pub apps: u32,
+    /// How many different websites and apps were blocked.
+    #[serde(default)]
+    pub distinct_websites: u32,
+    #[serde(default)]
+    pub distinct_apps: u32,
+    /// Blocks in the period of the same length just before, when
+    /// statistics go back that far.
+    #[serde(default)]
+    pub previous: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TargetCount {
+    pub name: String,
+    /// A website (otherwise an app).
+    pub web: bool,
+    pub count: u32,
 }
 
 /// The extension's verdict on a page.

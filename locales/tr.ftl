@@ -261,15 +261,10 @@ list-count = { $count ->
 allowance-used-today = Bugün kullanılan: { $total } dakikanın { $used } dakikası
 
 menu-stats = İstatistikler
-stats-period = Dönem
 stats-7 = Son 7 gün
 stats-30 = Son 30 gün
 stats-90 = Son 90 gün
 stats-private = İstatistikler bu bilgisayarda kalır.
-stats-total = { $count ->
-    [one] Bu dönemde { $count } engelleme
-   *[other] Bu dönemde { $count } engelleme
-}
 stats-top = En çok engellenenler
 stats-by-block = Engele göre
 stats-allowance = Kullanılan süre hakkı
@@ -298,3 +293,22 @@ line-invalid = Satır { $line }: “{ $rule }” kullanılamaz: { $problem }
 lines-invalid-more = (düzeltilmesi gereken { $count } satır daha)
 list-empty-hint = Her satıra bir tane, örneğin: { $examples }
 lock-saves-changes = Bu engeldeki kaydedilmemiş diğer değişiklikleriniz de kaydedilecek.
+
+# Statistics window
+stats-today = Bugün
+stats-chart = Günlük engellemeler
+stats-card-total = Engelleme sayısı
+stats-card-websites = Durdurulan siteler
+stats-card-apps = Durdurulan uygulamalar
+stats-card-busiest = En yoğun gün
+stats-card-top = En çok engellenen
+stats-before = { $days ->
+    [1] Dün: { $count }
+   *[other] Önceki { $days } gün: { $count }
+}
+stats-blocks = { $count } engelleme
+stats-distinct-sites = { $count } farklı site
+stats-distinct-apps = { $count } farklı uygulama
+stats-show-all = Tümünü göster ({ $count })
+stats-show-fewer = Daha az göster
+stats-allowance-of = { $total } dakikanın { $used } dakikası

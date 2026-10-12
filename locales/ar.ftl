@@ -269,19 +269,10 @@ list-count = { $count ->
 allowance-used-today = المستخدم اليوم: { $used } من { $total } دقيقة
 
 menu-stats = الإحصاءات
-stats-period = المدة
 stats-7 = آخر 7 أيام
 stats-30 = آخر 30 يومًا
 stats-90 = آخر 90 يومًا
 stats-private = تبقى الإحصاءات على هذا الحاسوب.
-stats-total = { $count ->
-    [zero] لا حجب في هذه المدة
-    [one] حجب واحد في هذه المدة
-    [two] حجبان في هذه المدة
-    [few] { $count } حالات حجب في هذه المدة
-    [many] { $count } حالة حجب في هذه المدة
-   *[other] { $count } حالة حجب في هذه المدة
-}
 stats-top = الأكثر حجبًا
 stats-by-block = حسب الكتلة
 stats-allowance = الوقت المسموح المستخدم
@@ -310,3 +301,43 @@ line-invalid = السطر { $line }: لا يمكن استخدام «{ $rule }»:
 lines-invalid-more = (وأسطر أخرى تحتاج إلى تصحيح: { $count })
 list-empty-hint = عنصر واحد في كل سطر، مثل: { $examples }
 lock-saves-changes = ستُحفظ أيضًا تغييراتك الأخرى غير المحفوظة على هذه الكتلة.
+
+# Statistics window
+stats-today = اليوم
+stats-chart = حالات الحجب في كل يوم
+stats-card-total = مرات الحجب
+stats-card-websites = مواقع أُوقفت
+stats-card-apps = تطبيقات أُوقفت
+stats-card-busiest = أكثر الأيام حجبًا
+stats-card-top = الأكثر حجبًا
+stats-before = { $days ->
+    [1] أمس: { $count }
+   *[other] الأيام الـ{ $days } السابقة: { $count }
+}
+stats-blocks = { $count ->
+    [zero] لا حجب
+    [one] حجب واحد
+    [two] حجبان
+    [few] { $count } حالات حجب
+    [many] { $count } حالة حجب
+   *[other] { $count } حالة حجب
+}
+stats-distinct-sites = { $count ->
+    [zero] لا مواقع
+    [one] موقع واحد
+    [two] موقعان مختلفان
+    [few] { $count } مواقع مختلفة
+    [many] { $count } موقعًا مختلفًا
+   *[other] { $count } موقع مختلف
+}
+stats-distinct-apps = { $count ->
+    [zero] لا تطبيقات
+    [one] تطبيق واحد
+    [two] تطبيقان مختلفان
+    [few] { $count } تطبيقات مختلفة
+    [many] { $count } تطبيقًا مختلفًا
+   *[other] { $count } تطبيق مختلف
+}
+stats-show-all = عرض الكل ({ $count })
+stats-show-fewer = عرض أقل
+stats-allowance-of = { $used } من { $total } دقيقة

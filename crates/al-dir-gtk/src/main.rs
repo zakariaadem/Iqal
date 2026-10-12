@@ -9,6 +9,7 @@ mod lockui;
 mod mapdialog;
 mod service;
 mod settings;
+mod stats;
 mod ui;
 mod widgets;
 
@@ -34,7 +35,24 @@ fn main() -> glib::ExitCode {
             w.present();
             return;
         }
+        load_css();
         ui::Ui::start(app);
     });
     app.run_with_args::<&str>(&[])
+}
+
+/// Styles for the statistics window; colours follow the light or dark theme.
+fn load_css() {
+    let css = gtk::CssProvider::new();
+    css.load_from_string(
+        ".stat-card { background-color: alpha(currentColor, 0.06); border-radius: 10px; padding: 12px 14px; }
+         .stat-value { font-size: 20pt; font-weight: bold; }
+         .stat-bar { background-color: #1D9E75; border-radius: 3px; }
+         .stat-bar-empty { background-color: alpha(currentColor, 0.2); border-radius: 1px; }
+         .stat-bar-allowance { background-color: #BA7517; border-radius: 3px; }
+         .stat-today { font-weight: bold; }",
+    );
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(&display, &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
 }

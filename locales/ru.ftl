@@ -265,17 +265,10 @@ list-count = { $count ->
 allowance-used-today = Использовано сегодня: { $used } из { $total } мин
 
 menu-stats = Статистика
-stats-period = Период
 stats-7 = Последние 7 дней
 stats-30 = Последние 30 дней
 stats-90 = Последние 90 дней
 stats-private = Статистика хранится только на этом компьютере.
-stats-total = { $count ->
-    [one] { $count } блокировка за период
-    [few] { $count } блокировки за период
-    [many] { $count } блокировок за период
-   *[other] { $count } блокировки за период
-}
 stats-top = Чаще всего блокировались
 stats-by-block = По блокам
 stats-allowance = Использованный лимит времени
@@ -304,3 +297,37 @@ line-invalid = Строка { $line }: «{ $rule }» нельзя использ
 lines-invalid-more = (ещё строк для исправления: { $count })
 list-empty-hint = По одному в строке, например: { $examples }
 lock-saves-changes = Другие несохранённые изменения этого блока тоже будут сохранены.
+
+# Statistics window
+stats-today = Сегодня
+stats-chart = Блокировки по дням
+stats-card-total = Блокировок
+stats-card-websites = Остановлено сайтов
+stats-card-apps = Остановлено приложений
+stats-card-busiest = Самый активный день
+stats-card-top = Чаще всего блокировалось
+stats-before = { $days ->
+    [1] Вчера: { $count }
+   *[other] Предыдущие { $days } дн.: { $count }
+}
+stats-blocks = { $count ->
+    [one] { $count } блокировка
+    [few] { $count } блокировки
+    [many] { $count } блокировок
+   *[other] { $count } блокировки
+}
+stats-distinct-sites = { $count ->
+    [one] { $count } сайт
+    [few] { $count } разных сайта
+    [many] { $count } разных сайтов
+   *[other] { $count } разных сайта
+}
+stats-distinct-apps = { $count ->
+    [one] { $count } приложение
+    [few] { $count } разных приложения
+    [many] { $count } разных приложений
+   *[other] { $count } разных приложения
+}
+stats-show-all = Показать все ({ $count })
+stats-show-fewer = Показать меньше
+stats-allowance-of = { $used } из { $total } мин

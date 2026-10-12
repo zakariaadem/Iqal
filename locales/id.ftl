@@ -255,12 +255,10 @@ list-count = { $count } situs
 allowance-used-today = Terpakai hari ini: { $used } dari { $total } menit
 
 menu-stats = Statistik
-stats-period = Periode
 stats-7 = 7 hari terakhir
 stats-30 = 30 hari terakhir
 stats-90 = 90 hari terakhir
 stats-private = Statistik tetap berada di komputer ini.
-stats-total = { $count } pemblokiran dalam periode ini
 stats-top = Paling sering diblokir
 stats-by-block = Per blok
 stats-allowance = Jatah waktu terpakai
@@ -289,3 +287,22 @@ line-invalid = Baris { $line }: “{ $rule }” tidak dapat digunakan: { $proble
 lines-invalid-more = ({ $count } baris lain perlu diperbaiki)
 list-empty-hint = Satu per baris, misalnya: { $examples }
 lock-saves-changes = Perubahan lain yang belum disimpan pada blok ini juga akan disimpan.
+
+# Statistics window
+stats-today = Hari ini
+stats-chart = Pemblokiran per hari
+stats-card-total = Jumlah pemblokiran
+stats-card-websites = Situs dihentikan
+stats-card-apps = Aplikasi dihentikan
+stats-card-busiest = Hari tersibuk
+stats-card-top = Paling sering diblokir
+stats-before = { $days ->
+    [1] Kemarin: { $count }
+   *[other] { $days } hari sebelumnya: { $count }
+}
+stats-blocks = { $count } pemblokiran
+stats-distinct-sites = { $count } situs berbeda
+stats-distinct-apps = { $count } aplikasi berbeda
+stats-show-all = Tampilkan semua ({ $count })
+stats-show-fewer = Tampilkan lebih sedikit
+stats-allowance-of = { $used } dari { $total } menit

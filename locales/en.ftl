@@ -261,15 +261,10 @@ list-count = { $count ->
 allowance-used-today = Used today: { $used } of { $total } minutes
 
 menu-stats = Statistics
-stats-period = Period
 stats-7 = Last 7 days
 stats-30 = Last 30 days
 stats-90 = Last 90 days
 stats-private = Statistics stay on this computer.
-stats-total = { $count ->
-    [one] { $count } block in this period
-   *[other] { $count } blocks in this period
-}
 stats-top = Most blocked
 stats-by-block = By block
 stats-allowance = Allowance time used
@@ -298,3 +293,31 @@ line-invalid = Line { $line }: “{ $rule }” cannot be used: { $problem }
 lines-invalid-more = ({ $count } more lines need fixing)
 list-empty-hint = One per line, for example: { $examples }
 lock-saves-changes = Your other unsaved changes to this block will be saved too.
+
+# Statistics window
+stats-today = Today
+stats-chart = Blocks per day
+stats-card-total = Times blocked
+stats-card-websites = Websites stopped
+stats-card-apps = Apps stopped
+stats-card-busiest = Busiest day
+stats-card-top = Most blocked
+stats-before = { $days ->
+    [1] Yesterday: { $count }
+   *[other] Previous { $days } days: { $count }
+}
+stats-blocks = { $count ->
+    [one] { $count } block
+   *[other] { $count } blocks
+}
+stats-distinct-sites = { $count ->
+    [one] { $count } site
+   *[other] { $count } different sites
+}
+stats-distinct-apps = { $count ->
+    [one] { $count } app
+   *[other] { $count } different apps
+}
+stats-show-all = Show all ({ $count })
+stats-show-fewer = Show fewer
+stats-allowance-of = { $used } of { $total } min

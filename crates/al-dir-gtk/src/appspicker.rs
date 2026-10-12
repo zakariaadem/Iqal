@@ -39,6 +39,12 @@ fn rule_for(exec: &str) -> Option<String> {
     }
 }
 
+/// Menu names of installed apps by program name ("gnome-calculator" →
+/// "Calculator"), for showing programs by the name people know.
+pub fn display_names() -> std::collections::HashMap<String, String> {
+    installed_apps().into_iter().filter_map(|a| Some((a.rule.strip_prefix("name:")?.to_string(), a.name))).collect()
+}
+
 fn installed_apps() -> Vec<App> {
     let lang = al_dir_i18n::current();
     let mut dirs: Vec<String> = vec![

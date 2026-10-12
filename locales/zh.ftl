@@ -255,12 +255,10 @@ list-count = { $count } 个网站
 allowance-used-today = 今天已用：{ $used } / { $total } 分钟
 
 menu-stats = 统计
-stats-period = 时段
 stats-7 = 最近 7 天
 stats-30 = 最近 30 天
 stats-90 = 最近 90 天
 stats-private = 统计数据只保存在这台电脑上。
-stats-total = 此时段共拦截 { $count } 次
 stats-top = 拦截最多
 stats-by-block = 按拦截组
 stats-allowance = 已用时长
@@ -289,3 +287,22 @@ line-invalid = 第 { $line } 行：“{ $rule }”无法使用：{ $problem }
 lines-invalid-more = （还有 { $count } 行需要修正）
 list-empty-hint = 每行一项，例如：{ $examples }
 lock-saves-changes = 此拦截组中其他未保存的更改也会一并保存。
+
+# Statistics window
+stats-today = 今天
+stats-chart = 每日拦截次数
+stats-card-total = 拦截次数
+stats-card-websites = 已拦截网站
+stats-card-apps = 已拦截应用
+stats-card-busiest = 拦截最多的一天
+stats-card-top = 拦截最多
+stats-before = { $days ->
+    [1] 昨天：{ $count }
+   *[other] 之前 { $days } 天：{ $count }
+}
+stats-blocks = { $count } 次拦截
+stats-distinct-sites = { $count } 个不同网站
+stats-distinct-apps = { $count } 个不同应用
+stats-show-all = 全部显示（{ $count }）
+stats-show-fewer = 收起
+stats-allowance-of = { $used } / { $total } 分钟

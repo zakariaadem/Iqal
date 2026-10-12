@@ -261,15 +261,10 @@ list-count = { $count ->
 allowance-used-today = آج استعمال: { $total } میں سے { $used } منٹ
 
 menu-stats = اعداد و شمار
-stats-period = مدت
 stats-7 = پچھلے 7 دن
 stats-30 = پچھلے 30 دن
 stats-90 = پچھلے 90 دن
 stats-private = اعداد و شمار اسی کمپیوٹر پر رہتے ہیں۔
-stats-total = { $count ->
-    [one] اس مدت میں { $count } بلاک
-   *[other] اس مدت میں { $count } بلاک
-}
 stats-top = سب سے زیادہ بلاک
 stats-by-block = بلاک کے لحاظ سے
 stats-allowance = استعمال شدہ اجازت کا وقت
@@ -298,3 +293,28 @@ line-invalid = سطر { $line }: «{ $rule }» استعمال نہیں ہو سک
 lines-invalid-more = (مزید { $count } سطریں درست کرنی ہیں)
 list-empty-hint = ہر سطر میں ایک، مثلاً: { $examples }
 lock-saves-changes = اس بلاک کی آپ کی دوسری غیر محفوظ تبدیلیاں بھی محفوظ ہو جائیں گی۔
+
+# Statistics window
+stats-today = آج
+stats-chart = روزانہ بلاک
+stats-card-total = بلاک کی تعداد
+stats-card-websites = روکی گئی ویب سائٹس
+stats-card-apps = روکی گئی ایپس
+stats-card-busiest = سب سے مصروف دن
+stats-card-top = سب سے زیادہ بلاک
+stats-before = { $days ->
+    [1] کل: { $count }
+   *[other] پچھلے { $days } دن: { $count }
+}
+stats-blocks = { $count } بلاک
+stats-distinct-sites = { $count ->
+    [one] { $count } سائٹ
+   *[other] { $count } مختلف سائٹس
+}
+stats-distinct-apps = { $count ->
+    [one] { $count } ایپ
+   *[other] { $count } مختلف ایپس
+}
+stats-show-all = سب دکھائیں ({ $count })
+stats-show-fewer = کم دکھائیں
+stats-allowance-of = { $total } میں سے { $used } منٹ

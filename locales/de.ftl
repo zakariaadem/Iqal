@@ -261,15 +261,10 @@ list-count = { $count ->
 allowance-used-today = Heute genutzt: { $used } von { $total } Minuten
 
 menu-stats = Statistik
-stats-period = Zeitraum
 stats-7 = Letzte 7 Tage
 stats-30 = Letzte 30 Tage
 stats-90 = Letzte 90 Tage
 stats-private = Die Statistik bleibt auf diesem Computer.
-stats-total = { $count ->
-    [one] { $count } Sperrung in diesem Zeitraum
-   *[other] { $count } Sperrungen in diesem Zeitraum
-}
 stats-top = Am häufigsten gesperrt
 stats-by-block = Nach Sperre
 stats-allowance = Genutztes Zeitkontingent
@@ -298,3 +293,31 @@ line-invalid = Zeile { $line }: „{ $rule }“ kann nicht verwendet werden: { $
 lines-invalid-more = ({ $count } weitere Zeilen müssen korrigiert werden)
 list-empty-hint = Ein Eintrag pro Zeile, zum Beispiel: { $examples }
 lock-saves-changes = Deine anderen ungespeicherten Änderungen an dieser Sperre werden ebenfalls gespeichert.
+
+# Statistics window
+stats-today = Heute
+stats-chart = Sperrungen pro Tag
+stats-card-total = Gesperrt
+stats-card-websites = Gestoppte Websites
+stats-card-apps = Gestoppte Apps
+stats-card-busiest = Stärkster Tag
+stats-card-top = Am häufigsten gesperrt
+stats-before = { $days ->
+    [1] Gestern: { $count }
+   *[other] Vorherige { $days } Tage: { $count }
+}
+stats-blocks = { $count ->
+    [one] { $count } Sperrung
+   *[other] { $count } Sperrungen
+}
+stats-distinct-sites = { $count ->
+    [one] { $count } Website
+   *[other] { $count } verschiedene Websites
+}
+stats-distinct-apps = { $count ->
+    [one] { $count } App
+   *[other] { $count } verschiedene Apps
+}
+stats-show-all = Alle anzeigen ({ $count })
+stats-show-fewer = Weniger anzeigen
+stats-allowance-of = { $used } von { $total } Min.

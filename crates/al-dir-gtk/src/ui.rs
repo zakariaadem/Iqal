@@ -341,7 +341,7 @@ impl Ui {
             ("menu-import", dialogs::import_blocks),
             ("menu-export-all", dialogs::export_all),
             ("menu-activity", dialogs::activity),
-            ("menu-stats", dialogs::statistics),
+            ("menu-stats", crate::stats::statistics),
             ("menu-settings", dialogs::settings),
             ("menu-about", dialogs::about),
         ];
@@ -375,7 +375,7 @@ impl Ui {
             Ok("new") => dialogs::new_block(self),
             Ok("settings") => dialogs::settings(self),
             Ok("activity") => dialogs::activity(self),
-            Ok("stats") => dialogs::statistics(self),
+            Ok("stats") => crate::stats::statistics(self),
             _ => {}
         }
     }
@@ -607,6 +607,11 @@ impl Ui {
             Some(d) => d.texts[key.index()].clone(),
             None => self.current_from(&st).map(|i| key.text_of(&i.set)).unwrap_or_default(),
         }
+    }
+
+    /// All blocks, as saved.
+    pub fn blocks(&self) -> Vec<SetInfo> {
+        self.state.borrow().sets.clone()
     }
 
     pub fn status(&self) -> Option<Box<Status>> {

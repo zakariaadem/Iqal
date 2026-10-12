@@ -261,15 +261,10 @@ list-count = { $count ->
 allowance-used-today = Usado hoje: { $used } de { $total } minutos
 
 menu-stats = Estatísticas
-stats-period = Período
 stats-7 = Últimos 7 dias
 stats-30 = Últimos 30 dias
 stats-90 = Últimos 90 dias
 stats-private = As estatísticas ficam neste computador.
-stats-total = { $count ->
-    [one] { $count } bloqueio neste período
-   *[other] { $count } bloqueios neste período
-}
 stats-top = Mais bloqueados
 stats-by-block = Por bloqueio
 stats-allowance = Tempo permitido usado
@@ -298,3 +293,31 @@ line-invalid = Linha { $line }: “{ $rule }” não pode ser usado: { $problem 
 lines-invalid-more = (mais { $count } linhas precisam de correção)
 list-empty-hint = Um por linha, por exemplo: { $examples }
 lock-saves-changes = Suas outras alterações não salvas neste bloqueio também serão salvas.
+
+# Statistics window
+stats-today = Hoje
+stats-chart = Bloqueios por dia
+stats-card-total = Vezes bloqueado
+stats-card-websites = Sites interrompidos
+stats-card-apps = Apps interrompidos
+stats-card-busiest = Dia com mais bloqueios
+stats-card-top = Mais bloqueado
+stats-before = { $days ->
+    [1] Ontem: { $count }
+   *[other] { $days } dias anteriores: { $count }
+}
+stats-blocks = { $count ->
+    [one] { $count } bloqueio
+   *[other] { $count } bloqueios
+}
+stats-distinct-sites = { $count ->
+    [one] { $count } site
+   *[other] { $count } sites diferentes
+}
+stats-distinct-apps = { $count ->
+    [one] { $count } app
+   *[other] { $count } apps diferentes
+}
+stats-show-all = Mostrar todos ({ $count })
+stats-show-fewer = Mostrar menos
+stats-allowance-of = { $used } de { $total } min
