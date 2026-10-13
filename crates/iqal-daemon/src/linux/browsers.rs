@@ -28,7 +28,7 @@ const UNSUPPORTED: &[&str] = &[
     "ungoogled-chromium", "librewolf-bin", "mullvad-browser", "badwolf", "luakit", "surf", "nyxt", "otter-browser",
 ];
 
-/// Seconds a browser may run before its extension must have connected.
+/// Seconds a browser may be seen without its extension before it is closed.
 pub const EXTENSION_GRACE_SECS: u64 = 30;
 
 fn file_name(exe: &str) -> &str {

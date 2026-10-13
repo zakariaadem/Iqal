@@ -35,6 +35,9 @@ pub struct AppGuard {
     last_sweep: Mutex<Instant>,
     /// Fractions of a second not yet counted.
     carry: Mutex<f64>,
+    /// Browsers seen without the extension, and since when (by this
+    /// service: after a restart, extensions get time to reconnect).
+    uncovered_since: Mutex<HashMap<i32, Instant>>,
 }
 
 struct Verdict {
@@ -55,6 +58,7 @@ impl AppGuard {
             own_pid: std::process::id() as i32,
             last_sweep: Mutex::new(Instant::now()),
             carry: Mutex::new(0.0),
+            uncovered_since: Mutex::new(HashMap::new()),
         }
     }
 
@@ -184,11 +188,16 @@ impl AppGuard {
         self.close_unsupervised_browsers(&pids, &engine, now);
     }
 
-    /// Closes supported browsers that have run for a while without the
-    /// extension while website rules are in force for their user.
+    /// Closes supported browsers that have been without the extension for a
+    /// while (as seen by this service) while website rules are in force for
+    /// their user. Counting from when the service first saw the browser
+    /// uncovered, not from the browser's start, gives extensions time to
+    /// reconnect after the service restarts (an update, say).
     fn close_unsupervised_browsers(&self, pids: &[i32], engine: &Engine, now: Now) {
         let sessions = self.service.extensions();
         let mut covered = None;
+        let mut uncovered_since = self.uncovered_since.lock().unwrap_or_else(|e| e.into_inner());
+        let mut still_uncovered = Vec::new();
         for &pid in pids {
             let Some(exe) = procs::exe_of(pid) else { continue };
             let Some(family) = browsers::family_of(&exe) else { continue };
@@ -206,11 +215,20 @@ impl AppGuard {
             if covered.contains(&pid) {
                 continue;
             }
+            let since = *uncovered_since.entry(pid).or_insert_with(Instant::now);
+            if since.elapsed().as_secs() < browsers::EXTENSION_GRACE_SECS {
+                still_uncovered.push(pid);
+                continue;
+            }
+            // Not counted further: a browser that is closing is not closed again.
             if kill(Pid::from_raw(pid), Signal::SIGKILL).is_ok() {
                 let hit = Hit { set, reason: Reason::ExtensionMissing };
                 self.service.record_block(&user, EventKind::AppKilled, &exe, &hit);
             }
         }
+        // A browser that connected (or closed, or no longer needs it) starts
+        // over the next time.
+        uncovered_since.retain(|pid, _| still_uncovered.contains(pid));
     }
 
     /// SHA-256 of a file, cached by identity and modification time so big
