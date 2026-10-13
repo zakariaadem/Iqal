@@ -803,9 +803,8 @@ fn placeholder(title: &str, detail: &str) -> gtk::Box {
     let b = vbox(12);
     b.set_valign(gtk::Align::Center);
     b.set_halign(gtk::Align::Center);
-    let icon = gtk::Image::from_icon_name("security-high-symbolic");
-    icon.set_pixel_size(64);
-    icon.add_css_class("dim-label");
+    let icon = gtk::Image::from_icon_name("iqal");
+    icon.set_pixel_size(80);
     b.append(&icon);
     let h = gtk::Label::new(Some(title));
     h.add_css_class("title-2");

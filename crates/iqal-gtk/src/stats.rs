@@ -91,9 +91,8 @@ fn build(ui: &Rc<Ui>, content: &gtk::Box, stats: &StatsReport, days: u32, names:
         let empty = vbox(10);
         empty.set_margin_top(60);
         empty.set_margin_bottom(60);
-        let icon = gtk::Image::from_icon_name("security-high-symbolic");
-        icon.set_pixel_size(56);
-        icon.add_css_class("dim-label");
+        let icon = gtk::Image::from_icon_name("iqal");
+        icon.set_pixel_size(64);
         empty.append(&icon);
         let text = note(&t("stats-empty"));
         text.set_halign(gtk::Align::Center);

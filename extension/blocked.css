@@ -3,7 +3,6 @@
   --card: #ffffff;
   --text: #1d2430;
   --muted: #5d6878;
-  --accent: #1f7a5c;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -12,7 +11,6 @@
     --card: #1d232b;
     --text: #e7ebf0;
     --muted: #9aa5b4;
-    --accent: #4cc19a;
   }
 }
 * { box-sizing: border-box; }
@@ -34,7 +32,7 @@ main {
   text-align: center;
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.08);
 }
-.shield { color: var(--accent); }
+.logo { display: block; margin: 0 auto; }
 h1 { font-size: 1.6rem; margin: 12px 0 4px; }
 p { margin: 6px 0; color: var(--muted); }
 .url { font-family: ui-monospace, monospace; word-break: break-all; color: var(--text); }
