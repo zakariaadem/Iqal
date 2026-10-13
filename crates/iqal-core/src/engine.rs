@@ -12,7 +12,6 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 
 use crate::apps::{exe_name, path_matches, AppRule, ProcessInfo};
 use crate::model::{Allowance, BlockSet, Config, ListMode, SetId, UserScope};
-use crate::partial::{self, PartialRule};
 use crate::schedule::{Now, Schedule};
 use crate::text::normalize;
 use crate::web::{host_suffixes, UrlView, WebRule};
@@ -58,7 +57,6 @@ pub enum Reason {
     Url(String),
     UrlContains(String),
     SearchTerm(String),
-    Partial(&'static str),
     /// Allow-only mode and nothing on the allow list matched.
     NotAllowed,
     /// A browser Iqal cannot supervise, while website blocking is on.
@@ -79,7 +77,6 @@ impl std::fmt::Display for Reason {
             Reason::Url(u) => write!(f, "page {u}"),
             Reason::UrlContains(t) => write!(f, "address contains \"{t}\""),
             Reason::SearchTerm(t) => write!(f, "search contains \"{t}\""),
-            Reason::Partial(id) => write!(f, "partial block {id}"),
             Reason::NotAllowed => f.write_str("not on the allow list"),
             Reason::UnsupportedBrowser => f.write_str("browser not supported while websites are blocked"),
             Reason::ExtensionMissing => f.write_str("browser running without the Iqal extension"),
@@ -125,7 +122,6 @@ struct CompiledSet {
     web_mode: ListMode,
     web_block: WebMatcher,
     web_allow: WebMatcher,
-    partial: Vec<&'static PartialRule>,
     safe_search: bool,
     has_web_rules: bool,
     app_mode: ListMode,
@@ -177,21 +173,6 @@ impl Engine {
     /// Whether SafeSearch must be forced for this user right now.
     pub fn safe_search(&self, ctx: &Ctx) -> bool {
         self.sets.iter().any(|s| s.safe_search && s.is_active(ctx))
-    }
-
-    /// CSS selectors the extension should hide on pages of `host`.
-    pub fn hidden_selectors(&self, host: &str, ctx: &Ctx) -> Vec<&'static str> {
-        let mut out: Vec<&'static str> = Vec::new();
-        for set in self.sets.iter().filter(|s| s.is_active(ctx)) {
-            for rule in set.partial.iter().filter(|r| r.applies_to_host(host)) {
-                for sel in rule.hide {
-                    if !out.contains(sel) {
-                        out.push(sel);
-                    }
-                }
-            }
-        }
-        out
     }
 
     /// The first set in force for this user that blocks or restricts
@@ -249,12 +230,10 @@ impl CompiledSet {
             web_mode: set.web.mode,
             web_block,
             web_allow,
-            partial: set.web.partial.iter().filter_map(|id| partial::find(id)).collect(),
             safe_search: set.web.safe_search,
             has_web_rules: set.web.mode == ListMode::AllowOnly
                 || !set.web.block.is_empty()
                 || !set.web.lists.is_empty()
-                || !set.web.partial.is_empty()
                 || set.web.safe_search,
             app_mode: set.apps.mode,
             app_block: AppMatcher::new(if set.apps.mode == ListMode::Block { &set.apps.block } else { &[] }),
@@ -269,20 +248,9 @@ impl CompiledSet {
     }
 
     fn web_verdict(&self, view: &UrlView) -> Option<Reason> {
-        let blocked = || {
-            self.web_block.matches(view).or_else(|| {
-                self.partial
-                    .iter()
-                    .find(|r| r.applies_to_host(&view.host) && r.blocks_path(&view.path))
-                    .map(|r| Reason::Partial(r.id))
-            })
-        };
         match self.web_mode {
-            ListMode::Block => blocked().filter(|_| self.web_allow.matches(view).is_none()),
-            ListMode::AllowOnly => match self.web_allow.matches(view) {
-                None => Some(Reason::NotAllowed),
-                Some(_) => blocked(),
-            },
+            ListMode::Block => self.web_block.matches(view).filter(|_| self.web_allow.matches(view).is_none()),
+            ListMode::AllowOnly => self.web_allow.matches(view).is_none().then_some(Reason::NotAllowed),
         }
     }
 
@@ -293,18 +261,14 @@ impl CompiledSet {
         let allowed = self.web_allow.allows_host(&view.host);
         match self.web_mode {
             ListMode::Block => self.web_block.matches(view).filter(|_| !allowed),
-            ListMode::AllowOnly if !allowed => Some(Reason::NotAllowed),
-            ListMode::AllowOnly => self.web_block.matches(view),
+            ListMode::AllowOnly => (!allowed).then_some(Reason::NotAllowed),
         }
     }
 
     fn process_verdict(&self, p: &ProcessInfo) -> Option<Reason> {
         match self.app_mode {
             ListMode::Block => self.app_block.matches_process(p).filter(|_| self.app_allow.matches_process(p).is_none()),
-            ListMode::AllowOnly => match self.app_allow.matches_process(p) {
-                None => Some(Reason::NotAllowed),
-                Some(_) => self.app_block.matches_process(p),
-            },
+            ListMode::AllowOnly => self.app_allow.matches_process(p).is_none().then_some(Reason::NotAllowed),
         }
     }
 
@@ -554,12 +518,10 @@ mod tests {
         s.web.allow = rules(&["wikipedia.org", "github.com/rust-lang"]);
         // Kept for switching back to a block list, but not used.
         s.web.block = rules(&["en.wikipedia.org/wiki/special:random"]);
-        s.web.partial = vec!["youtube-shorts".into()];
         s.web.allow.extend(rules(&["youtube.com"]));
         let e = engine(vec![s]);
         assert!(!blocked(&e, "https://ar.wikipedia.org/wiki/x"));
         assert!(!blocked(&e, "https://en.wikipedia.org/wiki/Special:Random"));
-        assert!(blocked(&e, "https://www.youtube.com/shorts/x"), "partial blocks still apply");
         assert!(!blocked(&e, "https://www.youtube.com/watch?v=x"));
         assert!(!blocked(&e, "https://github.com/rust-lang/rust"));
         assert!(blocked(&e, "https://github.com/torvalds"));
@@ -567,19 +529,6 @@ mod tests {
         let d = e.check_host("example.com", &ctx());
         assert_eq!(d.block.unwrap().reason, Reason::NotAllowed);
         assert!(!e.check_host("github.com", &ctx()).is_blocked());
-    }
-
-    #[test]
-    fn partial_blocking() {
-        let mut s = BlockSet::new("partial");
-        s.web.partial = vec!["youtube-shorts".into(), "youtube-comments".into(), "nonexistent".into()];
-        let e = engine(vec![s]);
-        assert!(blocked(&e, "https://www.youtube.com/shorts/abc"));
-        assert!(!blocked(&e, "https://www.youtube.com/watch?v=abc"));
-        let sel = e.hidden_selectors("www.youtube.com", &ctx());
-        assert!(sel.contains(&"ytd-comments#comments"));
-        assert!(sel.contains(&"ytd-reel-shelf-renderer"));
-        assert!(e.hidden_selectors("example.com", &ctx()).is_empty());
     }
 
     #[test]

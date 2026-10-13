@@ -5,7 +5,7 @@
   "version": "0.3.0",
   "default_locale": "en",
   "minimum_chrome_version": "116",
-  "permissions": ["nativeMessaging", "tabs", "webNavigation", "scripting"],
+  "permissions": ["nativeMessaging", "tabs", "webNavigation"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "incognito": "spanning"

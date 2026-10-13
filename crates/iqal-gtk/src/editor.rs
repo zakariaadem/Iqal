@@ -7,7 +7,6 @@
 use std::rc::Rc;
 
 use iqal_core::import::parse_rules_text;
-use iqal_core::partial;
 use iqal_core::schedule::{DateRange, Day, Schedule, WeeklyRange};
 use iqal_core::{Allowance, BlockSet, ListMode, UserScope};
 use iqal_i18n::{t, ta};
@@ -268,12 +267,6 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         body.append(&list_check(ui, &text, active, list.id, |s| &mut s.web.lists));
     }
 
-    body.append(&heading(&t("web-partial")));
-    body.append(&note(&t("web-partial-detail")));
-    for rule in partial::BUILTIN {
-        let active = set.web.partial.iter().any(|p| p == rule.id);
-        body.append(&list_check(ui, &t(&format!("partial-{}", rule.id)), active, rule.id.to_string(), |s| &mut s.web.partial));
-    }
     scroll.upcast()
 }
 

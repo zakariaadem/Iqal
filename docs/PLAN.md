@@ -61,7 +61,7 @@ The UI is only an editor. Killing it changes nothing. All enforcement is in the 
 | All users / all except / only these users | The UID comes from the process (fanotify pid → `/proc`) and from the socket UID for DNS. Each rule set has a user scope. |
 | Block domains (all apps) | The daemon runs a local DNS filter. nftables redirects every user's port-53 traffic, **per UID**, to the right filter instance. Blocked names get answers pointing at the local block page. |
 | Stop DNS bypasses | nftables blocks known DoH/DoT endpoints (IP set + port 853). Browser policies turn off built-in DoH (`DnsOverHttpsMode=off`, Firefox `DNSOverHTTPS.Enabled=false, Locked`). Optional: block VPN/proxy apps. |
-| URL contains / search term contains / partial blocking | The browser extension sends each navigation + search query to the daemon over native messaging and gets back allow/block/hide-elements. |
+| URL contains / search term contains | The browser extension sends each navigation + search query to the daemon over native messaging and gets back allow/block. |
 | Extension can't be removed | Force-installed through managed policies (`/etc/opt/chrome/policies/managed`, `/etc/chromium/...`, `/etc/brave/...`, Firefox `policies.json`), and allowed in incognito. Any browser running **without** a live extension connection gets closed (heartbeat check). |
 | Forced SafeSearch | DNS answers CNAME to `forcesafesearch.google.com`, `strict.bing.com`, `safe.duckduckgo.com`, `restrict.youtube.com`, plus the extension appends safe parameters. |
 | Website exceptions | Allow rules beat block rules at the same or more specific level (e.g. block `youtube.com`, allow `youtube.com/watch?v=…` lecture). |
@@ -93,7 +93,7 @@ The UI is only an editor. Killing it changes nothing. All enforcement is in the 
 - Privacy: nothing is looked up while no location lock exists. Remembered network IDs stay on the machine; only GeoClue's lookup sends network IDs to BeaconDB.
 
 ### Extras (all in v1)
-Allowance (X min/day per site/app, across browsers) · delayed unlock · random-text lock · allow-only mode · forced SafeSearch · partial blocking (YouTube Shorts/comments/recommendations, Reddit front page, …) · profiles (each with own schedule + lock) · local-only statistics · auto-updating lists · CLI.
+Allowance (X min/day per site/app, across browsers) · delayed unlock · random-text lock · allow-only mode · forced SafeSearch · profiles (each with own schedule + lock) · local-only statistics · auto-updating lists · CLI.
 
 ### Tamper resistance (Linux)
 - systemd unit with `Restart=always` and a watchdog. The agent re-launches itself via XDG autostart + a systemd user unit.
@@ -121,7 +121,7 @@ Allowance (X min/day per site/app, across browsers) · delayed unlock · random-
 | M2 | App blocking: fanotify exec, user scope, allow-only | Blocked app can't launch |
 | M3 | X11 agent: window-title blocking, block overlay | Matching window closes instantly |
 | M4 | DNS filter + per-UID nftables + DoH lockdown + SafeSearch | Blocked domains fail in every app |
-| M5 | Browser extension + native messaging + force-install policies + "browser without extension" enforcement | URL/keyword/partial blocking works in Firefox + Chromium family |
+| M5 | Browser extension + native messaging + force-install policies + "browser without extension" enforcement | URL/keyword blocking works in Firefox + Chromium family |
 | M6 | Locks: time, schedule, password, random text, delayed, restart, location (GeoClue + Wi-Fi + polkit) + clock-tamper protection | Locked rules can't be weakened |
 | M7 | GTK4 UI incl. map picker, i18n, RTL | Full feature set usable without CLI |
 | M8 | Profiles, allowances, statistics, pre-made lists + updater, text import | — |

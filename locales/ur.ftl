@@ -91,16 +91,6 @@ web-syntax = ⁦example.com⁩ سائٹ اور اس کے تمام ذیلی ڈو�
 web-allowed = اجازت یافتہ ویب سائٹس
 web-exceptions = استثنا (ہمیشہ اجازت)
 web-safesearch = SafeSearch لازمی کریں (Google، Bing، DuckDuckGo، YouTube)
-web-partial = جزوی بلاک
-web-partial-detail = سائٹ کا صرف توجہ ہٹانے والا حصہ بلاک کریں اور باقی رہنے دیں۔
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = YouTube تبصرے
-partial-youtube-recommendations = YouTube تجاویز اور ہوم فیڈ
-partial-reddit-home = Reddit کا پہلا صفحہ، r/all اور r/popular
-partial-facebook-feed = Facebook نیوز فیڈ، Watch اور Reels
-partial-instagram-reels = Instagram Reels
-partial-instagram-explore = Instagram Explore
-partial-x-trends = X (Twitter) Explore اور ٹرینڈز
 
 import-done = درآمد مکمل
 import-result = { $added } اصول شامل ہوئے، { $skipped } سطریں چھوڑ دی گئیں۔

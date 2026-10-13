@@ -88,16 +88,6 @@ web-syntax = example.com 拦截该网站及其所有子域名。example.com/vide
 web-allowed = 允许的网站
 web-exceptions = 例外（始终允许）
 web-safesearch = 强制安全搜索（Google、Bing、DuckDuckGo、YouTube）
-web-partial = 部分拦截
-web-partial-detail = 只拦截网站中让人分心的部分，其余照常使用。
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = YouTube 评论
-partial-youtube-recommendations = YouTube 推荐和首页
-partial-reddit-home = Reddit 首页、r/all 和 r/popular
-partial-facebook-feed = Facebook 动态、Watch 和 Reels
-partial-instagram-reels = Instagram Reels
-partial-instagram-explore = Instagram 发现
-partial-x-trends = X（Twitter）探索和趋势
 
 import-done = 导入完成
 import-result = 已添加 { $added } 条规则，跳过 { $skipped } 行。

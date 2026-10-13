@@ -63,7 +63,6 @@ fn main() {
                         "blocked": page.blocked,
                         "set": page.set_name,
                         "reason": page.reason,
-                        "hide": page.hide,
                         "metered": page.metered,
                     }),
                     // Service unreachable: do not block (an uninstalled or

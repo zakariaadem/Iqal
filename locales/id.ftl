@@ -88,16 +88,6 @@ web-syntax = example.com memblokir situs beserta semua subdomainnya. example.com
 web-allowed = Situs yang diizinkan
 web-exceptions = Pengecualian (selalu diizinkan)
 web-safesearch = Wajibkan SafeSearch (Google, Bing, DuckDuckGo, YouTube)
-web-partial = Blokir sebagian
-web-partial-detail = Blokir hanya bagian situs yang mengganggu dan biarkan sisanya.
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = Komentar YouTube
-partial-youtube-recommendations = Rekomendasi dan beranda YouTube
-partial-reddit-home = Halaman depan Reddit, r/all dan r/popular
-partial-facebook-feed = Kabar berita Facebook, Watch dan Reels
-partial-instagram-reels = Reels Instagram
-partial-instagram-explore = Jelajah Instagram
-partial-x-trends = Jelajah dan tren X (Twitter)
 
 import-done = Impor selesai
 import-result = { $added } aturan ditambahkan, { $skipped } baris dilewati.

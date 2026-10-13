@@ -68,7 +68,7 @@ reason-hardened-off = désactiverait le mode renforcé
 empty-title = Aucun bloc pour l’instant
 empty-detail = Un bloc est un ensemble de sites et d’applications à bloquer, avec ses propres horaires et son verrou. Créez-en un avec « Nouveau bloc ».
 
-block-summary = { $web } règles de sites · { $apps } règles d’applications
+block-summary = Règles de sites : { $web } · Règles d’applications : { $apps }
 rules-count = { $count ->
     [one] { $count } règle
    *[other] { $count } règles
@@ -91,16 +91,6 @@ web-syntax = example.com bloque le site et tous ses sous-domaines. example.com/v
 web-allowed = Sites autorisés
 web-exceptions = Exceptions (toujours autorisées)
 web-safesearch = Imposer SafeSearch (Google, Bing, DuckDuckGo, YouTube)
-web-partial = Blocages partiels
-web-partial-detail = Bloquer seulement la partie distrayante d’un site et garder le reste.
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = Commentaires YouTube
-partial-youtube-recommendations = Recommandations et page d’accueil YouTube
-partial-reddit-home = Page d’accueil de Reddit, r/all et r/popular
-partial-facebook-feed = Fil d’actualité Facebook, Watch et Reels
-partial-instagram-reels = Reels Instagram
-partial-instagram-explore = Explorer d’Instagram
-partial-x-trends = Explorer et tendances de X (Twitter)
 
 import-done = Importation terminée
 import-result = { $added } règles ajoutées, { $skipped } lignes ignorées.

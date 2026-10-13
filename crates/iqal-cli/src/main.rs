@@ -9,7 +9,7 @@ use iqal_core::import::parse_rules_text;
 use iqal_core::lock::random_text;
 use iqal_core::schedule::DateRange;
 use iqal_core::{
-    partial, Allowance, AppRule, BlockSet, ListMode, Lock, LockKind, PasswordHash, Schedule, SetId, UserScope,
+    Allowance, AppRule, BlockSet, ListMode, Lock, LockKind, PasswordHash, Schedule, SetId, UserScope,
     WebRule,
 };
 use iqal_ipc::client::Client;
@@ -81,8 +81,6 @@ enum Cmd {
     SafeSearch { block: String, state: OnOff },
     /// Add or remove a pre-made list.
     Lists { block: String, action: AddRemove, id: String },
-    /// Add or remove a partial block; without arguments, show the available ones.
-    Partial { block: Option<String>, action: Option<AddRemove>, id: Option<String> },
     /// When the block is in force (default: always).
     Schedule {
         block: String,
@@ -295,12 +293,6 @@ fn unexpected(r: Response) -> String {
 }
 
 fn run(cmd: Cmd) -> Result<()> {
-    if let Cmd::Partial { block: None, .. } = cmd {
-        for r in partial::BUILTIN {
-            println!("{:<26} {}", r.id, r.domain);
-        }
-        return Ok(());
-    }
     let mut c = Conn::open()?;
     match cmd {
         Cmd::Status => {
@@ -416,16 +408,6 @@ fn run(cmd: Cmd) -> Result<()> {
             toggle(&mut s.web.lists, id, action);
             Ok(())
         })?,
-        Cmd::Partial { block: Some(block), action: Some(action), id: Some(id) } => {
-            if partial::find(&id).is_none() {
-                return Err(format!("unknown partial block \"{id}\" (see: iqal-cli partial)"));
-            }
-            c.modify(&block, |s| {
-                toggle(&mut s.web.partial, id, action);
-                Ok(())
-            })?
-        }
-        Cmd::Partial { .. } => return Err("usage: iqal-cli partial <block> add|remove <id>".into()),
         Cmd::Schedule { block, action } => c.modify(&block, |s| {
             match action {
                 ScheduleCmd::Clear => s.schedule = None,
@@ -792,9 +774,6 @@ fn show(info: &SetInfo) {
     }
     for l in &s.web.lists {
         println!("    list      {l}{}", unused(s.web.mode));
-    }
-    for p in &s.web.partial {
-        println!("    partial   {p}");
     }
     if s.web.safe_search {
         println!("    SafeSearch forced");

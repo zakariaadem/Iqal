@@ -77,8 +77,7 @@ Description: website and app blocker (Iqal / عِقال)
  .
  Websites are blocked for every program by a DNS filter and, in Firefox
  and Chromium-based browsers, by a force-installed extension (block
- pages, URL and search-term rules, partial blocks such as YouTube
- Shorts). Apps are stopped before they start.
+ pages, URL and search-term rules). Apps are stopped before they start.
 EOF
 
 mkdir -p "$SRC/dist"

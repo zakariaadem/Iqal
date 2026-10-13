@@ -11,6 +11,9 @@ use gtk::prelude::*;
 use crate::ui::{ListKey, Ui};
 use crate::widgets::{heading, hbox, label, note, vbox};
 
+/// Height of the add box and of the list beside it.
+const BOX_HEIGHT: i32 = 220;
+
 /// The editor for one list, with a place for more "add" buttons and a
 /// function that adds rules from elsewhere (a file, the app picker).
 pub struct RuleEditor {
@@ -72,7 +75,9 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
     frame.append(&search);
     frame.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     frame.append(&stack);
-    frame.set_size_request(-1, 200);
+    frame.set_size_request(-1, BOX_HEIGHT);
+    // Exactly as tall as the add box, not stretched to fill the column.
+    frame.set_vexpand(false);
 
     let list_heading = heading(list_title);
     let remove = gtk::Button::with_label(&t("action-remove-selected"));
@@ -140,12 +145,20 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
     input.set_direction(gtk::TextDirection::Ltr);
     let input_scroll = gtk::ScrolledWindow::builder().child(&input).build();
     input_scroll.add_css_class("frame");
-    input_scroll.set_size_request(-1, 200);
+    input_scroll.set_size_request(-1, BOX_HEIGHT);
+    // The examples show inside the empty box, so both boxes line up.
+    let hint = note(&ta("list-empty-hint", &[("examples", examples.to_string().into())]));
+    hint.set_valign(gtk::Align::Start);
+    hint.set_margin_top(8);
+    hint.set_margin_start(12);
+    hint.set_margin_end(12);
+    hint.set_can_target(false);
+    let input_box = gtk::Overlay::new();
+    input_box.set_child(Some(&input_scroll));
+    input_box.add_overlay(&hint);
     let problem = label("");
     problem.add_css_class("error");
     problem.set_visible(false);
-    let hint = note(&ta("list-empty-hint", &[("examples", examples.to_string().into())]));
-    hint.set_max_width_chars(30);
     problem.set_max_width_chars(30);
     let add_button = gtk::Button::with_label(&t("action-add"));
     add_button.add_css_class("suggested-action");
@@ -153,10 +166,9 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
     actions.append(&add_button);
     let left = vbox(6);
     left.append(&heading(add_title));
-    left.append(&input_scroll);
-    left.append(&problem);
-    left.append(&hint);
+    left.append(&input_box);
     left.append(&actions);
+    left.append(&problem);
 
     let add: Rc<dyn Fn(Vec<String>) -> usize> = {
         let (model, all, changed, buffer, problem, invalid) =
@@ -201,10 +213,11 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
             add(text.lines().map(String::from).collect());
         }
     });
-    // Typing again clears the marks.
+    // Typing again clears the marks; the examples show while it is empty.
     buffer.connect_changed({
         let problem = problem.clone();
         move |b| {
+            hint.set_visible(b.char_count() == 0);
             if problem.is_visible() && b.char_count() == 0 {
                 problem.set_visible(false);
             }

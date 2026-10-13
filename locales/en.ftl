@@ -68,7 +68,7 @@ reason-hardened-off = would turn hardened mode off
 empty-title = No blocks yet
 empty-detail = A block is a group of websites and apps to block, with its own times and lock. Create one with “New block”.
 
-block-summary = { $web } website rules · { $apps } app rules
+block-summary = Website rules: { $web } · App rules: { $apps }
 rules-count = { $count ->
     [one] { $count } rule
    *[other] { $count } rules
@@ -91,16 +91,6 @@ web-syntax = example.com blocks the site and all its subdomains. example.com/vid
 web-allowed = Allowed websites
 web-exceptions = Exceptions (always allowed)
 web-safesearch = Force SafeSearch (Google, Bing, DuckDuckGo, YouTube)
-web-partial = Partial blocks
-web-partial-detail = Block only the distracting part of a site and keep the rest.
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = YouTube comments
-partial-youtube-recommendations = YouTube recommendations and home feed
-partial-reddit-home = Reddit front page, r/all and r/popular
-partial-facebook-feed = Facebook news feed, Watch and Reels
-partial-instagram-reels = Instagram Reels
-partial-instagram-explore = Instagram Explore
-partial-x-trends = X (Twitter) Explore and trends
 
 import-done = Import finished
 import-result = { $added } rules added, { $skipped } lines skipped.

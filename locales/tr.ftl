@@ -91,16 +91,6 @@ web-syntax = example.com siteyi ve tüm alt alan adlarını engeller. example.co
 web-allowed = İzin verilen siteler
 web-exceptions = İstisnalar (her zaman izinli)
 web-safesearch = SafeSearch’ü zorunlu kıl (Google, Bing, DuckDuckGo, YouTube)
-web-partial = Kısmi engeller
-web-partial-detail = Bir sitenin yalnızca dikkat dağıtan kısmını engelle, gerisini koru.
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = YouTube yorumları
-partial-youtube-recommendations = YouTube önerileri ve ana sayfa
-partial-reddit-home = Reddit ana sayfası, r/all ve r/popular
-partial-facebook-feed = Facebook haber akışı, Watch ve Reels
-partial-instagram-reels = Instagram Reels
-partial-instagram-explore = Instagram Keşfet
-partial-x-trends = X (Twitter) Keşfet ve gündem
 
 import-done = İçe aktarma tamamlandı
 import-result = { $added } kural eklendi, { $skipped } satır atlandı.

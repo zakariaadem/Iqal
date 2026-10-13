@@ -179,8 +179,6 @@ pub struct PageInfo {
     pub blocked: bool,
     pub set_name: Option<String>,
     pub reason: Option<String>,
-    /// CSS selectors to hide on the page (partial blocking).
-    pub hide: Vec<String>,
     /// The page uses up a time allowance while open.
     pub metered: bool,
 }

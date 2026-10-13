@@ -13,7 +13,6 @@ pub mod import;
 pub mod lists;
 pub mod lock;
 pub mod model;
-pub mod partial;
 pub mod schedule;
 pub mod text;
 pub mod web;

@@ -95,16 +95,6 @@ web-syntax = ⁦example.com⁩ ÙØ­Ø¬Ø¨ Ø§ÙÙÙÙØ¹ ÙÙ�
 web-allowed = المواقع المسموحة
 web-exceptions = الاستثناءات (مسموحة دائمًا)
 web-safesearch = فرض البحث الآمن (Google وBing وDuckDuckGo وYouTube)
-web-partial = الحجب الجزئي
-web-partial-detail = احجب الجزء المشتّت من الموقع فقط واترك الباقي.
-partial-youtube-shorts = مقاطع YouTube Shorts
-partial-youtube-comments = تعليقات YouTube
-partial-youtube-recommendations = اقتراحات YouTube والصفحة الرئيسية
-partial-reddit-home = صفحة Reddit الرئيسية وr/all وr/popular
-partial-facebook-feed = آخر أخبار Facebook وWatch وReels
-partial-instagram-reels = مقاطع Instagram Reels
-partial-instagram-explore = صفحة استكشاف Instagram
-partial-x-trends = استكشاف X (تويتر) والمتداول
 
 import-done = انتهى الاستيراد
 import-result = أُضيفت { $added } من القواعد، وتُخطّي { $skipped } من الأسطر.

@@ -1,9 +1,9 @@
 // Iqal browser extension.
 //
 // Asks the Iqal service (through the native host) about every page the
-// user opens, and replaces blocked pages with a block page. Hides parts of
-// pages for partial blocks. All decisions are made by the service; this
-// script only reports URLs and applies the answers.
+// user opens, and replaces blocked pages with a block page. All decisions
+// are made by the service; this script only reports URLs and applies the
+// answers.
 
 "use strict";
 
@@ -74,45 +74,27 @@ function blockPage(url, result) {
   return api.runtime.getURL("blocked.html") + "?" + params.toString();
 }
 
-async function hide(tabId, selectors) {
-  if (!selectors?.length) return;
-  const css = selectors.join(",\n") + " { display: none !important; }";
-  try {
-    if (api.scripting?.insertCSS) {
-      await api.scripting.insertCSS({ target: { tabId, allFrames: true }, css });
-    } else {
-      await api.tabs.insertCSS(tabId, { code: css, allFrames: true, runAt: "document_start" });
-    }
-  } catch (e) {
-    // Tab closed or not injectable (browser pages); nothing to hide.
-  }
-}
-
-// `full`: also apply partial-block styles (only possible once the new
-// page has been committed to the tab).
-async function handle(tabId, url, full) {
+async function handle(tabId, url) {
   if (tabId < 0 || !isWeb(url)) return;
   const result = await check(url);
   if (result.blocked) {
     api.tabs.update(tabId, { url: blockPage(url, result) }).catch(() => {});
-  } else if (full) {
-    hide(tabId, result.hide);
   }
 }
 
 async function recheckAllTabs() {
   const tabs = await api.tabs.query({});
-  for (const tab of tabs) handle(tab.id, tab.url, true);
+  for (const tab of tabs) handle(tab.id, tab.url);
 }
 
 // Earliest moment: stop the page before it loads.
 api.webNavigation.onBeforeNavigate.addListener((d) => {
-  if (d.frameId === 0) handle(d.tabId, d.url, false);
+  if (d.frameId === 0) handle(d.tabId, d.url);
 });
 // Page committed, or changed without a reload (YouTube, Reddit, ...).
 for (const event of ["onCommitted", "onHistoryStateUpdated", "onReferenceFragmentUpdated"]) {
   api.webNavigation[event].addListener((d) => {
-    if (d.frameId === 0) handle(d.tabId, d.url, true);
+    if (d.frameId === 0) handle(d.tabId, d.url);
   });
 }
 

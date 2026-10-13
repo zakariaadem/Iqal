@@ -93,16 +93,6 @@ web-syntax = example.com блокирует сайт и все его поддо
 web-allowed = Разрешённые сайты
 web-exceptions = Исключения (всегда разрешены)
 web-safesearch = Включать SafeSearch принудительно (Google, Bing, DuckDuckGo, YouTube)
-web-partial = Частичная блокировка
-web-partial-detail = Блокировать только отвлекающую часть сайта, оставляя остальное.
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = Комментарии YouTube
-partial-youtube-recommendations = Рекомендации и главная страница YouTube
-partial-reddit-home = Главная страница Reddit, r/all и r/popular
-partial-facebook-feed = Лента новостей Facebook, Watch и Reels
-partial-instagram-reels = Reels в Instagram
-partial-instagram-explore = Интересное в Instagram
-partial-x-trends = Обзор и тренды X (Twitter)
 
 import-done = Импорт завершён
 import-result = Добавлено правил: { $added }, пропущено строк: { $skipped }.

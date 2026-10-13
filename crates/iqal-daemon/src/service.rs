@@ -236,9 +236,8 @@ impl Service {
             return PageInfo::default();
         };
         let decision = snapshot.engine.check_view(&view, &ctx);
-        let hide = snapshot.engine.hidden_selectors(&view.host, &ctx).into_iter().map(String::from).collect();
         let Some(hit) = decision.block else {
-            return PageInfo { hide, metered: !decision.metered.is_empty(), ..PageInfo::default() };
+            return PageInfo { metered: !decision.metered.is_empty(), ..PageInfo::default() };
         };
         let key = (caller.user.clone(), url.to_string());
         let mut recent = self.recent_pages.lock().unwrap_or_else(|e| e.into_inner());
@@ -251,7 +250,6 @@ impl Service {
             blocked: true,
             set_name: snapshot.names.get(&hit.set).cloned(),
             reason: Some(hit.reason.to_string()),
-            hide,
             metered: false,
         }
     }

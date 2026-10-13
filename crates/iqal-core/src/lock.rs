@@ -283,7 +283,7 @@ pub fn weakening_reason(old: &BlockSet, new: &BlockSet) -> Option<&'static str> 
     if ow.mode != nw.mode {
         return Some("changes the website blocking mode");
     }
-    if !superset(&nw.block, &ow.block) || !superset(&nw.lists, &ow.lists) || !superset(&nw.partial, &ow.partial) {
+    if !superset(&nw.block, &ow.block) || !superset(&nw.lists, &ow.lists) {
         return Some("removes blocked websites");
     }
     if !superset(&ow.allow, &nw.allow) {

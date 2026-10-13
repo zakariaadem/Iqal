@@ -68,7 +68,7 @@ reason-hardened-off = würde den verschärften Modus ausschalten
 empty-title = Noch keine Sperren
 empty-detail = Eine Sperre ist eine Gruppe von Websites und Apps, die gesperrt werden, mit eigenen Zeiten und eigenem Schloss. Erstellen Sie eine mit „Neue Sperre“.
 
-block-summary = { $web } Website-Regeln · { $apps } App-Regeln
+block-summary = Website-Regeln: { $web } · App-Regeln: { $apps }
 rules-count = { $count ->
     [one] { $count } Regel
    *[other] { $count } Regeln
@@ -91,16 +91,6 @@ web-syntax = example.com sperrt die Website mit allen Subdomains. example.com/vi
 web-allowed = Erlaubte Websites
 web-exceptions = Ausnahmen (immer erlaubt)
 web-safesearch = SafeSearch erzwingen (Google, Bing, DuckDuckGo, YouTube)
-web-partial = Teilsperren
-web-partial-detail = Nur den ablenkenden Teil einer Website sperren und den Rest behalten.
-partial-youtube-shorts = YouTube Shorts
-partial-youtube-comments = YouTube-Kommentare
-partial-youtube-recommendations = YouTube-Empfehlungen und Startseite
-partial-reddit-home = Reddit-Startseite, r/all und r/popular
-partial-facebook-feed = Facebook-Neuigkeiten, Watch und Reels
-partial-instagram-reels = Instagram Reels
-partial-instagram-explore = Instagram Entdecken
-partial-x-trends = X (Twitter) Entdecken und Trends
 
 import-done = Import abgeschlossen
 import-result = { $added } Regeln hinzugefügt, { $skipped } Zeilen übersprungen.
