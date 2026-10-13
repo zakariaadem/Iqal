@@ -254,6 +254,11 @@ impl Ui {
         let header = gtk::HeaderBar::new();
         let menu = gtk::MenuButton::builder().icon_name("open-menu-symbolic").tooltip_text(t("menu")).build();
         menu.set_popover(Some(&self.menu_popover()));
+        // Developer aid (screenshots): IQAL_GUI_DIALOG=menu opens the menu.
+        if std::env::var("IQAL_GUI_DIALOG").as_deref() == Ok("menu") {
+            let m = menu.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_secs(1), move || m.popup());
+        }
         header.pack_end(&menu);
         self.window.set_titlebar(Some(&header));
 
@@ -335,6 +340,7 @@ impl Ui {
 
     fn menu_popover(self: &Rc<Self>) -> gtk::Popover {
         let pop = gtk::Popover::new();
+        pop.set_has_arrow(false);
         let b = vbox(2);
         type Action = fn(&Rc<Ui>);
         let items: [(&str, Action); 6] = [
@@ -698,31 +704,6 @@ impl Ui {
         self.update_dirty();
     }
 
-    /// Adds rules to the end of a list (from a file or the app picker).
-    pub fn append_lines(self: &Rc<Self>, key: ListKey, lines: &[String]) -> usize {
-        let added = self
-            .with_draft(|d| {
-                let text = &mut d.texts[key.index()];
-                let present: Vec<String> = meaningful(text).into_iter().map(str::to_string).collect();
-                let mut added = 0;
-                for l in lines {
-                    let l = l.trim();
-                    if l.is_empty() || present.iter().any(|p| p == l) {
-                        continue;
-                    }
-                    if !text.is_empty() && !text.ends_with('\n') {
-                        text.push('\n');
-                    }
-                    text.push_str(l);
-                    added += 1;
-                }
-                added
-            })
-            .unwrap_or(0);
-        self.rebuild_content();
-        added
-    }
-
     /// Saves the draft. Returns whether everything is saved.
     pub fn save(self: &Rc<Self>) -> bool {
         if !self.is_dirty() {
@@ -842,8 +823,16 @@ pub fn summary(info: &SetInfo) -> String {
     ta(
         "block-summary",
         &[
-            ("web", ((s.web.block.len() + s.web.allow.len()) as i64).into()),
-            ("apps", ((s.apps.block.len() + s.apps.allow.len()) as i64).into()),
+            ("web", (used_rules(s.web.mode, s.web.block.len(), s.web.allow.len()) as i64).into()),
+            ("apps", (used_rules(s.apps.mode, s.apps.block.len(), s.apps.allow.len()) as i64).into()),
         ],
     )
+}
+
+/// Rules in use: an allow list does not use the blocked ones.
+fn used_rules(mode: iqal_core::ListMode, block: usize, allow: usize) -> usize {
+    match mode {
+        iqal_core::ListMode::Block => block + allow,
+        iqal_core::ListMode::AllowOnly => allow,
+    }
 }

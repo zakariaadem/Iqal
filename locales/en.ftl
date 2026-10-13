@@ -85,11 +85,7 @@ confirm-delete = Delete “{ $name }”?
 confirm-delete-detail = Its websites, apps, times and lock will be removed.
 rule-invalid = “{ $rule }” cannot be used: { $problem }
 
-web-mode = How websites are blocked
-web-mode-block = Block the websites listed
-web-mode-allow-only = Allow only the websites listed
 web-blocked = Blocked websites
-web-also-blocked = Blocked even if allowed
 web-placeholder = example.com, example.com/page, contains:word, search:words
 web-syntax = example.com blocks the site and all its subdomains. example.com/videos blocks only those pages. contains:casino blocks any address containing the word. search:free movies blocks searches containing the words.
 web-allowed = Allowed websites
@@ -112,11 +108,7 @@ import-added = Added: { $name }
 import-replaced = Updated: { $name }
 import-rejected = Not imported: { $name } ({ $why })
 
-apps-mode = How apps are blocked
-apps-mode-block = Block the apps listed
-apps-mode-allow-only = Allow only the apps listed
 apps-blocked = Blocked apps
-apps-also-blocked = Blocked even if allowed
 apps-exceptions = Exceptions (always allowed)
 apps-allowed = Allowed apps
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -321,3 +313,14 @@ stats-distinct-apps = { $count ->
 stats-show-all = Show all ({ $count })
 stats-show-fewer = Show fewer
 stats-allowance-of = { $used } of { $total } min
+
+# Rule lists
+web-mode-block = Block list
+web-mode-allow-only = Allow list
+apps-mode-block = Block list
+apps-mode-allow-only = Allow list
+add-websites = Add websites
+add-apps = Add apps
+add-exceptions = Add exceptions
+action-remove-selected = Remove selected
+search = Search

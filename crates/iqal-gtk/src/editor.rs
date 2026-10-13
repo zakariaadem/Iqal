@@ -16,7 +16,8 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 
 use crate::ui::{summary, ListKey, Ui};
-use crate::widgets::{describe_schedule, day_name, heading, hbox, label, note, page, rule_list, rule_text, setting_row, vbox};
+use crate::rules::rule_editor;
+use crate::widgets::{describe_schedule, day_name, heading, hbox, label, note, page, rule_list, setting_row, vbox};
 use crate::{appspicker, dialogs, lockui};
 
 pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
@@ -217,51 +218,50 @@ fn list_check(ui: &Rc<Ui>, text: &str, active: bool, id: String, list: fn(&mut B
     check
 }
 
-fn rules_box(ui: &Rc<Ui>, title: &str, key: ListKey, examples: &str) -> gtk::Box {
-    let weak = ui.weak();
-    rule_text(title, &ui.list_text(key), examples, move |line| key.check(line), move |text| {
-        if let Some(ui) = weak.upgrade() {
-            ui.set_list_text(key, text);
-        }
-    })
+/// "Block list" or "Allow list", at the start of the tab.
+fn mode_row(dropdown: &gtk::DropDown) -> gtk::DropDown {
+    dropdown.set_halign(gtk::Align::Start);
+    dropdown.clone()
 }
 
 fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     let (scroll, body) = page();
-    let mode = mode_dropdown(
-        ui,
-        set.web.mode,
-        [t("web-mode-block"), t("web-mode-allow-only")],
-        |s, m| s.web.mode = m,
-    );
-    body.append(&setting_row(&t("web-mode"), &mode));
+    let mode = mode_dropdown(ui, set.web.mode, [t("web-mode-block"), t("web-mode-allow-only")], |s, m| s.web.mode = m);
+    body.append(&mode_row(&mode));
 
     let allow_only = set.web.mode == ListMode::AllowOnly;
     let examples = t("web-placeholder");
-    body.append(&rules_box(ui, &t(if allow_only { "web-also-blocked" } else { "web-blocked" }), ListKey::WebBlock, &examples));
-    body.append(&note(&t("web-syntax")));
-
-    let import = gtk::Button::with_label(&t("action-import-text"));
-    import.set_halign(gtk::Align::Start);
-    let weak = ui.weak();
-    import.connect_clicked(move |_| {
-        if let Some(ui) = weak.upgrade() {
-            import_text(&ui);
-        }
-    });
-    body.append(&import);
-
-    body.append(&rules_box(ui, &t(if allow_only { "web-allowed" } else { "web-exceptions" }), ListKey::WebAllow, &examples));
+    if allow_only {
+        // An allow list stands on its own.
+        body.append(&rule_editor(ui, ListKey::WebAllow, &t("add-websites"), &t("web-allowed"), &examples).widget);
+        body.append(&note(&t("web-syntax")));
+    } else {
+        let blocked = rule_editor(ui, ListKey::WebBlock, &t("add-websites"), &t("web-blocked"), &examples);
+        let import = gtk::Button::with_label(&t("action-import-text"));
+        let (weak, add) = (ui.weak(), blocked.add.clone());
+        import.connect_clicked(move |_| {
+            if let Some(ui) = weak.upgrade() {
+                import_text(&ui, add.clone());
+            }
+        });
+        blocked.actions.append(&import);
+        body.append(&blocked.widget);
+        body.append(&note(&t("web-syntax")));
+        body.append(&rule_editor(ui, ListKey::WebAllow, &t("add-exceptions"), &t("web-exceptions"), &examples).widget);
+    }
 
     let safe = switch(ui, set.web.safe_search, false, |s, on| s.web.safe_search = on);
     body.append(&setting_row(&t("web-safesearch"), &safe));
 
-    body.append(&heading(&t("web-lists")));
-    body.append(&note(&t("web-lists-detail")));
+    // Pre-made lists are block lists: not used with an allow list.
     let catalog = match ui.service.call(Request::Catalog) {
-        Ok(Response::Catalog { lists }) => lists,
+        Ok(Response::Catalog { lists }) if !allow_only => lists,
         _ => Vec::new(),
     };
+    if !catalog.is_empty() {
+        body.append(&heading(&t("web-lists")));
+        body.append(&note(&t("web-lists-detail")));
+    }
     for list in catalog {
         let text = format!("{}  ·  {}", t(&format!("list-{}", list.id)), ta("list-count", &[("count", (list.rules as i64).into())]));
         let active = set.web.lists.contains(&list.id);
@@ -279,7 +279,7 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
 
 /// Adds the rules of a text file (a list, or a hosts file) to the blocked
 /// websites.
-fn import_text(ui: &Rc<Ui>) {
+fn import_text(ui: &Rc<Ui>, add: Rc<dyn Fn(Vec<String>) -> usize>) {
     let dialog = gtk::FileDialog::builder().title(t("action-import-text")).modal(true).build();
     let weak = ui.weak();
     dialog.open(Some(&ui.window), None::<&gio::Cancellable>, move |res| {
@@ -292,7 +292,7 @@ fn import_text(ui: &Rc<Ui>) {
         let parsed = parse_rules_text(&text);
         let skipped = parsed.errors.len();
         let lines: Vec<String> = parsed.rules.iter().map(ToString::to_string).collect();
-        let added = ui.append_lines(ListKey::WebBlock, &lines);
+        let added = add(lines);
         ui.info(
             &t("import-done"),
             &ta("import-result", &[("added", (added as i64).into()), ("skipped", (skipped as i64).into())]),
@@ -302,53 +302,51 @@ fn import_text(ui: &Rc<Ui>) {
 
 fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     let (scroll, body) = page();
-    let mode = mode_dropdown(
-        ui,
-        set.apps.mode,
-        [t("apps-mode-block"), t("apps-mode-allow-only")],
-        |s, m| s.apps.mode = m,
-    );
-    body.append(&setting_row(&t("apps-mode"), &mode));
+    let mode = mode_dropdown(ui, set.apps.mode, [t("apps-mode-block"), t("apps-mode-allow-only")], |s, m| s.apps.mode = m);
+    body.append(&mode_row(&mode));
 
     let examples = t("apps-placeholder");
-    for key in [ListKey::AppBlock, ListKey::AppAllow] {
-        let title = match (key, set.apps.mode) {
-            (ListKey::AppBlock, ListMode::Block) => "apps-blocked",
-            (ListKey::AppBlock, ListMode::AllowOnly) => "apps-also-blocked",
-            (_, ListMode::Block) => "apps-exceptions",
-            (_, ListMode::AllowOnly) => "apps-allowed",
-        };
-        body.append(&rules_box(ui, &t(title), key, &examples));
-        let buttons = hbox(6);
+    // An allow list stands on its own; a block list has exceptions.
+    let lists: &[(ListKey, &str, &str)] = match set.apps.mode {
+        ListMode::AllowOnly => &[(ListKey::AppAllow, "add-apps", "apps-allowed")],
+        ListMode::Block => &[(ListKey::AppBlock, "add-apps", "apps-blocked"), (ListKey::AppAllow, "add-exceptions", "apps-exceptions")],
+    };
+    for &(key, add_title, title) in lists {
+        let editor = rule_editor(ui, key, &t(add_title), &t(title), &examples);
         let installed = gtk::Button::with_label(&t("action-add-installed-app"));
-        let weak = ui.weak();
+        let (weak, add) = (ui.weak(), editor.add.clone());
         installed.connect_clicked(move |_| {
             if let Some(ui) = weak.upgrade() {
-                let weak = ui.weak();
+                let add = add.clone();
                 appspicker::pick(&ui, move |exe| {
-                    if let Some(ui) = weak.upgrade() {
-                        ui.append_lines(key, &[exe]);
-                    }
+                    add(vec![exe]);
                 });
             }
         });
         let file = gtk::Button::with_label(&t("action-add-program-file"));
-        let weak = ui.weak();
+        let (weak, add) = (ui.weak(), editor.add.clone());
         file.connect_clicked(move |_| {
             let Some(ui) = weak.upgrade() else { return };
             let dialog = gtk::FileDialog::builder().title(t("action-add-program-file")).modal(true).build();
-            let weak = ui.weak();
+            let add = add.clone();
             dialog.open(Some(&ui.window), None::<&gio::Cancellable>, move |res| {
-                if let (Some(ui), Ok(f)) = (weak.upgrade(), res)
+                if let Ok(f) = res
                     && let Some(p) = f.path()
                 {
-                    ui.append_lines(key, &[format!("path:{}", p.display())]);
+                    add(vec![format!("path:{}", p.display())]);
                 }
             });
         });
-        buttons.append(&installed);
-        buttons.append(&file);
-        body.append(&buttons);
+        // Under Add: the two other ways to add an app.
+        let more = vbox(6);
+        more.set_halign(gtk::Align::Start);
+        more.append(&installed);
+        more.append(&file);
+        let column = editor.actions.parent().and_downcast::<gtk::Box>();
+        if let Some(column) = column {
+            column.append(&more);
+        }
+        body.append(&editor.widget);
     }
     body.append(&note(&t("apps-syntax")));
     scroll.upcast()

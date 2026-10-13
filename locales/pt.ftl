@@ -85,11 +85,7 @@ confirm-delete = Excluir “{ $name }”?
 confirm-delete-detail = Seus sites, aplicativos, horários e tranca serão removidos.
 rule-invalid = “{ $rule }” não pode ser usado: { $problem }
 
-web-mode = Como os sites são bloqueados
-web-mode-block = Bloquear os sites da lista
-web-mode-allow-only = Permitir apenas os sites da lista
 web-blocked = Sites bloqueados
-web-also-blocked = Bloqueados mesmo se permitidos
 web-placeholder = example.com, example.com/page, contains:palavra, search:palavras
 web-syntax = example.com bloqueia o site e todos os seus subdomínios. example.com/videos bloqueia só essas páginas. contains:casino bloqueia qualquer endereço que contenha a palavra. search:filmes grátis bloqueia pesquisas que contenham essas palavras.
 web-allowed = Sites permitidos
@@ -112,11 +108,7 @@ import-added = Adicionado: { $name }
 import-replaced = Atualizado: { $name }
 import-rejected = Não importado: { $name } ({ $why })
 
-apps-mode = Como os aplicativos são bloqueados
-apps-mode-block = Bloquear os aplicativos da lista
-apps-mode-allow-only = Permitir apenas os aplicativos da lista
 apps-blocked = Aplicativos bloqueados
-apps-also-blocked = Bloqueados mesmo se permitidos
 apps-exceptions = Exceções (sempre permitidas)
 apps-allowed = Aplicativos permitidos
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -321,3 +313,14 @@ stats-distinct-apps = { $count ->
 stats-show-all = Mostrar todos ({ $count })
 stats-show-fewer = Mostrar menos
 stats-allowance-of = { $used } de { $total } min
+
+# Rule lists
+web-mode-block = Lista de bloqueio
+web-mode-allow-only = Lista de permissão
+apps-mode-block = Lista de bloqueio
+apps-mode-allow-only = Lista de permissão
+add-websites = Adicionar sites
+add-apps = Adicionar apps
+add-exceptions = Adicionar exceções
+action-remove-selected = Remover selecionados
+search = Pesquisar

@@ -136,9 +136,9 @@ pub(crate) fn eq_ignore_case(a: &str, b: &str) -> bool {
 ///
 /// * `Block`: `block` rules are blocked, `allow` rules are exceptions that
 ///   win over them.
-/// * `AllowOnly`: everything is blocked except `allow` rules; `block` rules
-///   further restrict what is allowed (e.g. allow `youtube.com` but block
-///   `youtube.com/shorts`).
+/// * `AllowOnly`: everything is blocked except `allow` rules. `block` rules
+///   (and pre-made lists) are kept for switching back but not used; partial
+///   blocks still apply.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ListMode {

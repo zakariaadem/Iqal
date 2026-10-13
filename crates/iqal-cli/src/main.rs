@@ -782,14 +782,16 @@ fn show(info: &SetInfo) {
         }
     );
     println!("  websites:   {}", mode(s.web.mode));
+    // With an allow list, blocked websites and lists are kept but not used.
+    let unused = |m: ListMode| if m == ListMode::AllowOnly { "  (not used with an allow list)" } else { "" };
     for r in &s.web.block {
-        println!("    block     {r}");
+        println!("    block     {r}{}", unused(s.web.mode));
     }
     for r in &s.web.allow {
         println!("    allow     {r}");
     }
     for l in &s.web.lists {
-        println!("    list      {l}");
+        println!("    list      {l}{}", unused(s.web.mode));
     }
     for p in &s.web.partial {
         println!("    partial   {p}");
@@ -799,7 +801,7 @@ fn show(info: &SetInfo) {
     }
     println!("  apps:       {}", mode(s.apps.mode));
     for r in &s.apps.block {
-        println!("    block     {r}");
+        println!("    block     {r}{}", unused(s.apps.mode));
     }
     for r in &s.apps.allow {
         println!("    allow     {r}");

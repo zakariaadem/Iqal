@@ -233,8 +233,12 @@ impl CompiledSet {
     fn new(set: &BlockSet, lists: &dyn ListSource) -> Self {
         let mut web_block = WebMatcher::default();
         let mut web_allow = WebMatcher::default();
-        let list_rules = set.web.lists.iter().filter_map(|id| lists.list(id)).flatten();
-        web_block.build(set.web.block.iter().chain(list_rules));
+        // An allow list stands on its own: blocked websites and pre-made
+        // lists are kept for switching back, but not used.
+        if set.web.mode == ListMode::Block {
+            let list_rules = set.web.lists.iter().filter_map(|id| lists.list(id)).flatten();
+            web_block.build(set.web.block.iter().chain(list_rules));
+        }
         web_allow.build(set.web.allow.iter());
         Self {
             id: set.id,
@@ -253,7 +257,7 @@ impl CompiledSet {
                 || !set.web.partial.is_empty()
                 || set.web.safe_search,
             app_mode: set.apps.mode,
-            app_block: AppMatcher::new(&set.apps.block),
+            app_block: AppMatcher::new(if set.apps.mode == ListMode::Block { &set.apps.block } else { &[] }),
             app_allow: AppMatcher::new(&set.apps.allow),
         }
     }
@@ -548,10 +552,15 @@ mod tests {
         let mut s = BlockSet::new("work");
         s.web.mode = ListMode::AllowOnly;
         s.web.allow = rules(&["wikipedia.org", "github.com/rust-lang"]);
+        // Kept for switching back to a block list, but not used.
         s.web.block = rules(&["en.wikipedia.org/wiki/special:random"]);
+        s.web.partial = vec!["youtube-shorts".into()];
+        s.web.allow.extend(rules(&["youtube.com"]));
         let e = engine(vec![s]);
         assert!(!blocked(&e, "https://ar.wikipedia.org/wiki/x"));
-        assert!(blocked(&e, "https://en.wikipedia.org/wiki/Special:Random"));
+        assert!(!blocked(&e, "https://en.wikipedia.org/wiki/Special:Random"));
+        assert!(blocked(&e, "https://www.youtube.com/shorts/x"), "partial blocks still apply");
+        assert!(!blocked(&e, "https://www.youtube.com/watch?v=x"));
         assert!(!blocked(&e, "https://github.com/rust-lang/rust"));
         assert!(blocked(&e, "https://github.com/torvalds"));
         assert!(blocked(&e, "https://example.com"));
@@ -672,8 +681,10 @@ mod tests {
         let mut s = BlockSet::new("focus");
         s.apps.mode = ListMode::AllowOnly;
         s.apps.allow = apps(&["code", "firefox"]);
+        s.apps.block = apps(&["firefox", "title:YouTube"]);
         let e = engine(vec![s]);
-        assert!(!e.check_process(&proc("/usr/bin/firefox"), &ctx()).is_blocked());
+        assert!(!e.check_process(&proc("/usr/bin/firefox"), &ctx()).is_blocked(), "block rules are not used");
+        assert!(!e.check_window("YouTube — Mozilla Firefox", &proc("/usr/bin/firefox"), &ctx()).is_blocked());
         assert!(e.check_process(&proc("/usr/bin/steam"), &ctx()).is_blocked());
         assert!(!e.wants_exe_hash());
     }

@@ -7,6 +7,7 @@ mod dialogs;
 mod editor;
 mod lockui;
 mod mapdialog;
+mod rules;
 mod service;
 mod settings;
 mod stats;
@@ -23,7 +24,9 @@ fn main() -> glib::ExitCode {
     let language = saved.language.as_deref().unwrap_or_else(|| iqal_i18n::system_language());
     iqal_i18n::init(language);
 
-    let app = gtk::Application::builder().application_id(APP_ID).build();
+    // One window per service: a test service (IQAL_SOCKET) gets its own.
+    let app_id = if std::env::var_os("IQAL_SOCKET").is_some() { format!("{APP_ID}.Test") } else { APP_ID.to_string() };
+    let app = gtk::Application::builder().application_id(app_id).build();
     app.connect_activate(|app| {
         // Arabic and other right-to-left languages mirror the whole layout.
         gtk::Widget::set_default_direction(if iqal_i18n::is_rtl() {
@@ -52,7 +55,18 @@ fn load_css() {
          .stat-bar-allowance { background-color: #BA7517; border-radius: 3px; }
          .stat-today { font-weight: bold; }",
     );
-    if let Some(display) = gtk::gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(&display, &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+    let Some(display) = gtk::gdk::Display::default() else { return };
+    gtk::style_context_add_provider_for_display(&display, &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+    // Without a compositor (e.g. Xfce with compositing off) the see-through
+    // shadows and round corners of menus and tooltips show as black.
+    if !display.is_composited() {
+        let flat = gtk::CssProvider::new();
+        flat.load_from_string(
+            "popover > contents, popover.menu > contents, tooltip, tooltip.background {
+                 box-shadow: none; border-radius: 0; margin: 0;
+             }
+             popover > contents { border: 1px solid alpha(currentColor, 0.15); }",
+        );
+        gtk::style_context_add_provider_for_display(&display, &flat, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 }

@@ -85,11 +85,7 @@ confirm-delete = “{ $name }” silinsin mi?
 confirm-delete-detail = Siteleri, uygulamaları, saatleri ve kilidi kaldırılacak.
 rule-invalid = “{ $rule }” kullanılamaz: { $problem }
 
-web-mode = Sitelerin engellenme biçimi
-web-mode-block = Listedeki siteleri engelle
-web-mode-allow-only = Yalnızca listedeki sitelere izin ver
 web-blocked = Engellenen siteler
-web-also-blocked = İzinli olsa bile engellenen
 web-placeholder = example.com, example.com/page, contains:kelime, search:kelimeler
 web-syntax = example.com siteyi ve tüm alt alan adlarını engeller. example.com/videos yalnızca o sayfaları engeller. contains:casino kelimeyi içeren her adresi engeller. search:ücretsiz film bu kelimeleri içeren aramaları engeller.
 web-allowed = İzin verilen siteler
@@ -112,11 +108,7 @@ import-added = Eklendi: { $name }
 import-replaced = Güncellendi: { $name }
 import-rejected = İçe aktarılmadı: { $name } ({ $why })
 
-apps-mode = Uygulamaların engellenme biçimi
-apps-mode-block = Listedeki uygulamaları engelle
-apps-mode-allow-only = Yalnızca listedeki uygulamalara izin ver
 apps-blocked = Engellenen uygulamalar
-apps-also-blocked = İzinli olsa bile engellenen
 apps-exceptions = İstisnalar (her zaman izinli)
 apps-allowed = İzin verilen uygulamalar
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -312,3 +304,14 @@ stats-distinct-apps = { $count } farklı uygulama
 stats-show-all = Tümünü göster ({ $count })
 stats-show-fewer = Daha az göster
 stats-allowance-of = { $total } dakikanın { $used } dakikası
+
+# Rule lists
+web-mode-block = Engelleme listesi
+web-mode-allow-only = İzin listesi
+apps-mode-block = Engelleme listesi
+apps-mode-allow-only = İzin listesi
+add-websites = Site ekle
+add-apps = Uygulama ekle
+add-exceptions = İstisna ekle
+action-remove-selected = Seçilenleri kaldır
+search = Ara

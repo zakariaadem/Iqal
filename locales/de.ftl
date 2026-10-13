@@ -85,11 +85,7 @@ confirm-delete = „{ $name }“ löschen?
 confirm-delete-detail = Ihre Websites, Apps, Zeiten und ihr Schloss werden entfernt.
 rule-invalid = „{ $rule }“ kann nicht verwendet werden: { $problem }
 
-web-mode = So werden Websites gesperrt
-web-mode-block = Die aufgeführten Websites sperren
-web-mode-allow-only = Nur die aufgeführten Websites erlauben
 web-blocked = Gesperrte Websites
-web-also-blocked = Gesperrt, auch wenn erlaubt
 web-placeholder = example.com, example.com/page, contains:Wort, search:Wörter
 web-syntax = example.com sperrt die Website mit allen Subdomains. example.com/videos sperrt nur diese Seiten. contains:casino sperrt jede Adresse, die das Wort enthält. search:kostenlose Filme sperrt Suchen, die diese Wörter enthalten.
 web-allowed = Erlaubte Websites
@@ -112,11 +108,7 @@ import-added = Hinzugefügt: { $name }
 import-replaced = Aktualisiert: { $name }
 import-rejected = Nicht importiert: { $name } ({ $why })
 
-apps-mode = So werden Apps gesperrt
-apps-mode-block = Die aufgeführten Apps sperren
-apps-mode-allow-only = Nur die aufgeführten Apps erlauben
 apps-blocked = Gesperrte Apps
-apps-also-blocked = Gesperrt, auch wenn erlaubt
 apps-exceptions = Ausnahmen (immer erlaubt)
 apps-allowed = Erlaubte Apps
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -321,3 +313,14 @@ stats-distinct-apps = { $count ->
 stats-show-all = Alle anzeigen ({ $count })
 stats-show-fewer = Weniger anzeigen
 stats-allowance-of = { $used } von { $total } Min.
+
+# Rule lists
+web-mode-block = Sperrliste
+web-mode-allow-only = Erlaubnisliste
+apps-mode-block = Sperrliste
+apps-mode-allow-only = Erlaubnisliste
+add-websites = Websites hinzufügen
+add-apps = Apps hinzufügen
+add-exceptions = Ausnahmen hinzufügen
+action-remove-selected = Auswahl entfernen
+search = Suchen

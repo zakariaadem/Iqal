@@ -89,11 +89,7 @@ confirm-delete = حذف «{ $name }»؟
 confirm-delete-detail = ستُزال مواقعها وتطبيقاتها وأوقاتها وقفلها.
 rule-invalid = لا يمكن استخدام «{ $rule }»: { $problem }
 
-web-mode = طريقة حجب المواقع
-web-mode-block = حجب المواقع المدرجة
-web-mode-allow-only = السماح بالمواقع المدرجة فقط
 web-blocked = المواقع المحجوبة
-web-also-blocked = محجوبة حتى لو كانت مسموحة
 web-placeholder = ⁦example.com⁩ Ø£Ù ⁦example.com/page⁩ Ø£Ù ⁦contains:ÙÙÙØ©⁩ Ø£Ù ⁦search:ÙÙÙØ§Øª⁩
 web-syntax = ⁦example.com⁩ ÙØ­Ø¬Ø¨ Ø§ÙÙÙÙØ¹ ÙÙÙ ÙØ·Ø§ÙØ§ØªÙ Ø§ÙÙØ±Ø¹ÙØ©. ⁦example.com/videos⁩ ÙØ­Ø¬Ø¨ ØªÙÙ Ø§ÙØµÙØ­Ø§Øª ÙÙØ·. ⁦contains:casino⁩ ÙØ­Ø¬Ø¨ Ø£Ù Ø¹ÙÙØ§Ù ÙØ­ØªÙÙ Ø§ÙÙÙÙØ©. ⁦search:Ø£ÙÙØ§Ù ÙØ¬Ø§ÙÙØ©⁩ ÙØ­Ø¬Ø¨ Ø¹ÙÙÙØ§Øª Ø§ÙØ¨Ø­Ø« Ø§ÙØªÙ ØªØ­ØªÙÙ ÙØ°Ù Ø§ÙÙÙÙØ§Øª.
 web-allowed = المواقع المسموحة
@@ -116,11 +112,7 @@ import-added = أُضيفت: { $name }
 import-replaced = حُدّثت: { $name }
 import-rejected = لم تُستورد: { $name } ({ $why })
 
-apps-mode = طريقة حجب التطبيقات
-apps-mode-block = حجب التطبيقات المدرجة
-apps-mode-allow-only = السماح بالتطبيقات المدرجة فقط
 apps-blocked = التطبيقات المحجوبة
-apps-also-blocked = محجوبة حتى لو كانت مسموحة
 apps-exceptions = الاستثناءات (مسموحة دائمًا)
 apps-allowed = التطبيقات المسموحة
 apps-placeholder = ⁦steam⁩ Ø£Ù ⁦/opt/games/⁩ Ø£Ù ⁦title:YouTube⁩ Ø£Ù ⁦cmd:minecraft⁩
@@ -341,3 +333,14 @@ stats-distinct-apps = { $count ->
 stats-show-all = عرض الكل ({ $count })
 stats-show-fewer = عرض أقل
 stats-allowance-of = { $used } من { $total } دقيقة
+
+# Rule lists
+web-mode-block = قائمة الحجب
+web-mode-allow-only = قائمة السماح
+apps-mode-block = قائمة الحجب
+apps-mode-allow-only = قائمة السماح
+add-websites = أضف مواقع
+add-apps = أضف تطبيقات
+add-exceptions = أضف استثناءات
+action-remove-selected = احذف المحدد
+search = ابحث

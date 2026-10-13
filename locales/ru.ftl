@@ -87,11 +87,7 @@ confirm-delete = Удалить «{ $name }»?
 confirm-delete-detail = Его сайты, приложения, расписание и замок будут удалены.
 rule-invalid = «{ $rule }» нельзя использовать: { $problem }
 
-web-mode = Как блокируются сайты
-web-mode-block = Блокировать сайты из списка
-web-mode-allow-only = Разрешать только сайты из списка
 web-blocked = Заблокированные сайты
-web-also-blocked = Блокируются, даже если разрешены
 web-placeholder = example.com, example.com/page, contains:слово, search:слова
 web-syntax = example.com блокирует сайт и все его поддомены. example.com/videos блокирует только эти страницы. contains:casino блокирует любой адрес, содержащий слово. search:бесплатные фильмы блокирует поиск с этими словами.
 web-allowed = Разрешённые сайты
@@ -114,11 +110,7 @@ import-added = Добавлен: { $name }
 import-replaced = Обновлён: { $name }
 import-rejected = Не импортирован: { $name } ({ $why })
 
-apps-mode = Как блокируются приложения
-apps-mode-block = Блокировать приложения из списка
-apps-mode-allow-only = Разрешать только приложения из списка
 apps-blocked = Заблокированные приложения
-apps-also-blocked = Блокируются, даже если разрешены
 apps-exceptions = Исключения (всегда разрешены)
 apps-allowed = Разрешённые приложения
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -331,3 +323,14 @@ stats-distinct-apps = { $count ->
 stats-show-all = Показать все ({ $count })
 stats-show-fewer = Показать меньше
 stats-allowance-of = { $used } из { $total } мин
+
+# Rule lists
+web-mode-block = Список блокировки
+web-mode-allow-only = Список разрешённых
+apps-mode-block = Список блокировки
+apps-mode-allow-only = Список разрешённых
+add-websites = Добавить сайты
+add-apps = Добавить приложения
+add-exceptions = Добавить исключения
+action-remove-selected = Удалить выбранное
+search = Поиск

@@ -82,11 +82,7 @@ confirm-delete = Hapus “{ $name }”?
 confirm-delete-detail = Situs, aplikasi, waktu, dan kuncinya akan dihapus.
 rule-invalid = “{ $rule }” tidak dapat digunakan: { $problem }
 
-web-mode = Cara situs diblokir
-web-mode-block = Blokir situs dalam daftar
-web-mode-allow-only = Hanya izinkan situs dalam daftar
 web-blocked = Situs yang diblokir
-web-also-blocked = Diblokir meskipun diizinkan
 web-placeholder = example.com, example.com/page, contains:kata, search:kata-kata
 web-syntax = example.com memblokir situs beserta semua subdomainnya. example.com/videos hanya memblokir halaman tersebut. contains:casino memblokir alamat apa pun yang memuat kata itu. search:film gratis memblokir pencarian yang memuat kata-kata itu.
 web-allowed = Situs yang diizinkan
@@ -109,11 +105,7 @@ import-added = Ditambahkan: { $name }
 import-replaced = Diperbarui: { $name }
 import-rejected = Tidak diimpor: { $name } ({ $why })
 
-apps-mode = Cara aplikasi diblokir
-apps-mode-block = Blokir aplikasi dalam daftar
-apps-mode-allow-only = Hanya izinkan aplikasi dalam daftar
 apps-blocked = Aplikasi yang diblokir
-apps-also-blocked = Diblokir meskipun diizinkan
 apps-exceptions = Pengecualian (selalu diizinkan)
 apps-allowed = Aplikasi yang diizinkan
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -306,3 +298,14 @@ stats-distinct-apps = { $count } aplikasi berbeda
 stats-show-all = Tampilkan semua ({ $count })
 stats-show-fewer = Tampilkan lebih sedikit
 stats-allowance-of = { $used } dari { $total } menit
+
+# Rule lists
+web-mode-block = Daftar blokir
+web-mode-allow-only = Daftar izin
+apps-mode-block = Daftar blokir
+apps-mode-allow-only = Daftar izin
+add-websites = Tambah situs
+add-apps = Tambah aplikasi
+add-exceptions = Tambah pengecualian
+action-remove-selected = Hapus yang dipilih
+search = Cari

@@ -85,11 +85,7 @@ confirm-delete = «{ $name }» حذف کریں؟
 confirm-delete-detail = اس کی ویب سائٹس، ایپس، اوقات اور تالا ہٹا دیے جائیں گے۔
 rule-invalid = «{ $rule }» استعمال نہیں ہو سکتا: { $problem }
 
-web-mode = ویب سائٹس بلاک کرنے کا طریقہ
-web-mode-block = فہرست کی ویب سائٹس بلاک کریں
-web-mode-allow-only = صرف فہرست کی ویب سائٹس کی اجازت دیں
 web-blocked = بلاک شدہ ویب سائٹس
-web-also-blocked = اجازت ہونے پر بھی بلاک
 web-placeholder = ⁦example.com⁩ یا ⁦example.com/page⁩ یا ⁦contains:لفظ⁩ یا ⁦search:الفاظ⁩
 web-syntax = ⁦example.com⁩ سائٹ اور اس کے تمام ذیلی ڈومین بلاک کرتا ہے۔ ⁦example.com/videos⁩ صرف وہ صفحات بلاک کرتا ہے۔ ⁦contains:casino⁩ ہر وہ پتا بلاک کرتا ہے جس میں یہ لفظ ہو۔ ⁦search:مفت فلمیں⁩ ان الفاظ والی تلاش بلاک کرتا ہے۔
 web-allowed = اجازت یافتہ ویب سائٹس
@@ -112,11 +108,7 @@ import-added = شامل: { $name }
 import-replaced = تازہ کیا گیا: { $name }
 import-rejected = درآمد نہیں ہوا: { $name } ({ $why })
 
-apps-mode = ایپس بلاک کرنے کا طریقہ
-apps-mode-block = فہرست کی ایپس بلاک کریں
-apps-mode-allow-only = صرف فہرست کی ایپس کی اجازت دیں
 apps-blocked = بلاک شدہ ایپس
-apps-also-blocked = اجازت ہونے پر بھی بلاک
 apps-exceptions = استثنا (ہمیشہ اجازت)
 apps-allowed = اجازت یافتہ ایپس
 apps-placeholder = ⁦steam⁩ یا ⁦/opt/games/⁩ یا ⁦title:YouTube⁩ یا ⁦cmd:minecraft⁩
@@ -318,3 +310,14 @@ stats-distinct-apps = { $count ->
 stats-show-all = سب دکھائیں ({ $count })
 stats-show-fewer = کم دکھائیں
 stats-allowance-of = { $total } میں سے { $used } منٹ
+
+# Rule lists
+web-mode-block = بلاک لسٹ
+web-mode-allow-only = اجازت لسٹ
+apps-mode-block = بلاک لسٹ
+apps-mode-allow-only = اجازت لسٹ
+add-websites = ویب سائٹس شامل کریں
+add-apps = ایپس شامل کریں
+add-exceptions = استثنا شامل کریں
+action-remove-selected = منتخب ہٹائیں
+search = تلاش کریں

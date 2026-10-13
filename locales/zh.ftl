@@ -82,11 +82,7 @@ confirm-delete = 删除“{ $name }”？
 confirm-delete-detail = 它的网站、应用、时间和锁都会被移除。
 rule-invalid = 无法使用“{ $rule }”：{ $problem }
 
-web-mode = 网站拦截方式
-web-mode-block = 拦截列表中的网站
-web-mode-allow-only = 只允许列表中的网站
 web-blocked = 被拦截的网站
-web-also-blocked = 即使被允许也拦截
 web-placeholder = example.com, example.com/page, contains:词, search:词语
 web-syntax = example.com 拦截该网站及其所有子域名。example.com/videos 只拦截这些页面。contains:casino 拦截包含该词的任何地址。search:免费电影 拦截包含这些词的搜索。
 web-allowed = 允许的网站
@@ -109,11 +105,7 @@ import-added = 已添加：{ $name }
 import-replaced = 已更新：{ $name }
 import-rejected = 未导入：{ $name }（{ $why }）
 
-apps-mode = 应用拦截方式
-apps-mode-block = 拦截列表中的应用
-apps-mode-allow-only = 只允许列表中的应用
 apps-blocked = 被拦截的应用
-apps-also-blocked = 即使被允许也拦截
 apps-exceptions = 例外（始终允许）
 apps-allowed = 允许的应用
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
@@ -306,3 +298,14 @@ stats-distinct-apps = { $count } 个不同应用
 stats-show-all = 全部显示（{ $count }）
 stats-show-fewer = 收起
 stats-allowance-of = { $used } / { $total } 分钟
+
+# Rule lists
+web-mode-block = 拦截列表
+web-mode-allow-only = 允许列表
+apps-mode-block = 拦截列表
+apps-mode-allow-only = 允许列表
+add-websites = 添加网站
+add-apps = 添加应用
+add-exceptions = 添加例外
+action-remove-selected = 移除所选
+search = 搜索
