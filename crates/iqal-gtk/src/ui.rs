@@ -5,11 +5,12 @@
 //! changes are the exception: they are saved at once (see `commit`).
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
 use iqal_core::{AppRule, BlockSet, SetId, WebRule};
 use iqal_i18n::{t, ta};
-use iqal_ipc::{SetInfo, Status};
+use iqal_ipc::{ListSummary, Request, Response, SetInfo, Status};
 use gtk::glib;
 use gtk::prelude::*;
 
@@ -173,7 +174,14 @@ pub struct Ui {
     loaded: Cell<Option<(i64, u64)>>,
     /// What the block list shows, to redraw it only on change.
     sidebar_rows: RefCell<Option<Vec<SidebarRow>>>,
+    /// Websites of pre-made lists, by list id, with the (size, update time)
+    /// they were fetched at.
+    list_cache: RefCell<HashMap<String, CachedList>>,
 }
+
+/// A pre-made list's size and update time: its rules change with them.
+type ListVersion = (usize, Option<i64>);
+type CachedList = (ListVersion, Rc<Vec<String>>);
 
 /// One line of the block list.
 #[derive(PartialEq)]
@@ -226,6 +234,7 @@ impl Ui {
             was_dirty: Cell::new(false),
             loaded: Cell::new(None),
             sidebar_rows: RefCell::new(None),
+            list_cache: RefCell::default(),
         });
         ui.build();
         // Every handler holds only a weak reference (no cycles between the
@@ -451,6 +460,7 @@ impl Ui {
                     info.locked = state.locked;
                     info.active = state.active;
                     info.used_today_secs = state.used_today_secs;
+                    info.place_known = state.place_known;
                 }
                 return Ok((None, status));
             }
@@ -545,7 +555,10 @@ impl Ui {
         };
         self.state.borrow_mut().shown = server.as_ref().map(|i| (i.set.clone(), i.locked));
         let widget: gtk::Widget = match (error, self.view()) {
-            (Some(e), _) => placeholder(&t("error-title"), &e).upcast(),
+            (Some(e), _) => {
+                let (title, detail) = e.split_once('\n').unwrap_or((&e, ""));
+                placeholder(title, detail).upcast()
+            }
             (None, Some(info)) => editor::build(self, &info),
             (None, None) => placeholder(&t("empty-title"), &t("empty-detail")).upcast(),
         };
@@ -739,11 +752,14 @@ impl Ui {
     /// Changes the block and saves at once, with any other unsaved edits:
     /// used for locks, which take effect when confirmed. If saving fails
     /// the change is undone and the other edits are kept.
-    pub fn commit(self: &Rc<Self>, change: impl FnOnce(&mut BlockSet)) {
-        let Some(info) = self.current() else { return };
+    pub fn commit(self: &Rc<Self>, change: impl FnOnce(&mut BlockSet)) -> bool {
+        let Some(info) = self.current() else { return false };
         let mut set = match self.state.borrow().draft.as_ref().map(Draft::finish) {
             Some(Ok(set)) => set,
-            Some(Err(problems)) => return self.info(&t("save-has-errors"), &problems),
+            Some(Err(problems)) => {
+                self.info(&t("save-has-errors"), &problems);
+                return false;
+            }
             None => info.set,
         };
         change(&mut set);
@@ -751,8 +767,12 @@ impl Ui {
             Ok(()) => {
                 self.state.borrow_mut().draft = None;
                 self.refresh(true);
+                true
             }
-            Err(e) => self.error(&e),
+            Err(e) => {
+                self.error(&e);
+                false
+            }
         }
     }
 
@@ -767,8 +787,11 @@ impl Ui {
         }
     }
 
+    /// Says what went wrong, in a few words: the first line of `message`
+    /// is the title, any further lines the explanation.
     pub fn error(&self, message: &str) {
-        let d = gtk::AlertDialog::builder().modal(true).message(t("error-title")).detail(message).build();
+        let (title, detail) = message.split_once('\n').unwrap_or((message, ""));
+        let d = gtk::AlertDialog::builder().modal(true).message(title).detail(detail).build();
         d.show(Some(&self.window));
     }
 
@@ -796,6 +819,22 @@ impl Ui {
 
     pub fn is_admin(&self) -> bool {
         self.state.borrow().status.as_ref().is_some_and(|s| s.admin)
+    }
+
+    /// The websites of a pre-made list, fetched once per version of it.
+    pub fn list_rules(&self, list: &ListSummary) -> Rc<Vec<String>> {
+        let version = (list.rules, list.updated_at);
+        if let Some((v, rules)) = self.list_cache.borrow().get(&list.id)
+            && *v == version
+        {
+            return rules.clone();
+        }
+        let rules = match self.service.call(Request::ListRules { id: list.id.clone() }) {
+            Ok(Response::ListRules { rules }) => Rc::new(rules),
+            _ => return Rc::default(),
+        };
+        self.list_cache.borrow_mut().insert(list.id.clone(), (version, rules.clone()));
+        rules
     }
 }
 

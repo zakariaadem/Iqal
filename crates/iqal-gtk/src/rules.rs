@@ -25,14 +25,44 @@ pub struct RuleEditor {
     pub add: Rc<dyn Fn(Vec<String>) -> usize>,
 }
 
+/// Separates a pre-made list's rule from the list's name in the list model.
+const FROM_LIST: char = '\u{1f}';
+
 pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str, examples: &str) -> RuleEditor {
+    rule_editor_with_lists(ui, key, add_title, list_title, examples, &[])
+}
+
+/// Like [`rule_editor`], with the rules of pre-made lists shown after the
+/// block's own, marked with the list's name. They cannot be removed one by
+/// one: the list is switched off instead.
+pub fn rule_editor_with_lists(
+    ui: &Rc<Ui>,
+    key: ListKey,
+    add_title: &str,
+    list_title: &str,
+    examples: &str,
+    lists: &[(String, Rc<Vec<String>>)],
+) -> RuleEditor {
     // Side by side, half the width each.
     let columns = hbox(20);
     columns.set_homogeneous(true);
 
-    // The saved list.
+    // The saved list, then the pre-made lists' rules.
     let items: Vec<String> = ui.list_text(key).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect();
     let model = gtk::StringList::new(&items.iter().map(String::as_str).collect::<Vec<_>>());
+    // Each website once: the block's own rule, or the first list with it.
+    let mut seen: std::collections::HashSet<&str> = items.iter().map(String::as_str).collect();
+    let listed: Vec<String> = lists
+        .iter()
+        .flat_map(|(name, rules)| rules.iter().map(move |r| (name, r)))
+        .filter(|(_, r)| seen.insert(r.as_str()))
+        .map(|(name, r)| format!("{r}{FROM_LIST}{name}"))
+        .collect();
+    let from_lists = listed.len();
+    let parts = gtk::gio::ListStore::new::<gtk::StringList>();
+    parts.append(&model);
+    parts.append(&gtk::StringList::new(&listed.iter().map(String::as_str).collect::<Vec<_>>()));
+    let combined = gtk::FlattenListModel::new(Some(parts));
     let filter = gtk::StringFilter::new(Some(gtk::PropertyExpression::new(
         gtk::StringObject::static_type(),
         None::<gtk::Expression>,
@@ -40,25 +70,41 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
     )));
     filter.set_ignore_case(true);
     filter.set_match_mode(gtk::StringFilterMatchMode::Substring);
-    let filtered = gtk::FilterListModel::new(Some(model.clone()), Some(filter.clone()));
+    let filtered = gtk::FilterListModel::new(Some(combined), Some(filter.clone()));
     let selection = gtk::MultiSelection::new(Some(filtered.clone()));
     let factory = gtk::SignalListItemFactory::new();
     factory.connect_setup(|_, item| {
+        let row = hbox(8);
+        row.set_margin_start(8);
+        row.set_margin_end(8);
         let l = gtk::Label::new(None);
         l.set_xalign(0.0);
+        l.set_hexpand(true);
         l.add_css_class("monospace");
         l.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        l.set_margin_start(8);
-        l.set_margin_end(8);
+        let source = gtk::Label::new(None);
+        source.add_css_class("dim-label");
+        source.add_css_class("caption");
+        row.append(&l);
+        row.append(&source);
         if let Some(item) = item.downcast_ref::<gtk::ListItem>() {
-            item.set_child(Some(&l));
+            item.set_child(Some(&row));
         }
     });
     factory.connect_bind(|_, item| {
         let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
-        if let (Some(l), Some(s)) = (item.child().and_downcast::<gtk::Label>(), item.item().and_downcast::<gtk::StringObject>()) {
-            l.set_text(&s.string());
-        }
+        let (Some(row), Some(s)) = (item.child(), item.item().and_downcast::<gtk::StringObject>()) else { return };
+        let (Some(l), Some(source)) =
+            (row.first_child().and_downcast::<gtk::Label>(), row.last_child().and_downcast::<gtk::Label>())
+        else {
+            return;
+        };
+        let text = s.string();
+        let (rule, list) = text.split_once(FROM_LIST).unwrap_or((&text, ""));
+        l.set_text(rule);
+        l.set_sensitive(list.is_empty());
+        source.set_text(list);
+        source.set_visible(!list.is_empty());
     });
     let list = gtk::ListView::new(Some(selection.clone()), Some(factory));
     // Addresses and program names read left to right in every language.
@@ -92,7 +138,8 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
     let refresh = {
         let (model, stack, list_heading, title) = (model.clone(), stack.clone(), list_heading.clone(), list_title.to_string());
         move || {
-            let n = model.n_items();
+            // With pre-made lists, the total; each of their rows names its list.
+            let n = model.n_items() as usize + from_lists;
             list_heading.set_text(&format!("{title} · {n}"));
             stack.set_visible_child_name(if n == 0 { "empty" } else { "list" });
         }
@@ -116,8 +163,18 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
         move |s| filter.set_search(Some(&s.text()))
     });
     selection.connect_selection_changed({
-        let (remove, selection) = (remove.clone(), selection.clone());
-        move |_, _, _| remove.set_sensitive(!selection.selection().is_empty())
+        let (remove, selection, filtered) = (remove.clone(), selection.clone(), filtered.clone());
+        // The block's own rules come first: if the first one selected is from
+        // a pre-made list, all are, and there is nothing to remove.
+        move |_, _, _| {
+            let chosen = selection.selection();
+            let own = !chosen.is_empty()
+                && filtered
+                    .item(chosen.minimum())
+                    .and_downcast::<gtk::StringObject>()
+                    .is_some_and(|s| !s.string().contains(FROM_LIST));
+            remove.set_sensitive(own);
+        }
     });
     remove.connect_clicked({
         let (model, filtered, selection, changed) = (model.clone(), filtered.clone(), selection.clone(), changed.clone());
@@ -126,6 +183,7 @@ pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str,
                 .filter(|&i| selection.is_selected(i))
                 .filter_map(|i| filtered.item(i).and_downcast::<gtk::StringObject>())
                 .map(|s| s.string().to_string())
+                .filter(|s| !s.contains(FROM_LIST))
                 .collect();
             if chosen.is_empty() {
                 return;

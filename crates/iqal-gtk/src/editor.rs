@@ -15,7 +15,7 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 
 use crate::ui::{summary, ListKey, Ui};
-use crate::rules::rule_editor;
+use crate::rules::{rule_editor, rule_editor_with_lists};
 use crate::widgets::{describe_schedule, day_name, heading, hbox, label, note, page, rule_list, setting_row, vbox};
 use crate::{appspicker, dialogs, lockui};
 
@@ -115,6 +115,27 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     });
     bar.append(&enabled);
 
+    // Lock, or unlock while locked (the same as on the Lock tab).
+    let (icon, tip) = match (info.locked, &info.set.lock) {
+        (true, _) => ("changes-allow-symbolic", "action-unlock"),
+        (false, Some(_)) => ("changes-prevent-symbolic", "action-change-lock"),
+        (false, None) => ("changes-prevent-symbolic", "action-lock"),
+    };
+    let lock = gtk::Button::from_icon_name(icon);
+    lock.set_tooltip_text(Some(t(tip).trim_end_matches('…')));
+    let weak = ui.weak();
+    let (locked, id) = (info.locked, info.set.id);
+    lock.connect_clicked(move |_| {
+        if let Some(ui) = weak.upgrade() {
+            if locked {
+                lockui::start_unlock(&ui, id);
+            } else {
+                lockui::lock_dialog(&ui);
+            }
+        }
+    });
+    bar.append(&lock);
+
     let export = gtk::Button::from_icon_name("document-save-symbolic");
     export.set_tooltip_text(Some(&t("action-export-block")));
     let weak = ui.weak();
@@ -197,20 +218,25 @@ fn switch(ui: &Rc<Ui>, on: bool, redraw: bool, apply: impl Fn(&mut BlockSet, boo
     sw
 }
 
-/// A check button that adds or removes `id` in a list of the draft.
+/// A check button that adds or removes `id` in a list of the draft (and
+/// redraws: the list's websites show in the blocked websites).
 fn list_check(ui: &Rc<Ui>, text: &str, active: bool, id: String, list: fn(&mut BlockSet) -> &mut Vec<String>) -> gtk::CheckButton {
     let check = gtk::CheckButton::with_label(text);
     check.set_active(active);
     let weak = ui.weak();
     check.connect_toggled(move |c| {
         let on = c.is_active();
+        let id = id.clone();
         if let Some(ui) = weak.upgrade() {
-            ui.edit(|s| {
-                let l = list(s);
-                l.retain(|x| *x != id);
-                if on {
-                    l.push(id.clone());
-                }
+            glib::idle_add_local_once(move || {
+                ui.modify(|s| {
+                    let l = list(s);
+                    l.retain(|x| *x != id);
+                    if on {
+                        l.push(id);
+                    }
+                    Ok(())
+                })
             });
         }
     });
@@ -229,13 +255,25 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     body.append(&mode_row(&mode));
 
     let allow_only = set.web.mode == ListMode::AllowOnly;
+    // Pre-made lists are block lists: not used with an allow list.
+    let catalog = match ui.service.call(Request::Catalog) {
+        Ok(Response::Catalog { lists }) if !allow_only => lists,
+        _ => Vec::new(),
+    };
     let examples = t("web-placeholder");
     if allow_only {
         // An allow list stands on its own.
         body.append(&rule_editor(ui, ListKey::WebAllow, &t("add-websites"), &t("web-allowed"), &examples).widget);
         body.append(&note(&t("web-syntax")));
     } else {
-        let blocked = rule_editor(ui, ListKey::WebBlock, &t("add-websites"), &t("web-blocked"), &examples);
+        // The chosen pre-made lists show in the blocked websites.
+        let chosen: Vec<(String, Rc<Vec<String>>)> = catalog
+            .iter()
+            .filter(|l| set.web.lists.contains(&l.id))
+            .map(|l| (t(&format!("list-{}", l.id)), ui.list_rules(l)))
+            .collect();
+        let blocked =
+            rule_editor_with_lists(ui, ListKey::WebBlock, &t("add-websites"), &t("web-blocked"), &examples, &chosen);
         let import = gtk::Button::with_label(&t("action-import-text"));
         let (weak, add) = (ui.weak(), blocked.add.clone());
         import.connect_clicked(move |_| {
@@ -252,11 +290,6 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     let safe = switch(ui, set.web.safe_search, false, |s, on| s.web.safe_search = on);
     body.append(&setting_row(&t("web-safesearch"), &safe));
 
-    // Pre-made lists are block lists: not used with an allow list.
-    let catalog = match ui.service.call(Request::Catalog) {
-        Ok(Response::Catalog { lists }) if !allow_only => lists,
-        _ => Vec::new(),
-    };
     if !catalog.is_empty() {
         body.append(&heading(&t("web-lists")));
         body.append(&note(&t("web-lists-detail")));
@@ -475,6 +508,8 @@ pub fn weekly_editor() -> (gtk::Box, impl Fn() -> Option<WeeklyRange>) {
 fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
     let set = &info.set;
     let (scroll, body) = page();
+    // How this differs from a lock, which people easily mix up.
+    body.append(&note(&t("schedule-explain")));
     let limited = switch(ui, set.schedule.is_some(), true, |s, on| s.schedule = on.then(Schedule::default));
     body.append(&setting_row(&t("schedule-limited"), &limited));
     body.append(&note(&t(if set.schedule.is_some() { "schedule-limited-detail" } else { "schedule-always" })));

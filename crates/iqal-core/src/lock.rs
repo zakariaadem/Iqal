@@ -52,8 +52,10 @@ fn lock_holds(kind: &LockKind, ctx: &LockContext) -> bool {
 }
 
 /// Removes locks that can never hold again (deadline passed, machine
-/// restarted) and applies due pending unlocks. Returns true if anything
-/// changed. The daemon calls this periodically.
+/// restarted) and applies due pending unlocks. A lock with an end time works
+/// as a timer for its block: when the time is up, the block is turned off
+/// too. Returns true if anything changed. The daemon calls this
+/// periodically.
 pub fn expire(set: &mut BlockSet, ctx: &LockContext) -> bool {
     if let Some(at) = set.pending_unlock_at
         && ctx.now.unix >= at
@@ -62,13 +64,16 @@ pub fn expire(set: &mut BlockSet, ctx: &LockContext) -> bool {
         set.pending_unlock_at = None;
         return true;
     }
-    let finished = match set.lock.as_ref().map(|l| &l.kind) {
-        Some(LockKind::Until { until }) => ctx.now.unix >= *until,
-        Some(LockKind::UntilRestart { boot_id }) => boot_id != ctx.boot_id,
-        _ => false,
+    let (finished, timer) = match set.lock.as_ref().map(|l| &l.kind) {
+        Some(LockKind::Until { until }) => (ctx.now.unix >= *until, true),
+        Some(LockKind::UntilRestart { boot_id }) => (boot_id != ctx.boot_id, false),
+        _ => (false, false),
     };
     if finished {
         set.lock = None;
+        if timer {
+            set.enabled = false;
+        }
     }
     finished
 }
@@ -400,6 +405,7 @@ mod tests {
         assert!(!expire(&mut s, &ctx(99)));
         assert!(expire(&mut s, &ctx(100)));
         assert!(s.lock.is_none());
+        assert!(!s.enabled, "the block ends with its timer");
     }
 
     #[test]
@@ -409,6 +415,7 @@ mod tests {
         let after_reboot = LockContext { boot_id: "boot-2", ..ctx(0) };
         assert!(!is_locked(&s, &after_reboot));
         assert!(expire(&mut s, &after_reboot));
+        assert!(s.enabled, "a restart lock only ends the lock");
     }
 
     #[test]

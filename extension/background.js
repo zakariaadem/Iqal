@@ -82,10 +82,47 @@ async function handle(tabId, url) {
   }
 }
 
+const BLOCK_PAGE = api.runtime.getURL("blocked.html");
+// Allowed again but just reopened: the browser may still remember for a
+// minute that the site's name could not be found, so failed loads are
+// retried a few times. Tab id -> { url, tries }.
+const reopened = new Map();
+const REOPEN_TRIES = 5;
+
+// Sends a tab back to the page it was blocked on once the service says the
+// page is allowed (not when the service cannot be asked).
+async function reopen(tabId, url) {
+  const result = await check(url);
+  if (result.type !== "result" || result.error || result.blocked) return;
+  if (!reopened.has(tabId)) reopened.set(tabId, { url, tries: REOPEN_TRIES });
+  api.tabs.update(tabId, { url }).catch(() => {});
+}
+
 async function recheckAllTabs() {
   const tabs = await api.tabs.query({});
-  for (const tab of tabs) handle(tab.id, tab.url);
+  for (const tab of tabs) {
+    const retry = reopened.get(tab.id);
+    if (tab.url?.startsWith(BLOCK_PAGE)) {
+      const url = new URL(tab.url).searchParams.get("url");
+      if (isWeb(url)) reopen(tab.id, url);
+    } else if (retry?.failed) {
+      retry.failed = false;
+      if (--retry.tries <= 0) reopened.delete(tab.id);
+      reopen(tab.id, retry.url);
+    } else {
+      handle(tab.id, tab.url);
+    }
+  }
 }
+
+api.webNavigation.onErrorOccurred.addListener((d) => {
+  const retry = reopened.get(d.tabId);
+  if (d.frameId === 0 && retry) retry.failed = true;
+});
+api.webNavigation.onCompleted.addListener((d) => {
+  if (d.frameId === 0 && isWeb(d.url)) reopened.delete(d.tabId);
+});
+api.tabs.onRemoved.addListener((tabId) => reopened.delete(tabId));
 
 // Earliest moment: stop the page before it loads.
 api.webNavigation.onBeforeNavigate.addListener((d) => {

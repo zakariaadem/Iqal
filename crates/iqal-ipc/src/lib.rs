@@ -57,6 +57,8 @@ pub enum Request {
     ExtensionSession { browser: String },
     /// Pre-made lists and how many rules each has.
     Catalog,
+    /// The websites in one pre-made list (shown with a block's own).
+    ListRules { id: String },
     /// Browser extension: this page is in front of the user right now
     /// (sent every 15 s; used to count time allowances).
     ActiveTab { url: String },
@@ -96,6 +98,7 @@ pub enum Response {
     /// Rules or schedules changed: re-check open pages.
     Changed,
     Catalog { lists: Vec<ListSummary> },
+    ListRules { rules: Vec<String> },
     Stats { stats: Box<StatsReport> },
     /// `generation` changes whenever any block changes.
     SetStates { generation: u64, states: Vec<SetState> },
@@ -233,6 +236,10 @@ pub struct SetState {
     pub locked: bool,
     pub active: bool,
     pub used_today_secs: u32,
+    /// For a location lock: Iqal can tell whether the machine is at the
+    /// place (it knows the Wi-Fi there, or has a precise position).
+    #[serde(default)]
+    pub place_known: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -244,6 +251,9 @@ pub struct SetInfo {
     /// Seconds of this set's daily allowance the caller used today.
     #[serde(default)]
     pub used_today_secs: u32,
+    /// See [`SetState::place_known`].
+    #[serde(default)]
+    pub place_known: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

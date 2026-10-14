@@ -44,24 +44,24 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
                 body.append(&cancel);
             }
             if let LockKind::Location { .. } = lock.kind {
-                body.append(&note(&t("location-learn-detail")));
-                let learn = gtk::Button::with_label(&t("action-learn-location"));
-                learn.set_halign(gtk::Align::Start);
-                let weak = ui.weak();
-                let id = set.id;
-                learn.connect_clicked(move |_| {
-                    let Some(ui) = weak.upgrade() else { return };
-                    match ui.service.call(Request::LearnLocation { id }) {
-                        Ok(Response::Learned { networks }) => ui.info(
-                            &t("location-learned"),
-                            &ta("location-learned-detail", &[("count", (networks as i64).into())]),
-                        ),
-                        Ok(_) => ui.error(&t("error-unexpected")),
-                        Err(e) => ui.error(&e),
-                    }
-                    ui.refresh(true);
-                });
-                body.append(&learn);
+                if info.place_known {
+                    body.append(&note(&t("location-known")));
+                } else {
+                    // Only needed when Iqal cannot recognise the place by
+                    // itself (it was not there when the lock was made).
+                    body.append(&note(&t("location-learn-detail")));
+                    let learn = gtk::Button::with_label(&t("action-learn-location"));
+                    learn.set_halign(gtk::Align::Start);
+                    let weak = ui.weak();
+                    let id = set.id;
+                    learn.connect_clicked(move |_| {
+                        if let Some(ui) = weak.upgrade() {
+                            learn_place(&ui, id);
+                            ui.refresh(true);
+                        }
+                    });
+                    body.append(&learn);
+                }
             }
             if info.locked {
                 let unlock = gtk::Button::with_label(&t("action-unlock"));
@@ -100,6 +100,18 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
         body.append(&lock);
     }
     scroll.upcast()
+}
+
+/// Remembers the Wi-Fi networks around the computer for the block's
+/// location lock, and says how many.
+fn learn_place(ui: &Rc<Ui>, id: iqal_core::SetId) {
+    match ui.service.call(Request::LearnLocation { id }) {
+        Ok(Response::Learned { networks }) => {
+            ui.info(&t("location-learned"), &ta("location-learned-detail", &[("count", (networks as i64).into())]))
+        }
+        Ok(_) => ui.error(&t("error-unexpected")),
+        Err(e) => ui.error(&format!("{}\n{e}", t("location-learn-failed"))),
+    }
 }
 
 const KINDS: [&str; 7] =
@@ -152,8 +164,16 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
     // Password
     let pw = vbox(6);
     let p1 = gtk::PasswordEntry::builder().placeholder_text(t("password")).show_peek_icon(true).build();
-    let p2 = gtk::PasswordEntry::builder().placeholder_text(t("password-repeat")).build();
+    let p2 = gtk::PasswordEntry::builder().placeholder_text(t("password-repeat")).show_peek_icon(true).build();
     let generate = gtk::CheckButton::with_label(&t("password-generate"));
+    {
+        // Iqal makes the password: nothing to type.
+        let (p1, p2) = (p1.clone(), p2.clone());
+        generate.connect_toggled(move |g| {
+            p1.set_sensitive(!g.is_active());
+            p2.set_sensitive(!g.is_active());
+        });
+    }
     pw.append(&p1);
     pw.append(&p2);
     pw.append(&generate);
@@ -194,21 +214,40 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
     loc.append(&choose);
     loc.append(&area_label);
     loc.append(&note(&t("lock-location-detail")));
+    // Iqal learns the place's Wi-Fi networks when the computer is there.
+    // No answer is chosen in advance: a wrong "yes" would teach it the
+    // networks of another place.
+    let question = heading(&t("location-here-question"));
+    question.set_margin_top(8);
+    loc.append(&question);
+    let here_yes = gtk::CheckButton::with_label(&t("location-here-yes"));
+    let here_no = gtk::CheckButton::with_label(&t("location-here-no"));
+    here_no.set_group(Some(&here_yes));
+    loc.append(&here_yes);
+    loc.append(&here_no);
+    loc.append(&note(&t("location-here-detail")));
     stack.add_named(&loc, Some("6"));
-
-    {
-        let stack = stack.clone();
-        kind.connect_selected_notify(move |k| stack.set_visible_child_name(&k.selected().to_string()));
-    }
     body.append(&stack);
 
+    // A wait only applies to locks opened with a password or a text.
+    let delay_box = vbox(6);
     let delay_row = hbox(6);
     let delay = spin(0.0, 24.0 * 60.0, 0.0);
-    delay_row.append(&label(&t("unlock-delay")));
+    delay_row.append(&gtk::Label::new(Some(&t("unlock-delay"))));
     delay_row.append(&delay);
     delay_row.append(&label(&t("unit-minutes")));
-    body.append(&delay_row);
-    body.append(&note(&t("unlock-delay-detail")));
+    delay_box.append(&delay_row);
+    delay_box.append(&note(&t("unlock-delay-detail")));
+    delay_box.set_visible(false);
+    body.append(&delay_box);
+
+    {
+        let (stack, delay_box) = (stack.clone(), delay_box.clone());
+        kind.connect_selected_notify(move |k| {
+            stack.set_visible_child_name(&k.selected().to_string());
+            delay_box.set_visible(matches!(k.selected(), 2 | 3));
+        });
+    }
 
     let buttons = hbox(6);
     buttons.set_halign(gtk::Align::End);
@@ -275,13 +314,23 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
                 None => return ui.error(&t("schedule-no-days")),
             },
             _ => match area.borrow().clone() {
+                Some(_) if !here_yes.is_active() && !here_no.is_active() => {
+                    return ui.error(&t("location-here-unanswered"));
+                }
                 Some(area) => LockKind::Location { area },
                 None => return ui.error(&t("location-none-chosen")),
             },
         };
-        let lock = Lock { kind: lock_kind, unlock_delay_secs: (delay.value() as u32) * 60 };
+        let learn = matches!(lock_kind, LockKind::Location { .. }) && here_yes.is_active();
+        let timer = matches!(lock_kind, LockKind::Until { .. });
+        let unlock_delay_secs = if matches!(kind.selected(), 2 | 3) { (delay.value() as u32) * 60 } else { 0 };
+        let lock = Lock { kind: lock_kind, unlock_delay_secs };
         let description = describe_lock(&lock);
         let mut detail = ta("lock-confirm-detail", &[("lock", description.into())]);
+        if timer {
+            detail.push(' ');
+            detail.push_str(&t("lock-confirm-timer"));
+        }
         if ui.is_dirty() {
             detail.push_str("\n\n");
             detail.push_str(&t("lock-saves-changes"));
@@ -291,8 +340,18 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
         ui.confirm(&t("lock-confirm"), &detail, &t("action-lock"), move || {
             let Some(ui) = weak.upgrade() else { return };
             let lock = lock.clone();
-            ui.commit(|s| s.lock = Some(lock));
+            let mut id = None;
+            if !ui.commit(|s| {
+                id = Some(s.id);
+                s.lock = Some(lock)
+            }) {
+                return;
+            }
             win.close();
+            if let (true, Some(id)) = (learn, id) {
+                learn_place(&ui, id);
+                ui.refresh(true);
+            }
             if let Some(p) = &shown_password {
                 ui.info(&t("password-generated"), &ta("password-generated-detail", &[("password", p.clone().into())]));
             }
@@ -301,7 +360,7 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
     win.present();
 }
 
-fn start_unlock(ui: &Rc<Ui>, id: iqal_core::SetId) {
+pub fn start_unlock(ui: &Rc<Ui>, id: iqal_core::SetId) {
     let challenge = match ui.service.call(Request::UnlockStart { id }) {
         Ok(Response::Challenge { challenge }) => challenge,
         Ok(_) => return ui.error(&t("error-unexpected")),
@@ -357,6 +416,7 @@ fn answer_dialog(ui: &Rc<Ui>, id: iqal_core::SetId, text: Option<String>) {
         let win = win.clone();
         cancel.connect_clicked(move |_| win.close());
     }
+    let is_text = text.is_some();
     let weak = ui.weak();
     let win2 = win.clone();
     ok.connect_clicked(move |_| {
@@ -372,6 +432,10 @@ fn answer_dialog(ui: &Rc<Ui>, id: iqal_core::SetId, text: Option<String>) {
                 ui.refresh(true);
             }
             Ok(_) => ui.error(&t("error-unexpected")),
+            // Say which: the password, or the text.
+            Err(e) if e == t("error-wrong-answer") => {
+                ui.error(&t(if is_text { "error-wrong-text" } else { "error-wrong-password" }))
+            }
             Err(e) => ui.error(&e),
         }
     });

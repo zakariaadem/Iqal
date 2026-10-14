@@ -48,6 +48,17 @@ pub struct LockSummary {
     pub hardened: bool,
 }
 
+/// Whether Iqal can tell if the machine is at the place of a set's location
+/// lock (see [`SetState::place_known`]).
+fn place_known(set: &BlockSet, loc: &LocationState) -> bool {
+    match set.lock.as_ref().map(|l| &l.kind) {
+        Some(LockKind::Location { area }) => {
+            loc.inside.contains(area) || loc.outside.contains(area) || matches!(loc.fix, LocationFix::Known { .. })
+        }
+        _ => false,
+    }
+}
+
 fn describe_location(loc: &LocationState) -> String {
     let mut parts = Vec::new();
     if let LocationFix::Known { accuracy_m, .. } = loc.fix {
@@ -387,6 +398,7 @@ impl Service {
                 | Request::CheckPage { .. }
                 | Request::ExtensionSession { .. }
                 | Request::Catalog
+                | Request::ListRules { .. }
                 | Request::ActiveTab { .. }
                 | Request::Stats { .. }
         );
@@ -441,6 +453,7 @@ impl Service {
                     locked: lock::is_locked(s, &ctx),
                     active: active.contains(&s.id),
                     used_today_secs: usage.as_ref().and_then(|u| u.get(&s.id)).copied().unwrap_or(0),
+                    place_known: place_known(s, &loc),
                 });
                 if matches!(request, Request::SetStates) {
                     return Ok(Response::SetStates { generation, states: states.collect() });
@@ -455,6 +468,7 @@ impl Service {
                         locked: st.locked,
                         active: st.active,
                         used_today_secs: st.used_today_secs,
+                        place_known: st.place_known,
                     })
                     .collect();
                 Ok(Response::Sets { sets })
@@ -554,6 +568,11 @@ impl Service {
             Request::Catalog => {
                 let lists = self.list_summaries.read().unwrap_or_else(|e| e.into_inner()).clone();
                 Ok(Response::Catalog { lists })
+            }
+            Request::ListRules { id } => {
+                let rules = self.list_rules();
+                let rules = rules.get(&id).ok_or_else(|| Response::error(ErrorCode::NotFound, "no such list"))?;
+                Ok(Response::ListRules { rules: rules.iter().map(ToString::to_string).collect() })
             }
             Request::ActiveTab { url } => {
                 self.active_tab(caller, &url);
@@ -861,7 +880,7 @@ mod tests {
         svc.handle(&admin(), Request::UpsertSet { set: Box::new(set) });
         let (g1, s1) = states(&svc);
         assert_ne!(g0, g1);
-        assert_eq!(s1, vec![SetState { id, locked: false, active: true, used_today_secs: 0 }]);
+        assert_eq!(s1, vec![SetState { id, locked: false, active: true, used_today_secs: 0, place_known: false }]);
         // Asking does not count as a change.
         assert_eq!(states(&svc).0, g1);
         std::fs::remove_dir_all(dir).unwrap();

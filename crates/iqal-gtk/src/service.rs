@@ -21,7 +21,7 @@ impl Service {
         for _ in 0..2 {
             let mut slot = self.client.borrow_mut();
             if slot.is_none() {
-                *slot = Some(Client::connect().map_err(|_| t("error-service-unreachable"))?);
+                *slot = Some(Client::connect().map_err(|_| unreachable())?);
             }
             match slot.as_mut().expect("connected").call(&request) {
                 Ok(Response::Error { message, .. }) => return Err(localize_error(&message)),
@@ -29,7 +29,7 @@ impl Service {
                 Err(_) => *slot = None,
             }
         }
-        Err(t("error-service-unreachable"))
+        Err(unreachable())
     }
 
     pub fn sets(&self) -> Result<Vec<SetInfo>, String> {
@@ -63,6 +63,16 @@ impl Service {
     }
 }
 
+/// Errors are a short title, then optionally a newline and an explanation
+/// (see `Ui::error`).
+fn unreachable() -> String {
+    format!("{}\n{}", t("error-service-unreachable"), t("error-service-unreachable-detail"))
+}
+
+fn locked(reason: String) -> String {
+    format!("{}\n{}", t("error-locked-title"), ta("error-locked", &[("reason", reason.into())]))
+}
+
 /// The service reports errors in English; known ones are translated.
 pub fn localize_error(message: &str) -> String {
     const LOCKED: &str = "this block is locked: the change ";
@@ -87,14 +97,15 @@ pub fn localize_error(message: &str) -> String {
             "changes a pending unlock" => "reason-pending-unlock",
             "deletes the block" => "reason-deletes",
             "turns off hardened mode" => "reason-hardened-off",
-            _ => return ta("error-locked", &[("reason", reason.to_string().into())]),
+            _ => return locked(reason.to_string()),
         };
-        return ta("error-locked", &[("reason", t(key).into())]);
+        return locked(t(key));
     }
     match message {
         "wrong answer" => t("error-wrong-answer"),
         "this lock cannot be opened early" => t("error-cannot-unlock-early"),
         "only administrators can change Iqal settings" => t("error-not-admin"),
+        "no Wi-Fi networks in range (is Wi-Fi on?)" => t("error-no-wifi"),
         other => other.to_string(),
     }
 }
