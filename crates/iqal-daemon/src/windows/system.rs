@@ -8,16 +8,16 @@ use std::path::Path;
 
 use windows_sys::Win32::Foundation::{HANDLE, LocalFree};
 use windows_sys::Win32::Security::Authorization::{
-    ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+    ConvertStringSecurityDescriptorToSecurityDescriptorW, ConvertStringSidToSidW, SDDL_REVISION_1,
 };
 use windows_sys::Win32::Security::{
     CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetTokenInformation, LookupAccountSidW,
     PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, RevertToSelf, SECURITY_MAX_SID_SIZE, SID_NAME_USE, SetFileSecurityW, TOKEN_GROUPS, TOKEN_QUERY,
-    TOKEN_USER, TokenGroups, TokenUser, WELL_KNOWN_SID_TYPE, WinBuiltinAdministratorsSid, WinLocalSystemSid,
+    TOKEN_ELEVATION, TOKEN_USER, TokenElevation, TokenGroups, TokenUser, WELL_KNOWN_SID_TYPE, WinBuiltinAdministratorsSid, WinLocalSystemSid,
 };
 use windows_sys::Win32::System::Pipes::{GetNamedPipeClientProcessId, ImpersonateNamedPipeClient};
 use windows_sys::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD, RegGetValueW};
-use windows_sys::Win32::System::Threading::{GetCurrentThread, OpenThreadToken};
+use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetCurrentThread, OpenProcessToken, OpenThreadToken};
 
 /// Access for the settings folder: Windows itself and administrators only.
 /// `P` stops permissions being inherited from `C:\ProgramData`; `OICI`
@@ -54,11 +54,34 @@ pub fn boot_id() -> String {
     if status == 0 { data.to_string() } else { "unknown".into() }
 }
 
+/// Whether this process runs with full administrator rights (as the
+/// service, LocalSystem, always does).
+pub fn is_elevated() -> bool {
+    let mut token: HANDLE = std::ptr::null_mut();
+    // SAFETY: token is a valid out pointer.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return false;
+    }
+    // SAFETY: a new handle we own.
+    let token = unsafe { OwnedHandle::from_raw_handle(token) };
+    // LocalSystem is not "elevated": that applies to people's accounts.
+    if token_is_system(&token).unwrap_or(false) {
+        return true;
+    }
+    token_info(&token, TokenElevation)
+        // SAFETY: GetTokenInformation(TokenElevation) filled buf with a TOKEN_ELEVATION.
+        .map(|buf| unsafe { (*buf.as_ptr().cast::<TOKEN_ELEVATION>()).TokenIsElevated != 0 })
+        .unwrap_or(false)
+}
+
 /// Who is on the other end of a pipe connection.
 pub struct PipePeer {
     pub pid: u32,
     pub user: String,
     pub admin: bool,
+    /// Windows itself (LocalSystem), e.g. a session watcher started by the
+    /// service.
+    pub system: bool,
 }
 
 /// Identifies a pipe client from its access token. Windows only allows
@@ -73,7 +96,8 @@ pub fn pipe_peer(pipe: &impl AsRawHandle) -> io::Result<PipePeer> {
     let token = client_token(handle)?;
     let user = token_user(&token)?;
     let admin = token_is_admin(&token)?;
-    Ok(PipePeer { pid, user, admin })
+    let system = token_is_system(&token)?;
+    Ok(PipePeer { pid, user, admin, system })
 }
 
 /// The client's token, taken while briefly impersonating it.
@@ -101,7 +125,7 @@ fn client_token(pipe: HANDLE) -> io::Result<OwnedHandle> {
 }
 
 /// A token information block, in a buffer aligned for the structures in it.
-fn token_info(token: &OwnedHandle, class: i32) -> io::Result<Vec<u64>> {
+pub fn token_info(token: &OwnedHandle, class: i32) -> io::Result<Vec<u64>> {
     let handle = token.as_raw_handle() as HANDLE;
     let mut needed = 0u32;
     // SAFETY: asking for the size only.
@@ -119,6 +143,24 @@ fn token_user(token: &OwnedHandle) -> io::Result<String> {
     let buf = token_info(token, TokenUser)?;
     // SAFETY: GetTokenInformation(TokenUser) filled buf with a TOKEN_USER.
     let sid = unsafe { (*buf.as_ptr().cast::<TOKEN_USER>()).User.Sid };
+    sid_account_name(sid)
+}
+
+/// The account name for a SID string ("S-1-5-21-…").
+pub fn account_name(sid: &str) -> Option<String> {
+    let text = wide(sid);
+    let mut psid: *mut c_void = std::ptr::null_mut();
+    // SAFETY: text is NUL-terminated; psid receives a LocalAlloc'd SID.
+    if unsafe { ConvertStringSidToSidW(text.as_ptr(), &mut psid) } == 0 {
+        return None;
+    }
+    let name = sid_account_name(psid).ok();
+    // SAFETY: allocated by ConvertStringSidToSidW.
+    unsafe { LocalFree(psid) };
+    name
+}
+
+fn sid_account_name(sid: *mut c_void) -> io::Result<String> {
     let mut name = [0u16; 256];
     let mut domain = [0u16; 256];
     let (mut name_len, mut domain_len) = (name.len() as u32, domain.len() as u32);
@@ -151,19 +193,24 @@ fn well_known_sid(kind: WELL_KNOWN_SID_TYPE) -> io::Result<[u8; SECURITY_MAX_SID
     Ok(sid)
 }
 
+/// Whether a token belongs to Windows itself (LocalSystem).
+fn token_is_system(token: &OwnedHandle) -> io::Result<bool> {
+    let mut system = well_known_sid(WinLocalSystemSid)?;
+    let user = token_info(token, TokenUser)?;
+    // SAFETY: buf holds a TOKEN_USER; both SIDs are valid.
+    let user_sid = unsafe { (*user.as_ptr().cast::<TOKEN_USER>()).User.Sid };
+    Ok(unsafe { EqualSid(user_sid, system.as_mut_ptr().cast()) } != 0)
+}
+
 /// Windows itself, or a member of the Administrators group. With UAC an
 /// administrator's everyday (not "Run as administrator") token still lists
 /// the group, marked deny-only; they count as administrators too, as
 /// members of `sudo` do on Linux without running sudo.
 fn token_is_admin(token: &OwnedHandle) -> io::Result<bool> {
-    let mut admins = well_known_sid(WinBuiltinAdministratorsSid)?;
-    let mut system = well_known_sid(WinLocalSystemSid)?;
-    let user = token_info(token, TokenUser)?;
-    // SAFETY: buf holds a TOKEN_USER; both SIDs are valid.
-    let user_sid = unsafe { (*user.as_ptr().cast::<TOKEN_USER>()).User.Sid };
-    if unsafe { EqualSid(user_sid, system.as_mut_ptr().cast()) } != 0 {
+    if token_is_system(token)? {
         return Ok(true);
     }
+    let mut admins = well_known_sid(WinBuiltinAdministratorsSid)?;
     let groups = token_info(token, TokenGroups)?;
     // SAFETY: buf holds a TOKEN_GROUPS whose array has GroupCount entries.
     let list = unsafe {

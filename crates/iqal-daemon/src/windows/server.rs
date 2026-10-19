@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use iqal_ipc::{read_frame, write_frame, Request, Response};
+use iqal_ipc::{read_frame, write_frame, ErrorCode, Request, Response};
 use windows_sys::Win32::Foundation::{ERROR_PIPE_CONNECTED, GetLastError, HANDLE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
 use windows_sys::Win32::Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX};
@@ -136,6 +136,13 @@ fn handle_client(mut stream: File, service: &Service) -> io::Result<()> {
         }
         if let Request::ExtensionSession { browser } = request {
             return extension_session(stream, service, &caller.user, &browser, peer.pid);
+        }
+        if let Request::WatchWindows = request {
+            if !peer.system {
+                write_frame(&mut stream, &Response::error(ErrorCode::PermissionDenied, "only the service's own watchers"))?;
+                return Ok(());
+            }
+            return super::titles::serve_watcher(stream, service);
         }
         let response = service.handle(&caller, request);
         write_frame(&mut stream, &response)?;

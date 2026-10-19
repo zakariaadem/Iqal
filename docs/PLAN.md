@@ -135,7 +135,7 @@ Built on the Windows PC (Rust + Visual Studio C++ tools), tested in a Windows 11
 | # | Milestone | Done when |
 |---|---|---|
 | W1 | Service (`iqal-daemon` as a Windows service, LocalSystem, auto-start, restart on failure), named-pipe IPC (`\\.\pipe\iqal`, caller identified from the pipe client's token; Administrators members count as admins), protected settings folder `C:\ProgramData\Iqal`, CLI | `iqal-cli` can add/list/lock rules in the VM; locks survive service restarts ✅ |
-| W2 | App blocking: process-start events, closing blocked apps, window titles, allow-only | Blocked app closes the moment it opens |
+| W2 | App blocking: process starts from an ETW real-time session (Kernel-Process) plus a 2 s sweep; blocked processes are ended (~0.1 s after start). Window titles: the service starts a watcher (`iqal-daemon --watch-session`, LocalSystem, in a kill-on-close job) on every signed-in desktop; it reports windows over the pipe and closes those named (WM_CLOSE, then ending the program after 1.5 s, never for essential programs). Allow-only restricts shortcut apps, Store apps, games and programs outside Windows/Program Files; shells and Windows' own parts are exempt | Blocked app closes the moment it opens ✅ |
 | W3 | Website blocking: DNS filter, WFP rules against DNS bypasses, browser policies in the registry, extension + native messaging | Blocked sites fail in every browser and app |
 | W4 | Locks on Windows: restart, place (Wi-Fi via WLAN API), stopping the service refused while locked | Locked blocks cannot be weakened |
 | W5 | Win32 GUI (`iqal-win32`), i18n, RTL (`WS_EX_LAYOUTRTL`), per-monitor DPI | Full feature set usable without the CLI |

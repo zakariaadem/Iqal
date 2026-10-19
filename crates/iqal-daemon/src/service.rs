@@ -401,6 +401,8 @@ impl Service {
                 | Request::ListRules { .. }
                 | Request::ActiveTab { .. }
                 | Request::Stats { .. }
+                | Request::WatchWindows
+                | Request::Windows { .. }
         );
         if mutating && !caller.admin {
             return Response::error(
@@ -564,6 +566,10 @@ impl Service {
             // The transport turns the connection into a feed; see server.rs.
             Request::Subscribe => Ok(Response::Subscribed),
             Request::ExtensionSession { .. } => Ok(Response::Subscribed),
+            Request::WatchWindows => Ok(Response::Subscribed),
+            Request::Windows { .. } => {
+                Err(Response::error(ErrorCode::BadRequest, "window reports only come from a window watch"))
+            }
             Request::CheckPage { url } => Ok(Response::Page { page: self.check_page(caller, &url, now) }),
             Request::Catalog => {
                 let lists = self.list_summaries.read().unwrap_or_else(|e| e.into_inner()).clone();

@@ -71,6 +71,13 @@ pub enum Request {
     /// Each block's state without its rules, and the change counter:
     /// cheap enough to ask every few seconds.
     SetStates,
+    /// Windows session watcher (runs as LocalSystem on a user's desktop):
+    /// turn this connection into window reports. The watcher then sends
+    /// `Request::Windows`; the service answers each with
+    /// `Response::CloseWindows`.
+    WatchWindows,
+    /// The visible top-level windows on a desktop.
+    Windows { windows: Vec<WindowInfo> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,6 +113,8 @@ pub enum Response {
     Stats { stats: Box<StatsReport> },
     /// `generation` changes whenever any block changes.
     SetStates { generation: u64, states: Vec<SetState> },
+    /// Windows a session watcher must close.
+    CloseWindows { windows: Vec<CloseWindow> },
     Error { code: ErrorCode, message: String },
 }
 
@@ -188,6 +197,23 @@ pub struct PageInfo {
     pub reason: Option<String>,
     /// The page uses up a time allowance while open.
     pub metered: bool,
+}
+
+/// A top-level window, as reported by a session watcher.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowInfo {
+    /// The window handle.
+    pub id: u64,
+    pub pid: u32,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloseWindow {
+    pub id: u64,
+    /// End the program if the window does not close by itself (never for
+    /// essential programs such as Explorer).
+    pub force: bool,
 }
 
 /// Something the service blocked.

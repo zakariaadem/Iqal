@@ -186,6 +186,7 @@ fn windows_main() -> Result<(), String> {
             "--socket" => options.socket = value("--socket")?,
             "--state-dir" => options.state_dir = PathBuf::from(value("--state-dir")?),
             "--no-enforce" => options.enforce = false,
+            "--watch-session" => return windows::watcher::run(),
             "--install" => {
                 windows::scm::install()?;
                 println!("Iqal service installed and started.");
@@ -284,10 +285,12 @@ fn start_windows(
     let listener =
         windows::server::bind(&options.socket).map_err(|e| format!("pipe {}: {e}", options.socket))?;
     start_housekeeping(&service, Duration::from_secs(10), || {})?;
-    if options.enforce {
-        eprintln!("iqal: blocking is not available on Windows yet; rules are stored but not enforced");
-    } else {
+    if !options.enforce {
         eprintln!("iqal: enforcement disabled (--no-enforce)");
+    } else if !windows::system::is_elevated() {
+        eprintln!("iqal: not running as administrator; rules are stored but not enforced");
+    } else {
+        windows::start_enforcement(service.clone()).map_err(|e| format!("starting enforcement: {e}"))?;
     }
     eprintln!(
         "iqal: service {} started (pipe {}, state {})",
