@@ -37,7 +37,9 @@ const DOH_HOSTS: &[&str] = &[
     "dns.switch.ch", "dns0.eu", "zero.dns0.eu", "kids.dns0.eu", "dns.digitale-gesellschaft.ch",
 ];
 
-/// Addresses of public DNS-over-HTTPS services, for the firewall.
+/// Addresses of public DNS-over-HTTPS services, for the firewall (Linux;
+/// Windows has no firewall rules yet).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub const DOH_V4: &[&str] = &[
     "8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "1.1.1.2", "1.0.0.2", "1.1.1.3", "1.0.0.3", "9.9.9.9", "9.9.9.10",
     "9.9.9.11", "149.112.112.112", "149.112.112.10", "149.112.112.11", "208.67.222.222", "208.67.220.220",
@@ -46,6 +48,7 @@ pub const DOH_V4: &[&str] = &[
     "45.90.28.0/24", "45.90.30.0/24", "194.242.2.0/24", "185.222.222.222", "45.11.45.11", "223.5.5.5",
     "223.6.6.6", "1.12.12.12", "120.53.53.53", "8.26.56.26", "8.20.247.20",
 ];
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub const DOH_V6: &[&str] = &[
     "2001:4860:4860::8888", "2001:4860:4860::8844", "2606:4700:4700::1111", "2606:4700:4700::1001",
     "2606:4700:4700::1112", "2606:4700:4700::1002", "2606:4700:4700::1113", "2606:4700:4700::1003",

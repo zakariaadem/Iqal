@@ -2,6 +2,7 @@ pub mod appindex;
 pub mod browsers;
 pub mod dns;
 pub mod guard;
+pub mod location;
 pub mod policies;
 pub mod proc_watch;
 pub mod procs;
@@ -31,8 +32,9 @@ const POLICIES_EVERY: Duration = Duration::from_secs(30);
 
 /// Starts all enforcement. Needs to run as LocalSystem (or an
 /// administrator, for testing).
-pub fn start_enforcement(service: Arc<Service>) -> std::io::Result<()> {
+pub fn start_enforcement(service: Arc<Service>, state_dir: std::path::PathBuf) -> std::io::Result<()> {
     let guard = Arc::new(guard::AppGuard::new(service.clone()));
+    location::start(service.clone(), state_dir)?;
     if let Err(e) = proc_watch::start(service.clone(), guard.clone()) {
         eprintln!("iqal: process watch unavailable ({e}); relying on periodic checks");
     }

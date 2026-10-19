@@ -33,11 +33,10 @@ fn open(pid: u32, access: u32) -> Option<OwnedHandle> {
     Some(unsafe { OwnedHandle::from_raw_handle(h) })
 }
 
-/// A running process: id, parent id, file name of its program.
+/// A running process: its id and its parent's.
 pub struct Entry {
     pub pid: u32,
     pub parent: u32,
-    pub name: String,
 }
 
 /// All running processes.
@@ -57,11 +56,9 @@ pub fn list() -> Vec<Entry> {
     // SAFETY: entry is a valid, sized PROCESSENTRY32W.
     let mut ok = unsafe { Process32FirstW(handle, &mut entry) };
     while ok != 0 {
-        let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
         out.push(Entry {
             pid: entry.th32ProcessID,
             parent: entry.th32ParentProcessID,
-            name: String::from_utf16_lossy(&entry.szExeFile[..len]),
         });
         // SAFETY: as above.
         ok = unsafe { Process32NextW(handle, &mut entry) };

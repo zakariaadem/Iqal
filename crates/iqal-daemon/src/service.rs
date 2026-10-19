@@ -45,6 +45,7 @@ pub struct LockSummary {
     /// runs while there are any).
     pub location_areas: Vec<GeoArea>,
     pub location_locked: bool,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))] // hardened mode exists on Linux only
     pub hardened: bool,
 }
 

@@ -12,6 +12,11 @@ use windows_service::service::{
 use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 use windows_service::{define_windows_service, service_dispatcher};
+use windows_sys::Win32::Security::DACL_SECURITY_INFORMATION;
+use windows_sys::Win32::Storage::FileSystem::{READ_CONTROL, WRITE_DAC};
+use windows_sys::Win32::System::Services::{
+    CloseServiceHandle, OpenSCManagerW, OpenServiceW, SC_MANAGER_CONNECT, SetServiceObjectSecurity,
+};
 
 pub const SERVICE_NAME: &str = "Iqal";
 const DISPLAY_NAME: &str = "Iqal";
@@ -39,14 +44,66 @@ pub fn run_as_service(run: fn() -> Result<(), String>) -> Result<bool, String> {
     }
 }
 
-fn status(state: ServiceState, exit: u32) -> ServiceStatus {
+/// Tells whether any block is locked right now (set once the service runs).
+static LOCKED: std::sync::OnceLock<Box<dyn Fn() -> bool + Send + Sync>> = std::sync::OnceLock::new();
+/// How often the lock state is looked at.
+const LOCK_CHECK_EVERY: Duration = Duration::from_secs(2);
+
+pub fn set_lock_check(check: impl Fn() -> bool + Send + Sync + 'static) {
+    let _ = LOCKED.set(Box::new(check));
+}
+
+fn locked() -> bool {
+    LOCKED.get().is_some_and(|check| check())
+}
+
+/// Who may do what with the service. Windows itself always may do
+/// everything (so the service can change this back), administrators too
+/// while nothing is locked; signed-in users may look. `OW` limits what the
+/// owner may do implicitly to reading these permissions.
+const SERVICE_SDDL: &str = "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)\
+                            (A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RC;;;OW)";
+/// While a block is locked administrators may start the service and look,
+/// but not stop, reconfigure or remove it, or change these permissions.
+const LOCKED_SERVICE_SDDL: &str = "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;SY)(A;;CCLCSWRPLOCRRC;;;BA)\
+                                   (A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RC;;;OW)";
+
+/// Applies the service permissions for the lock state.
+fn protect(locked: bool) {
+    let sddl = if locked { LOCKED_SERVICE_SDDL } else { SERVICE_SDDL };
+    let result = (|| -> std::io::Result<()> {
+        let sd = super::system::SecurityDescriptor::from_sddl(sddl)?;
+        let name = super::system::wide(SERVICE_NAME);
+        // SAFETY: plain handle calls; every handle opened is closed.
+        unsafe {
+            let manager = OpenSCManagerW(std::ptr::null(), std::ptr::null(), SC_MANAGER_CONNECT);
+            if manager.is_null() {
+                return Err(std::io::Error::last_os_error());
+            }
+            let service = OpenServiceW(manager, name.as_ptr(), WRITE_DAC | READ_CONTROL);
+            let ok = !service.is_null() && SetServiceObjectSecurity(service, DACL_SECURITY_INFORMATION, sd.as_ptr()) != 0;
+            let error = std::io::Error::last_os_error();
+            if !service.is_null() {
+                CloseServiceHandle(service);
+            }
+            CloseServiceHandle(manager);
+            if ok { Ok(()) } else { Err(error) }
+        }
+    })();
+    if let Err(e) = result {
+        eprintln!("iqal: setting the service's permissions: {e}");
+    }
+}
+
+fn status(state: ServiceState, exit: u32, stoppable: bool) -> ServiceStatus {
     ServiceStatus {
         service_type: ServiceType::OWN_PROCESS,
         current_state: state,
-        controls_accepted: if state == ServiceState::Running {
-            ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN
-        } else {
-            ServiceControlAccept::empty()
+        controls_accepted: match state {
+            ServiceState::Running if stoppable => ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
+            // While locked, Windows refuses requests to stop the service.
+            ServiceState::Running => ServiceControlAccept::SHUTDOWN,
+            _ => ServiceControlAccept::empty(),
         },
         exit_code: if exit == 0 { ServiceExitCode::Win32(0) } else { ServiceExitCode::ServiceSpecific(exit) },
         checkpoint: 0,
@@ -72,19 +129,35 @@ fn service_main(_args: Vec<OsString>) {
             return;
         }
     };
-    let _ = handle.set_service_status(status(ServiceState::StartPending, 0));
+    let _ = handle.set_service_status(status(ServiceState::StartPending, 0, false));
     let result = RUN.get().map_or(Err("nothing to run".into()), |run| run());
     if let Err(e) = result {
         eprintln!("iqal: {e}");
-        let _ = handle.set_service_status(status(ServiceState::Stopped, 1));
+        let _ = handle.set_service_status(status(ServiceState::Stopped, 1, false));
         return;
     }
-    let _ = handle.set_service_status(status(ServiceState::Running, 0));
-    let _ = stop_rx.recv();
+    let mut was_locked = locked();
+    protect(was_locked);
+    let _ = handle.set_service_status(status(ServiceState::Running, 0, !was_locked));
+    // Follow the lock state until Windows asks us to stop (or shuts down).
+    loop {
+        match stop_rx.recv_timeout(LOCK_CHECK_EVERY) {
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                let now_locked = locked();
+                if now_locked != was_locked {
+                    was_locked = now_locked;
+                    protect(now_locked);
+                    let _ = handle.set_service_status(status(ServiceState::Running, 0, !now_locked));
+                    eprintln!("iqal: service can {}be stopped", if now_locked { "no longer " } else { "now " });
+                }
+            }
+            _ => break,
+        }
+    }
     eprintln!("iqal: stop requested");
     // Lookups must keep working while we are stopped.
     super::dns::remove_redirect();
-    let _ = handle.set_service_status(status(ServiceState::Stopped, 0));
+    let _ = handle.set_service_status(status(ServiceState::Stopped, 0, false));
 }
 
 /// Registers this program as the Iqal service (starting with Windows,

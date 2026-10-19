@@ -11,6 +11,7 @@ mod dnsfilter;
 mod dnsmsg;
 mod extension;
 mod lists;
+mod places;
 mod service;
 mod stats;
 mod storage;
@@ -249,6 +250,10 @@ fn run_windows_service() -> Result<(), String> {
         eprintln!("iqal: no log file: {e}");
     }
     let (service, listener) = start_windows(&options)?;
+    {
+        let service = service.clone();
+        windows::scm::set_lock_check(move || service.lock_summary().any_locked);
+    }
     std::thread::Builder::new()
         .name("iqal-pipe".into())
         .spawn(move || windows::server::serve(listener, service))
@@ -294,7 +299,7 @@ fn start_windows(
     } else if !windows::system::is_elevated() {
         eprintln!("iqal: not running as administrator; rules are stored but not enforced");
     } else {
-        windows::start_enforcement(service.clone()).map_err(|e| format!("starting enforcement: {e}"))?;
+        windows::start_enforcement(service.clone(), options.state_dir.clone()).map_err(|e| format!("starting enforcement: {e}"))?;
     }
     eprintln!(
         "iqal: service {} started (pipe {}, state {})",

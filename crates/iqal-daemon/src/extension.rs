@@ -18,6 +18,8 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::Duration;
 
+// Linux only: Chromium there installs the extension from this server.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub const UPDATE_PORT: u16 = 16098;
 pub const HOST_NAME: &str = "org.iqal.host";
 /// The name used while Iqal was called Al-Dir. Extensions signed before the
@@ -37,8 +39,10 @@ pub const EDGE_STORE_UPDATE_URL: &str = "https://edge.microsoft.com/extensionweb
 pub struct Files {
     pub host: Option<PathBuf>,
     pub xpi: Option<PathBuf>,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub crx: Option<PathBuf>,
     pub chromium_id: Option<String>,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub version: String,
 }
 
@@ -65,11 +69,13 @@ fn locate() -> Files {
     }
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub fn update_url() -> String {
     format!("http://127.0.0.1:{UPDATE_PORT}/update.xml")
 }
 
 /// Serves `/update.xml` and `/iqal.crx` on 127.0.0.1.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub fn serve_updates() -> io::Result<()> {
     let files = files();
     let (Some(crx), Some(id)) = (files.crx.clone(), files.chromium_id.clone()) else { return Ok(()) };
@@ -91,6 +97,7 @@ pub fn serve_updates() -> io::Result<()> {
     Ok(())
 }
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn respond(mut conn: TcpStream, manifest: &str, crx: &PathBuf) -> io::Result<()> {
     conn.set_read_timeout(Some(Duration::from_secs(5)))?;
     let mut buf = [0u8; 4096];
