@@ -45,7 +45,6 @@ Blocks web pages that the user has chosen to block in the Iqal app on the same c
 | nativeMessaging | Talks to the Iqal app on the same computer, which holds the user's block rules and decides whether a page is blocked. |
 | tabs | Reads the address of open tabs to check them again when rules change (for example when a scheduled block starts) and to replace a blocked page with the block page. Also tells the Iqal app which page is in front, for daily time allowances the user set. |
 | webNavigation | Checks each page while it is being opened, so a blocked page is stopped before it loads. |
-| Host permission (all sites) | Blocks can apply to any website the user chooses, so navigation on all sites must be checked. Page content is never read. |
 
 **Are you using remote code?** No.
 
