@@ -34,4 +34,4 @@ You decide what is blocked, and you can see, change or delete your blocks and st
 
 ## Contact
 
-Questions about this policy: [contact email]
+Questions about this policy: zakaria1adam1@gmail.com
