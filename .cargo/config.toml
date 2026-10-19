@@ -1,0 +1,4 @@
+# Windows: build the C runtime into the programs, so they run on any
+# Windows PC without installing the Visual C++ Redistributable first.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

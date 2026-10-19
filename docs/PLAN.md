@@ -126,7 +126,23 @@ Allowance (X min/day per site/app, across browsers) · delayed unlock · random-
 | M7 | GTK4 UI incl. map picker, i18n, RTL | Full feature set usable without CLI |
 | M8 | Profiles, allowances, statistics, pre-made lists + updater, text import | — |
 | M9 | `.deb` package for Mint 22.x, install/uninstall protection | Clean install on fresh Mint VM |
-| — | **Windows 11 port** (service, ETW process blocking, WFP, Win32 UI) | — |
+| — | **Windows 11 port** (see below) | — |
+
+### Windows 11 milestones
+
+Built on the Windows PC (Rust + Visual Studio C++ tools), tested in a Windows 11 virtual machine. Programs are built with the C runtime linked in (`.cargo/config.toml`), so they need no Visual C++ Redistributable.
+
+| # | Milestone | Done when |
+|---|---|---|
+| W1 | Service (`iqal-daemon` as a Windows service, LocalSystem, auto-start, restart on failure), named-pipe IPC (`\\.\pipe\iqal`, caller identified from the pipe client's token; Administrators members count as admins), protected settings folder `C:\ProgramData\Iqal`, CLI | `iqal-cli` can add/list/lock rules in the VM; locks survive service restarts ✅ |
+| W2 | App blocking: process-start events, closing blocked apps, window titles, allow-only | Blocked app closes the moment it opens |
+| W3 | Website blocking: DNS filter, WFP rules against DNS bypasses, browser policies in the registry, extension + native messaging | Blocked sites fail in every browser and app |
+| W4 | Locks on Windows: restart, place (Wi-Fi via WLAN API), stopping the service refused while locked | Locked blocks cannot be weakened |
+| W5 | Win32 GUI (`iqal-win32`), i18n, RTL (`WS_EX_LAYOUTRTL`), per-monitor DPI | Full feature set usable without the CLI |
+| W6 | Session agent: block notices, notifications | Same notices as on Mint |
+| W7 | Installer, uninstall protection, code signing (Smart App Control blocks unsigned programs) | Clean install on a fresh Windows 11 VM |
+
+Open: standard (non-administrator) Windows accounts cannot change settings; decide at W5 how they get access (e.g. an `Iqal` group, as on Linux).
 
 ---
 

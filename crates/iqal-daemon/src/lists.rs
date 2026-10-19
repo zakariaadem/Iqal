@@ -101,6 +101,11 @@ impl ListStore {
 fn find_bundled() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let mut candidates = Vec::new();
+    // Windows: <Program Files>\Iqal\iqal-daemon.exe -> <Program Files>\Iqal\lists
+    #[cfg(windows)]
+    if let Some(dir) = exe.parent() {
+        candidates.push(dir.join("lists"));
+    }
     // <prefix>/lib/iqal/iqal-daemon -> <prefix>/share/iqal/lists
     if let Some(prefix) = exe.parent().and_then(Path::parent).and_then(Path::parent) {
         candidates.push(prefix.join("share/iqal/lists"));

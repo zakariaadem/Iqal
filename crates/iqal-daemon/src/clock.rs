@@ -185,7 +185,14 @@ fn boot_clock() -> f64 {
     ts.tv_sec as f64 + ts.tv_nsec as f64 / 1e9
 }
 
-#[cfg(not(target_os = "linux"))]
+/// Seconds since boot, including sleep; cannot be changed by users.
+#[cfg(windows)]
+fn boot_clock() -> f64 {
+    // SAFETY: no preconditions.
+    unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() as f64 / 1000.0 }
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
 fn boot_clock() -> f64 {
     static START: OnceLock<std::time::Instant> = OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()

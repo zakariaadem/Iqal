@@ -2,8 +2,9 @@
 //!
 //! Usage: `iqal-daemon [--socket PATH] [--state-dir DIR]`
 //!
-//! Normally started by systemd as root. For development it can run as an
-//! ordinary user with its own socket and state directory.
+//! Normally started by systemd as root (Linux) or by the service manager as
+//! LocalSystem (Windows). For development it can run as an ordinary user
+//! with its own socket (pipe) and state directory.
 
 mod clock;
 mod dnsmsg;
@@ -15,6 +16,8 @@ mod usage;
 
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(windows)]
+mod windows;
 
 #[cfg(target_os = "linux")]
 fn main() {
@@ -88,21 +91,50 @@ fn linux_main() -> Result<(), String> {
     clock::start_sync().map_err(|e| e.to_string())?;
     let listener = server::bind(&socket).map_err(|e| format!("socket {}: {e}", socket.display()))?;
 
-    // Housekeeping and watchdog.
+    let watchdog = system::watchdog_interval();
+    let period = watchdog.map_or(Duration::from_secs(10), |w| w.min(Duration::from_secs(10)));
+    start_housekeeping(&service, period, move || {
+        if watchdog.is_some() {
+            system::sd_notify("WATCHDOG=1");
+        }
+    })?;
+
+    if !enforce {
+        eprintln!("iqal: enforcement disabled (--no-enforce)");
+    } else if !nix::unistd::geteuid().is_root() {
+        eprintln!("iqal: not running as root; rules are stored but not enforced");
+    } else {
+        linux::start_enforcement(service.clone(), state_dir.clone(), network).map_err(|e| format!("starting enforcement: {e}"))?;
+    }
+
+    eprintln!(
+        "iqal: service {} started (socket {}, state {})",
+        env!("CARGO_PKG_VERSION"),
+        socket.display(),
+        state_dir.display()
+    );
+    system::sd_notify("READY=1");
+    server::serve(listener, service);
+    Ok(())
+}
+
+/// Background threads common to every platform: the periodic tick (lock
+/// ends, schedules, saving the trusted time), calling `on_tick` after each,
+/// and pre-made list downloads.
+fn start_housekeeping(
+    service: &std::sync::Arc<service::Service>,
+    period: std::time::Duration,
+    on_tick: impl Fn() + Send + 'static,
+) -> Result<(), String> {
+    use std::time::Duration;
     {
         let service = service.clone();
-        let watchdog = system::watchdog_interval();
         std::thread::Builder::new()
             .name("iqal-tick".into())
-            .spawn(move || {
-                let period = watchdog.map_or(Duration::from_secs(10), |w| w.min(Duration::from_secs(10)));
-                loop {
-                    service.tick();
-                    if watchdog.is_some() {
-                        system::sd_notify("WATCHDOG=1");
-                    }
-                    std::thread::sleep(period);
-                }
+            .spawn(move || loop {
+                service.tick();
+                on_tick();
+                std::thread::sleep(period);
             })
             .map_err(|e| e.to_string())?;
     }
@@ -125,28 +157,149 @@ fn linux_main() -> Result<(), String> {
             })
             .map_err(|e| e.to_string())?;
     }
-
-    if !enforce {
-        eprintln!("iqal: enforcement disabled (--no-enforce)");
-    } else if !nix::unistd::geteuid().is_root() {
-        eprintln!("iqal: not running as root; rules are stored but not enforced");
-    } else {
-        linux::start_enforcement(service.clone(), state_dir.clone(), network).map_err(|e| format!("starting enforcement: {e}"))?;
-    }
-
-    eprintln!(
-        "iqal: service {} started (socket {}, state {})",
-        env!("CARGO_PKG_VERSION"),
-        socket.display(),
-        state_dir.display()
-    );
-    system::sd_notify("READY=1");
-    server::serve(listener, service);
     Ok(())
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
 fn main() {
-    eprintln!("iqal-daemon: this platform is not supported yet");
+    if let Err(e) = windows_main() {
+        eprintln!("iqal: {e}");
+        std::process::exit(1);
+    }
+}
+
+/// `iqal-daemon` alone is what Windows' service manager starts; run from a
+/// terminal it serves in the foreground. `--install`/`--uninstall` add or
+/// remove the service (as administrator).
+#[cfg(windows)]
+fn windows_main() -> Result<(), String> {
+    use std::path::PathBuf;
+
+    let mut options = WindowsOptions::default();
+    let mut args = std::env::args().skip(1).peekable();
+    if args.peek().is_none() && windows::scm::run_as_service(run_windows_service)? {
+        return Ok(());
+    }
+    while let Some(arg) = args.next() {
+        let mut value = |name: &str| args.next().ok_or(format!("{name} needs a value"));
+        match arg.as_str() {
+            "--socket" => options.socket = value("--socket")?,
+            "--state-dir" => options.state_dir = PathBuf::from(value("--state-dir")?),
+            "--no-enforce" => options.enforce = false,
+            "--install" => {
+                windows::scm::install()?;
+                println!("Iqal service installed and started.");
+                return Ok(());
+            }
+            "--uninstall" => {
+                let service = load_service(&options.state_dir)?;
+                if service.lock_summary().any_locked {
+                    return Err("a block is locked; Iqal cannot be removed until its locks end".into());
+                }
+                windows::scm::uninstall()?;
+                println!("Iqal service removed. Settings are kept in {}.", options.state_dir.display());
+                return Ok(());
+            }
+            "--version" => {
+                println!("iqal-daemon {}", env!("CARGO_PKG_VERSION"));
+                return Ok(());
+            }
+            "-h" | "--help" => {
+                println!("usage: iqal-daemon [--socket PIPE] [--state-dir DIR] [--no-enforce] | --install | --uninstall");
+                return Ok(());
+            }
+            other => return Err(format!("unknown argument {other}")),
+        }
+    }
+    let (service, listener) = start_windows(&options)?;
+    windows::server::serve(listener, service);
+    Ok(())
+}
+
+#[cfg(windows)]
+struct WindowsOptions {
+    socket: String,
+    state_dir: std::path::PathBuf,
+    enforce: bool,
+}
+
+#[cfg(windows)]
+impl Default for WindowsOptions {
+    fn default() -> Self {
+        let program_data = std::env::var_os("ProgramData").unwrap_or_else(|| r"C:\ProgramData".into());
+        Self {
+            socket: iqal_ipc::DEFAULT_SOCKET.into(),
+            state_dir: std::path::Path::new(&program_data).join("Iqal"),
+            enforce: true,
+        }
+    }
+}
+
+/// Started by the service manager: default options, messages to the log.
+#[cfg(windows)]
+fn run_windows_service() -> Result<(), String> {
+    let options = WindowsOptions::default();
+    prepare_state_dir(&options.state_dir)?;
+    if let Err(e) = windows::log_to_file(&options.state_dir) {
+        eprintln!("iqal: no log file: {e}");
+    }
+    let (service, listener) = start_windows(&options)?;
+    std::thread::Builder::new()
+        .name("iqal-pipe".into())
+        .spawn(move || windows::server::serve(listener, service))
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Creates the settings folder, limited to Windows and administrators.
+/// Only the real one: a development folder stays the developer's own.
+#[cfg(windows)]
+fn prepare_state_dir(dir: &std::path::Path) -> Result<(), String> {
+    if dir.is_dir() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(dir).map_err(|e| format!("state directory {}: {e}", dir.display()))?;
+    windows::system::protect_dir(dir).map_err(|e| format!("protecting {}: {e}", dir.display()))
+}
+
+#[cfg(windows)]
+fn load_service(state_dir: &std::path::Path) -> Result<service::Service, String> {
+    let store = storage::Store::open(state_dir).map_err(|e| format!("state directory {}: {e}", state_dir.display()))?;
+    service::Service::new(store, windows::system::boot_id()).map_err(|e| format!("loading settings: {e}"))
+}
+
+#[cfg(windows)]
+fn start_windows(
+    options: &WindowsOptions,
+) -> Result<(std::sync::Arc<service::Service>, windows::server::Listener), String> {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    if options.state_dir == WindowsOptions::default().state_dir {
+        prepare_state_dir(&options.state_dir)?;
+    }
+    clock::init(options.state_dir.clone());
+    let service = Arc::new(load_service(&options.state_dir)?);
+    clock::start_sync().map_err(|e| e.to_string())?;
+    let listener =
+        windows::server::bind(&options.socket).map_err(|e| format!("pipe {}: {e}", options.socket))?;
+    start_housekeeping(&service, Duration::from_secs(10), || {})?;
+    if options.enforce {
+        eprintln!("iqal: blocking is not available on Windows yet; rules are stored but not enforced");
+    } else {
+        eprintln!("iqal: enforcement disabled (--no-enforce)");
+    }
+    eprintln!(
+        "iqal: service {} started (pipe {}, state {})",
+        env!("CARGO_PKG_VERSION"),
+        options.socket,
+        options.state_dir.display()
+    );
+    Ok((service, listener))
+}
+
+#[cfg(not(any(target_os = "linux", windows)))]
+fn main() {
+    eprintln!("iqal-daemon: this platform is not supported");
     std::process::exit(1);
 }

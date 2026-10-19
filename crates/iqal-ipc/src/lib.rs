@@ -2,9 +2,10 @@
 //! CLI, session agent), and the framing used on the wire: each message is
 //! a 4-byte big-endian length followed by that many bytes of JSON.
 //!
-//! On Linux the transport is a Unix socket; the service identifies the
-//! caller from the socket's peer credentials, so requests carry no
-//! identity of their own.
+//! On Linux the transport is a Unix socket; on Windows a named pipe. Either
+//! way the service identifies the caller from the connection itself (peer
+//! credentials, pipe client token), so requests carry no identity of their
+//! own.
 
 use std::io::{self, Read, Write};
 
@@ -13,7 +14,10 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u32 = 1;
+#[cfg(not(windows))]
 pub const DEFAULT_SOCKET: &str = "/run/iqal/iqal.sock";
+#[cfg(windows)]
+pub const DEFAULT_SOCKET: &str = r"\\.\pipe\iqal";
 /// Overrides the socket path (development and tests).
 pub const SOCKET_ENV: &str = "IQAL_SOCKET";
 pub const MAX_FRAME: usize = 64 << 20;
@@ -339,6 +343,60 @@ pub mod client {
 
         pub fn connect_to(path: &str) -> io::Result<Self> {
             Ok(Self { stream: UnixStream::connect(path)? })
+        }
+
+        pub fn call(&mut self, request: &Request) -> io::Result<Response> {
+            write_frame(&mut self.stream, request)?;
+            self.receive()
+        }
+
+        /// Waits for the next message (used after `Request::Subscribe`).
+        pub fn receive(&mut self) -> io::Result<Response> {
+            read_frame(&mut self.stream)?
+                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "service closed the connection"))
+        }
+    }
+}
+
+#[cfg(windows)]
+pub mod client {
+    use super::*;
+    use std::fs::{File, OpenOptions};
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::time::Duration;
+
+    use windows_sys::Win32::Foundation::ERROR_PIPE_BUSY;
+    use windows_sys::Win32::Storage::FileSystem::{SECURITY_IDENTIFICATION, SECURITY_SQOS_PRESENT};
+
+    pub struct Client {
+        stream: File,
+    }
+
+    impl Client {
+        pub fn connect() -> io::Result<Self> {
+            Self::connect_to(&socket_path())
+        }
+
+        pub fn connect_to(path: &str) -> io::Result<Self> {
+            // All pipe instances can be briefly busy while the service sets
+            // up the next one; retry for up to a second.
+            let mut tries = 0;
+            loop {
+                // The service may only identify us, not act as us.
+                let opened = OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .security_qos_flags(SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION)
+                    .open(path);
+                match opened {
+                    Ok(stream) => return Ok(Self { stream }),
+                    Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) && tries < 50 => {
+                        tries += 1;
+                        std::thread::sleep(Duration::from_millis(20));
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
         }
 
         pub fn call(&mut self, request: &Request) -> io::Result<Response> {

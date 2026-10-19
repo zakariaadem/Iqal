@@ -25,6 +25,8 @@ thiserror = "2.0.21"
 unic-langid = "0.9.6"
 url = "2.5.8"
 uuid = { version = "1.28.0", features = ["v4", "serde"] }
+windows-service = "0.8"
+windows-sys = "0.61"
 x11rb = "0.14.0"
 zbus = { version = "5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
 

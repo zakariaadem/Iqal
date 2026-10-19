@@ -96,8 +96,19 @@ fn write_atomic(dir: &Path, name: &str, data: &[u8]) -> io::Result<()> {
         f.sync_all()?;
     }
     fs::rename(&tmp, dir.join(name))?;
-    // Make the rename itself durable.
+    sync_dir(dir)
+}
+
+/// Makes a rename durable.
+#[cfg(unix)]
+fn sync_dir(dir: &Path) -> io::Result<()> {
     File::open(dir)?.sync_all()
+}
+
+/// NTFS journals renames itself (and folders cannot be opened as files).
+#[cfg(not(unix))]
+fn sync_dir(_dir: &Path) -> io::Result<()> {
+    Ok(())
 }
 
 #[cfg(unix)]
