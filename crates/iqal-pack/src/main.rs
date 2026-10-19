@@ -3,6 +3,8 @@
 //! * `dist/extension/iqal.xpi`: Firefox (unsigned; Mozilla signs it),
 //! * `dist/extension/iqal.crx`: Chromium-family browsers, CRX3 signed
 //!   with our RSA key (the key determines the extension id),
+//! * `dist/extension/iqal-store.zip`: the same, unsigned, for uploading to
+//!   the Chrome Web Store and Microsoft Edge Add-ons (they sign it),
 //! * `dist/extension/chromium-id` and `dist/extension/version`.
 //!
 //! Usage: `cargo run -p iqal-pack -- [--key PATH]`. The key defaults to
@@ -50,6 +52,7 @@ fn run() -> io::Result<()> {
 
     ensure_key(&key)?;
     let zip = zip_extension(&src, "manifest.chromium.json")?;
+    fs::write(out.join("iqal-store.zip"), &zip)?;
     let (crx, id) = crx3(&zip, &key)?;
     fs::write(out.join("iqal.crx"), crx)?;
     fs::write(out.join("chromium-id"), &id)?;
