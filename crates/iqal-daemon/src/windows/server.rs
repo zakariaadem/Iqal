@@ -187,11 +187,14 @@ fn connected(stream: &File) -> bool {
 /// Keeps a browser extension registered for as long as its native host is
 /// connected, and tells it whenever the rules may have changed.
 fn extension_session(mut stream: File, service: &Service, user: &str, reported: &str, pid: u32) -> io::Result<()> {
-    // Telling browsers apart by their processes comes with website blocking
-    // on Windows; until then the session counts as "other".
-    let browser = "other";
+    // The browser is identified from the process tree, not from what the
+    // extension says about itself.
+    let browser = super::browsers::host_browser(pid, &super::browsers::parents()).map_or("other", |(family, _)| family);
     eprintln!("iqal: extension connected in {browser} (reports {reported}) for {user}");
     let id = service.add_extension(ExtensionSession { browser: browser.into(), user: user.into(), host_pid: pid as i32 });
+    if browser != "other" {
+        service.mark_extension_proven(browser);
+    }
     let result = (|| {
         write_frame(&mut stream, &Response::Subscribed)?;
         let mut generation = service.generation();

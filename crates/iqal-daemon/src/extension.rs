@@ -2,7 +2,7 @@
 //! server that Chromium-family browsers use to install and update it
 //! (their force-install policy needs an update URL).
 //!
-//! Layout next to the service binary:
+//! Layout next to the service binary (`.exe` names on Windows):
 //! ```text
 //! iqal-daemon
 //! iqal-nm-host
@@ -49,7 +49,7 @@ fn locate() -> Files {
     let read = |name: &str| std::fs::read_to_string(ext.join(name)).ok().map(|s| s.trim().to_string());
     let chromium_id = read("chromium-id").filter(|id| id.len() == 32 && id.bytes().all(|b| (b'a'..=b'p').contains(&b)));
     Files {
-        host: existing(dir.join("iqal-nm-host")),
+        host: existing(dir.join(format!("iqal-nm-host{}", std::env::consts::EXE_SUFFIX))),
         xpi: existing(ext.join("iqal.xpi")),
         crx: existing(ext.join("iqal.crx")).filter(|_| chromium_id.is_some()),
         chromium_id,

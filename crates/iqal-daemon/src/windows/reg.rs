@@ -91,7 +91,7 @@ pub fn delete_value(path: &str, name: &str) -> io::Result<()> {
 
 pub fn get_string(path: &str, name: &str) -> Option<String> {
     let (key, name) = (wide(path), wide(name));
-    let mut buf = vec![0u16; 1024];
+    let mut buf = vec![0u16; 32 * 1024];
     let mut size = (buf.len() * 2) as u32;
     // SAFETY: buf has `size` bytes of room.
     let status = unsafe {

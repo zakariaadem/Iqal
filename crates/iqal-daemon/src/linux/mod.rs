@@ -2,7 +2,6 @@ pub mod appindex;
 pub mod browsers;
 pub mod dns;
 pub mod exec_hook;
-pub mod extension;
 pub mod firewall;
 pub mod guard;
 pub mod location;
@@ -19,6 +18,7 @@ use std::time::Duration;
 
 use nix::sys::signal::{SigSet, Signal};
 
+use crate::extension;
 use crate::service::Service;
 
 /// How often running programs are re-checked (blocks starting on a

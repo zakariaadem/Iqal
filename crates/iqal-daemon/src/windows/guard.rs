@@ -1,5 +1,5 @@
 //! Application enforcement shared by the process watcher (ETW) and the
-//! periodic sweep of running processes.
+//! periodic sweep of running processes, including browser supervision.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -13,6 +13,7 @@ use iqal_ipc::EventKind;
 use sha2::{Digest, Sha256};
 
 use super::appindex::{self, AppIndex};
+use super::browsers;
 use super::procs::{self, Users};
 use crate::service::Service;
 
@@ -31,6 +32,9 @@ pub struct AppGuard {
     last_sweep: Mutex<Instant>,
     /// Fractions of a second not yet counted.
     carry: Mutex<f64>,
+    /// Browsers seen without the extension, and since when (by this
+    /// service: after a restart, extensions get time to reconnect).
+    uncovered_since: Mutex<HashMap<u32, Instant>>,
 }
 
 struct Verdict {
@@ -51,6 +55,7 @@ impl AppGuard {
             own_pid: std::process::id(),
             last_sweep: Mutex::new(Instant::now()),
             carry: Mutex::new(0.0),
+            uncovered_since: Mutex::new(HashMap::new()),
         }
     }
 
@@ -72,6 +77,12 @@ impl AppGuard {
     fn decide(&self, engine: &Engine, now: Now, user: String, exe: &str, cmdline: Option<&str>) -> Verdict {
         let usage = self.service.usage_for(&user);
         let ctx = Ctx { now, user: &user, usage: usage.as_deref() };
+        if browsers::is_unsupported(exe)
+            && let Some(set) = engine.web_active_set(&ctx)
+        {
+            let hit = Some(Hit { set, reason: Reason::UnsupportedBrowser });
+            return Verdict { hit, metered: Vec::new(), user };
+        }
         let sha = if engine.wants_exe_hash() { self.hash_file(exe) } else { None };
         let process = ProcessInfo { exe_path: exe, cmdline, sha256: sha.as_deref() };
         let decision = engine.check_process(&process, &ctx);
@@ -135,6 +146,50 @@ impl AppGuard {
         for (user, sets) in metered {
             self.service.add_usage(&user, &sets, whole);
         }
+        self.close_unsupervised_browsers(&engine, now);
+    }
+
+    /// Closes supported browsers that have been without the extension for a
+    /// while (as seen by this service) while website rules are in force for
+    /// their user. Counting from when the service first saw the browser
+    /// uncovered, not from the browser's start, gives extensions time to
+    /// reconnect after the service restarts (an update, say).
+    fn close_unsupervised_browsers(&self, engine: &Engine, now: Now) {
+        let sessions = self.service.extensions();
+        let parents = browsers::parents();
+        let mut covered = None;
+        let mut uncovered_since = self.uncovered_since.lock().unwrap_or_else(|e| e.into_inner());
+        let mut still_uncovered = Vec::new();
+        for &pid in parents.keys() {
+            let Some(exe) = procs::exe_of(pid) else { continue };
+            let Some(family) = browsers::family_of(&exe) else { continue };
+            if !browsers::is_main_process(pid, family, &parents)
+                || browsers::age_secs(pid).is_none_or(|a| a < browsers::EXTENSION_GRACE_SECS)
+                || !self.service.extension_proven(family)
+            {
+                continue;
+            }
+            let Some(user) = self.users.of_process(pid) else { continue };
+            let Some(set) = engine.web_active_set(&Ctx::new(now, &user)) else { continue };
+            let covered = covered
+                .get_or_insert_with(|| browsers::covered(sessions.iter().map(|s| s.host_pid as u32), &parents));
+            if covered.contains(&pid) {
+                continue;
+            }
+            let since = *uncovered_since.entry(pid).or_insert_with(Instant::now);
+            if since.elapsed().as_secs() < browsers::EXTENSION_GRACE_SECS {
+                still_uncovered.push(pid);
+                continue;
+            }
+            // Not counted further: a browser that is closing is not closed again.
+            if procs::kill(pid) {
+                let hit = Hit { set, reason: Reason::ExtensionMissing };
+                self.service.record_block(&user, EventKind::AppKilled, &exe, &hit);
+            }
+        }
+        // A browser that connected (or closed, or no longer needs it) starts
+        // over the next time.
+        uncovered_since.retain(|pid, _| still_uncovered.contains(pid));
     }
 
     /// SHA-256 of a program file, cached by path, size and modification

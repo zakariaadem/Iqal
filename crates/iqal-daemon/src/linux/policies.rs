@@ -12,7 +12,7 @@ use std::path::Path;
 
 use serde_json::{json, Map, Value};
 
-use super::extension::{self, FIREFOX_ID, HOST_NAME, LEGACY_HOST_NAME};
+use crate::extension::{self, FIREFOX_ID, HOST_NAME, LEGACY_HOST_NAME};
 
 /// (managed policy folder, native messaging host folder) per browser.
 const CHROMIUM: &[(&str, &str)] = &[

@@ -1,4 +1,5 @@
 pub mod appindex;
+pub mod browsers;
 pub mod dns;
 pub mod guard;
 pub mod policies;

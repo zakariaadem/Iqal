@@ -9,6 +9,7 @@
 mod clock;
 mod dnsfilter;
 mod dnsmsg;
+mod extension;
 mod lists;
 mod service;
 mod stats;
