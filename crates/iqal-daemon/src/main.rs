@@ -7,6 +7,7 @@
 //! with its own socket (pipe) and state directory.
 
 mod clock;
+mod dnsfilter;
 mod dnsmsg;
 mod lists;
 mod service;
@@ -198,6 +199,8 @@ fn windows_main() -> Result<(), String> {
                     return Err("a block is locked; Iqal cannot be removed until its locks end".into());
                 }
                 windows::scm::uninstall()?;
+                windows::dns::remove_redirect();
+                windows::policies::remove();
                 println!("Iqal service removed. Settings are kept in {}.", options.state_dir.display());
                 return Ok(());
             }

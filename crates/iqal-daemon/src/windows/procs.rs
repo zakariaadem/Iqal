@@ -125,7 +125,12 @@ pub fn sid_of(pid: u32) -> Option<String> {
     }
     // SAFETY: a new handle we own.
     let token = unsafe { OwnedHandle::from_raw_handle(token) };
-    let info = system::token_info(&token, TokenUser).ok()?;
+    token_sid(&token)
+}
+
+/// The account a token belongs to, as a SID string.
+pub fn token_sid(token: &OwnedHandle) -> Option<String> {
+    let info = system::token_info(token, TokenUser).ok()?;
     // SAFETY: info holds a TOKEN_USER.
     let sid = unsafe { (*info.as_ptr().cast::<TOKEN_USER>()).User.Sid };
     sid_string(sid)

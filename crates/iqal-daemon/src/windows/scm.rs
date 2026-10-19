@@ -82,6 +82,8 @@ fn service_main(_args: Vec<OsString>) {
     let _ = handle.set_service_status(status(ServiceState::Running, 0));
     let _ = stop_rx.recv();
     eprintln!("iqal: stop requested");
+    // Lookups must keep working while we are stopped.
+    super::dns::remove_redirect();
     let _ = handle.set_service_status(status(ServiceState::Stopped, 0));
 }
 

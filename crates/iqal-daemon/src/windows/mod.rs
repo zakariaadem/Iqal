@@ -1,7 +1,10 @@
 pub mod appindex;
+pub mod dns;
 pub mod guard;
+pub mod policies;
 pub mod proc_watch;
 pub mod procs;
+pub mod reg;
 pub mod scm;
 pub mod server;
 pub mod sessions;
@@ -22,6 +25,8 @@ use crate::service::Service;
 /// How often running programs are re-checked (blocks starting on a
 /// schedule, rules just added).
 const SWEEP_EVERY: Duration = Duration::from_secs(2);
+/// How often browser policies are re-asserted.
+const POLICIES_EVERY: Duration = Duration::from_secs(30);
 
 /// Starts all enforcement. Needs to run as LocalSystem (or an
 /// administrator, for testing).
@@ -32,6 +37,28 @@ pub fn start_enforcement(service: Arc<Service>) -> std::io::Result<()> {
     }
     if let Err(e) = sessions::start() {
         eprintln!("iqal: window watchers unavailable ({e})");
+    }
+    if let Err(e) = dns::DnsFilter::start(service.clone()) {
+        eprintln!("iqal: DNS filter unavailable ({e}); websites are blocked by the browser extension only");
+    }
+    {
+        let service = service.clone();
+        std::thread::Builder::new().name("iqal-policies".into()).spawn(move || {
+            let mut strict = service.engine().has_any_web_rules();
+            policies::apply(strict);
+            let mut last = std::time::Instant::now();
+            loop {
+                std::thread::sleep(Duration::from_secs(1));
+                // At once when website rules come or go; otherwise now and
+                // then, in case someone removed the policies.
+                let now_strict = service.engine().has_any_web_rules();
+                if now_strict != strict || last.elapsed() >= POLICIES_EVERY {
+                    strict = now_strict;
+                    last = std::time::Instant::now();
+                    policies::apply(strict);
+                }
+            }
+        })?;
     }
     std::thread::Builder::new().name("iqal-sweep".into()).spawn(move || {
         let mut seen = u64::MAX;

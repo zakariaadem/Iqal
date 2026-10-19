@@ -19,7 +19,7 @@ use windows_sys::Win32::System::JobObjects::{
 };
 use windows_sys::Win32::System::RemoteDesktop::{
     WTS_CURRENT_SERVER_HANDLE, WTS_SESSION_INFOW, WTSActive, WTSDisconnected, WTSEnumerateSessionsW, WTSFreeMemory,
-    WTSQueryUserToken,
+    WTSGetActiveConsoleSessionId, WTSQueryUserToken,
 };
 use windows_sys::Win32::System::Threading::{
     CREATE_NO_WINDOW, CreateProcessAsUserW, GetCurrentProcess, OpenProcessToken, PROCESS_INFORMATION, STARTUPINFOW,
@@ -35,7 +35,7 @@ pub fn start() -> std::io::Result<()> {
     std::thread::Builder::new().name("iqal-sessions".into()).spawn(move || {
         let mut watchers: HashMap<u32, OwnedHandle> = HashMap::new();
         loop {
-            let sessions = user_sessions();
+            let sessions = user_sessions(false);
             watchers.retain(|session, process| {
                 let keep = sessions.contains(session) && running(process);
                 if !keep {
@@ -66,8 +66,9 @@ fn running(process: &OwnedHandle) -> bool {
     unsafe { WaitForSingleObject(process.as_raw_handle() as HANDLE, 0) == WAIT_TIMEOUT }
 }
 
-/// Sessions with a signed-in user (including switched-away ones).
-fn user_sessions() -> Vec<u32> {
+/// Sessions with a signed-in user: in use now, or (unless `active_only`)
+/// switched away from.
+fn user_sessions(active_only: bool) -> Vec<u32> {
     let mut list: *mut WTS_SESSION_INFOW = std::ptr::null_mut();
     let mut count = 0u32;
     // SAFETY: list and count are valid out pointers.
@@ -78,7 +79,7 @@ fn user_sessions() -> Vec<u32> {
     let sessions = unsafe { std::slice::from_raw_parts(list, count as usize) };
     let ids = sessions
         .iter()
-        .filter(|s| s.SessionId != 0 && (s.State == WTSActive || s.State == WTSDisconnected))
+        .filter(|s| s.SessionId != 0 && (s.State == WTSActive || (!active_only && s.State == WTSDisconnected)))
         .map(|s| s.SessionId)
         .filter(|&id| {
             let mut token: HANDLE = std::ptr::null_mut();
@@ -191,4 +192,27 @@ fn spawn_watcher(session: u32, job: &OwnedHandle) -> std::io::Result<OwnedHandle
     }
     eprintln!("iqal: window watcher started for session {session}");
     Ok(process)
+}
+
+/// The account of the person using the computer, as a SID string: whoever
+/// is signed in at the screen (the console session), else the user of an
+/// active remote session (Remote Desktop, Hyper-V enhanced session).
+pub fn active_user_sid() -> Option<String> {
+    // SAFETY: no preconditions.
+    let console = unsafe { WTSGetActiveConsoleSessionId() };
+    std::iter::once(console)
+        .filter(|&s| s != u32::MAX)
+        .chain(user_sessions(true))
+        .find_map(session_user_sid)
+}
+
+fn session_user_sid(session: u32) -> Option<String> {
+    let mut token: HANDLE = std::ptr::null_mut();
+    // SAFETY: token is a valid out pointer.
+    if unsafe { WTSQueryUserToken(session, &mut token) } == 0 {
+        return None;
+    }
+    // SAFETY: a new handle we own.
+    let token = unsafe { OwnedHandle::from_raw_handle(token) };
+    super::procs::token_sid(&token)
 }
