@@ -24,6 +24,14 @@ pub const HOST_NAME: &str = "org.iqal.host";
 /// rename still ask for it, so it is registered too.
 pub const LEGACY_HOST_NAME: &str = "org.aldir.host";
 pub const FIREFOX_ID: &str = "{6b0e3c7a-4f1d-4c8e-9a52-7d3e1f0b8a91}";
+/// The extension as published in the Chrome Web Store (Chrome, Brave,
+/// Vivaldi) and in Microsoft Edge Add-ons. Each store gives it its own id.
+pub const CHROME_STORE_ID: &str = "lifonkjgpgnkaomfcgcagijniopcecmb";
+#[cfg_attr(not(windows), allow(dead_code))] // only Windows installs from the stores
+pub const CHROME_STORE_UPDATE_URL: &str = "https://clients2.google.com/service/update2/crx";
+pub const EDGE_STORE_ID: &str = "nbmdjdnceeaalacfkbbnlnmbobfdffec";
+#[cfg_attr(not(windows), allow(dead_code))]
+pub const EDGE_STORE_UPDATE_URL: &str = "https://edge.microsoft.com/extensionwebstorebase/v1/crx";
 
 #[derive(Debug, Clone, Default)]
 pub struct Files {

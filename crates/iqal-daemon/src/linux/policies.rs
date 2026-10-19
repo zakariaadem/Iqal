@@ -12,7 +12,7 @@ use std::path::Path;
 
 use serde_json::{json, Map, Value};
 
-use crate::extension::{self, FIREFOX_ID, HOST_NAME, LEGACY_HOST_NAME};
+use crate::extension::{self, CHROME_STORE_ID, EDGE_STORE_ID, FIREFOX_ID, HOST_NAME, LEGACY_HOST_NAME};
 
 /// (managed policy folder, native messaging host folder) per browser.
 const CHROMIUM: &[(&str, &str)] = &[
@@ -50,13 +50,15 @@ pub fn apply(strict: bool) {
         write_if_changed(&Path::new(policy_dir).join(POLICY_FILE), &chromium);
         let _ = fs::remove_file(Path::new(policy_dir).join(LEGACY_POLICY_FILE));
         if let (Some(host), Some(id)) = (&files.host, &files.chromium_id) {
+            // Our own signed extension, and the store versions.
+            let origins = [id.as_str(), CHROME_STORE_ID, EDGE_STORE_ID].map(|id| format!("chrome-extension://{id}/"));
             for name in HOST_NAMES {
                 let manifest = json!({
                     "name": name,
                     "description": "Iqal",
                     "path": host,
                     "type": "stdio",
-                    "allowed_origins": [format!("chrome-extension://{id}/")],
+                    "allowed_origins": origins,
                 });
                 write_if_changed(&Path::new(host_dir).join(format!("{name}.json")), &pretty(&manifest));
             }

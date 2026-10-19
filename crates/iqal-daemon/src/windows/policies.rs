@@ -7,16 +7,20 @@
 //!   family (a force-installed extension cannot be allowed there) and no
 //!   guest mode;
 //! * the Iqal extension's native host registered for every browser, and
-//!   the extension force-installed in Firefox (private windows included).
-//!   Chrome and Edge only force-install extensions from their stores on
-//!   computers that are not centrally managed.
+//!   the extension force-installed: in Firefox from the signed file next
+//!   to the program (private windows included), in Chrome, Brave, Vivaldi
+//!   and Edge from their stores (the only source those browsers accept on
+//!   computers that are not centrally managed).
 
 use std::path::Path;
 
 use serde_json::{Map, Value as Json, json};
 
 use super::reg::{self, Value};
-use crate::extension::{self, FIREFOX_ID, HOST_NAME, LEGACY_HOST_NAME};
+use crate::extension::{
+    self, CHROME_STORE_ID, CHROME_STORE_UPDATE_URL, EDGE_STORE_ID, EDGE_STORE_UPDATE_URL, FIREFOX_ID, HOST_NAME,
+    LEGACY_HOST_NAME,
+};
 
 /// Both names are registered (see `LEGACY_HOST_NAME`).
 const HOST_NAMES: [&str; 2] = [HOST_NAME, LEGACY_HOST_NAME];
@@ -64,6 +68,45 @@ pub fn apply(strict: bool) {
     }
     register_hosts();
     install_in_firefox();
+    for (key, id, url) in FORCE_INSTALL {
+        if let Err(e) = edit_forcelist(key, id, Some(url)) {
+            eprintln!("iqal: extension install policy in {key}: {e}");
+        }
+    }
+}
+
+/// Browsers that install the extension from a store: (policy key, the
+/// extension's id there, the store's update address).
+const FORCE_INSTALL: &[(&str, &str, &str)] = &[
+    (r"SOFTWARE\Policies\Google\Chrome", CHROME_STORE_ID, CHROME_STORE_UPDATE_URL),
+    (r"SOFTWARE\Policies\BraveSoftware\Brave", CHROME_STORE_ID, CHROME_STORE_UPDATE_URL),
+    (r"SOFTWARE\Policies\Vivaldi", CHROME_STORE_ID, CHROME_STORE_UPDATE_URL),
+    (r"SOFTWARE\Policies\Microsoft\Edge", EDGE_STORE_ID, EDGE_STORE_UPDATE_URL),
+];
+
+/// Puts our entry ("id;update url") into a browser's
+/// ExtensionInstallForcelist, or takes it out (`url` None). The list is
+/// values named 1, 2, 3...; entries of others are kept, in order.
+fn edit_forcelist(policy_key: &str, id: &str, url: Option<&str>) -> std::io::Result<()> {
+    let list_key = format!(r"{policy_key}\ExtensionInstallForcelist");
+    let current: Vec<String> =
+        (1..).map_while(|i| reg::get_string(&list_key, &i.to_string())).collect();
+    let mut wanted: Vec<String> =
+        current.iter().filter(|e| e.split(';').next() != Some(id)).cloned().collect();
+    if let Some(url) = url {
+        wanted.push(format!("{id};{url}"));
+    }
+    if wanted == current {
+        return Ok(());
+    }
+    reg::delete_tree(&list_key)?;
+    if wanted.is_empty() {
+        return Ok(());
+    }
+    let names: Vec<String> = (1..=wanted.len()).map(|i| i.to_string()).collect();
+    let values: Vec<(&str, Value)> =
+        names.iter().zip(&wanted).map(|(name, entry)| (name.as_str(), Value::Str(entry))).collect();
+    reg::set(&list_key, &values)
 }
 
 /// Native host manifests next to the program (browsers read them as the
@@ -82,16 +125,16 @@ fn register_hosts() {
             "allowed_extensions": [FIREFOX_ID],
         });
         register(&dir.join(format!("{name}.firefox.json")), &firefox, &[FIREFOX_HOSTS], name);
-        if let Some(id) = &files.chromium_id {
-            let chromium = json!({
-                "name": name,
-                "description": "Iqal",
-                "path": host,
-                "type": "stdio",
-                "allowed_origins": [format!("chrome-extension://{id}/")],
-            });
-            register(&dir.join(format!("{name}.chromium.json")), &chromium, CHROMIUM_HOSTS, name);
-        }
+        // The store versions, and our own signed one (development).
+        let ids = [CHROME_STORE_ID, EDGE_STORE_ID].into_iter().chain(files.chromium_id.as_deref());
+        let chromium = json!({
+            "name": name,
+            "description": "Iqal",
+            "path": host,
+            "type": "stdio",
+            "allowed_origins": ids.map(|id| format!("chrome-extension://{id}/")).collect::<Vec<_>>(),
+        });
+        register(&dir.join(format!("{name}.chromium.json")), &chromium, CHROMIUM_HOSTS, name);
     }
 }
 
@@ -158,6 +201,9 @@ pub fn remove() {
     edit_firefox_extensions(|settings| {
         settings.remove(FIREFOX_ID);
     });
+    for (key, id, _) in FORCE_INSTALL {
+        let _ = edit_forcelist(key, id, None);
+    }
     for name in HOST_NAMES {
         for key in std::iter::once(&FIREFOX_HOSTS).chain(CHROMIUM_HOSTS) {
             let _ = reg::delete_tree(&format!(r"{key}\{name}"));
