@@ -136,11 +136,13 @@ pub fn run() {
             cbClsExtra: 0,
             cbWndExtra: 0,
             hInstance: win::instance(),
-            hIcon: std::ptr::null_mut(),
+            // Iqal's icon, resource 1 (see build.rs).
+            hIcon: windows_sys::Win32::UI::WindowsAndMessaging::LoadIconW(win::instance(), 1 as _),
             hCursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW),
             hbrBackground: GetSysColorBrush(COLOR_WINDOW),
             lpszMenuName: std::ptr::null(),
             lpszClassName: class.as_ptr(),
+            // Windows makes the small icon from the large one.
             hIconSm: std::ptr::null_mut(),
         };
         RegisterClassExW(&wc);

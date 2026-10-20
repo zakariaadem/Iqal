@@ -22,9 +22,11 @@ use windows_sys::Win32::System::RemoteDesktop::{
     WTSGetActiveConsoleSessionId, WTSQueryUserToken,
 };
 use windows_sys::Win32::System::Threading::{
-    CREATE_NO_WINDOW, CreateProcessAsUserW, GetCurrentProcess, OpenProcessToken, PROCESS_INFORMATION, STARTUPINFOW,
+    CREATE_NO_WINDOW, CREATE_UNICODE_ENVIRONMENT, CreateProcessAsUserW, GetCurrentProcess, OpenProcessToken, PROCESS_INFORMATION, STARTUPINFOW,
     TerminateProcess, WaitForSingleObject,
 };
+
+use windows_sys::Win32::System::Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock};
 
 use super::system::wide;
 
@@ -192,6 +194,75 @@ fn spawn_watcher(session: u32, job: &OwnedHandle) -> std::io::Result<OwnedHandle
     }
     eprintln!("iqal: window watcher started for session {session}");
     Ok(process)
+}
+
+/// Starts the notification agent (iqal-agent, next to this program) for
+/// everyone signed in, as themselves. At sign-in Windows starts it (the
+/// Run key the installer sets); this covers those already signed in when
+/// the service starts. An agent already running in a session lets the
+/// new one end at once.
+pub fn start_agents() {
+    let Some(agent) = std::env::current_exe().ok().map(|e| e.with_file_name("iqal-agent.exe")).filter(|a| a.is_file()) else {
+        return;
+    };
+    for session in user_sessions(false) {
+        if let Err(e) = spawn_agent(session, &agent) {
+            eprintln!("iqal: notifications for session {session}: {e}");
+        }
+    }
+}
+
+fn spawn_agent(session: u32, agent: &std::path::Path) -> std::io::Result<()> {
+    let mut token: HANDLE = std::ptr::null_mut();
+    // SAFETY: token is a valid out pointer.
+    if unsafe { WTSQueryUserToken(session, &mut token) } == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    // SAFETY: a new handle we own.
+    let token = unsafe { OwnedHandle::from_raw_handle(token) };
+    // The user's own environment (APPDATA holds their language choice).
+    let mut environment: *mut core::ffi::c_void = std::ptr::null_mut();
+    // SAFETY: environment is a valid out pointer; freed below.
+    if unsafe { CreateEnvironmentBlock(&mut environment, token.as_raw_handle() as HANDLE, 0) } == 0 {
+        environment = std::ptr::null_mut();
+    }
+    let app = wide(&agent.to_string_lossy());
+    let mut cmdline = wide(&format!("\"{}\"", agent.display()));
+    let mut desktop = wide(r"winsta0\default");
+    // SAFETY: plain data; cb and lpDesktop set below.
+    let mut startup: STARTUPINFOW = unsafe { std::mem::zeroed() };
+    startup.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+    startup.lpDesktop = desktop.as_mut_ptr();
+    // SAFETY: plain data, filled in by CreateProcessAsUserW.
+    let mut info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: all strings are NUL-terminated; cmdline is writable; the
+    // environment block is the user's, as CREATE_UNICODE_ENVIRONMENT says.
+    let ok = unsafe {
+        CreateProcessAsUserW(
+            token.as_raw_handle() as HANDLE,
+            app.as_ptr(),
+            cmdline.as_mut_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0,
+            CREATE_UNICODE_ENVIRONMENT,
+            environment,
+            std::ptr::null(),
+            &startup,
+            &mut info,
+        )
+    };
+    let error = std::io::Error::last_os_error();
+    if !environment.is_null() {
+        // SAFETY: made by CreateEnvironmentBlock above.
+        unsafe { DestroyEnvironmentBlock(environment) };
+    }
+    if ok == 0 {
+        return Err(error);
+    }
+    // SAFETY: two new handles we own; the agent runs on by itself.
+    drop(unsafe { (OwnedHandle::from_raw_handle(info.hProcess), OwnedHandle::from_raw_handle(info.hThread)) });
+    Ok(())
 }
 
 /// The account of the person using the computer, as a SID string: whoever

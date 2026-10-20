@@ -1,0 +1,29 @@
+[package]
+name = "iqal-setup"
+description = "Installs and removes Iqal on Windows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[build-dependencies]
+iqal-winres = { path = "../iqal-winres" }
+
+[dependencies]
+iqal-i18n = { path = "../iqal-i18n" }
+iqal-ipc = { path = "../iqal-ipc" }
+
+[target.'cfg(windows)'.dependencies]
+windows-service.workspace = true
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_Controls",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }

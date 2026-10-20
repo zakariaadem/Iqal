@@ -93,7 +93,17 @@ fn protect(locked: bool) {
     if let Err(e) = result {
         eprintln!("iqal: setting the service's permissions: {e}");
     }
+    // Settings > Apps greys out Uninstall while a block is locked (the
+    // uninstaller would refuse anyway). Only for an installed Iqal.
+    if super::reg::get_string(APPS_KEY, "DisplayName").is_some()
+        && let Err(e) = super::reg::set(APPS_KEY, &[("NoRemove", super::reg::Value::Dword(u32::from(locked)))])
+    {
+        eprintln!("iqal: marking Iqal as not removable: {e}");
+    }
 }
+
+/// Iqal's entry in Settings > Apps (written by iqal-setup).
+const APPS_KEY: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Iqal";
 
 fn status(state: ServiceState, exit: u32, stoppable: bool) -> ServiceStatus {
     ServiceStatus {

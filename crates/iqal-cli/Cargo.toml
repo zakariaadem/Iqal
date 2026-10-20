@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[build-dependencies]
+iqal-winres = { path = "../iqal-winres" }
+
 [dependencies]
 iqal-core = { path = "../iqal-core" }
 iqal-ipc = { path = "../iqal-ipc" }

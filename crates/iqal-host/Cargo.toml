@@ -10,6 +10,9 @@ authors.workspace = true
 name = "iqal-nm-host"
 path = "src/main.rs"
 
+[build-dependencies]
+iqal-winres = { path = "../iqal-winres" }
+
 [dependencies]
 iqal-ipc = { path = "../iqal-ipc" }
 serde_json.workspace = true
