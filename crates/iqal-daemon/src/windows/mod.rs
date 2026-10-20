@@ -1,6 +1,7 @@
 pub mod appindex;
 pub mod browsers;
 pub mod dns;
+pub mod firewall;
 pub mod guard;
 pub mod location;
 pub mod policies;
@@ -43,8 +44,11 @@ pub fn start_enforcement(service: Arc<Service>, state_dir: std::path::PathBuf) -
     }
     // After installing or updating, nobody needs to sign in again.
     sessions::start_agents();
-    if let Err(e) = dns::DnsFilter::start(service.clone()) {
-        eprintln!("iqal: DNS filter unavailable ({e}); websites are blocked by the browser extension only");
+    match dns::DnsFilter::start(service.clone()) {
+        // Only with the DNS filter running: the firewall refuses all other
+        // DNS servers.
+        Ok(_) => firewall::start(service.clone())?,
+        Err(e) => eprintln!("iqal: DNS filter unavailable ({e}); websites are blocked by the browser extension only"),
     }
     {
         let service = service.clone();
