@@ -4,6 +4,11 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 
 > Status: early development. See [docs/PLAN.md](docs/PLAN.md) for the design and milestones.
 
+## Download
+
+- **Windows 11:** `iqal-setup-<version>.exe` from the [releases page](https://github.com/zakariaadem/Iqal/releases). Code signing for the Windows programs: free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/) (see the [code signing policy](docs/code-signing-policy.md)). Version 0.1.0 is not signed yet.
+- **Linux Mint / Ubuntu:** build the package from source, as described below.
+
 ## Layout
 
 | Path | What |
