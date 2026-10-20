@@ -5,6 +5,14 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(windows)]
+mod dialog;
+#[cfg(windows)]
+mod editor;
+#[cfg(windows)]
+mod panel;
+#[cfg(windows)]
+mod rules;
+#[cfg(windows)]
 mod ui;
 #[cfg(windows)]
 mod win;

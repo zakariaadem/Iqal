@@ -6,7 +6,7 @@ use windows_sys::Win32::Graphics::Gdi::{CreateFontIndirectW, DeleteObject, FW_BO
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, SystemParametersInfoForDpi};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, GetClientRect, HMENU, NONCLIENTMETRICSW,
+    CreateWindowExW, GetClientRect, GetWindowTextLengthW, GetWindowTextW, HMENU, NONCLIENTMETRICSW,
     SPI_GETNONCLIENTMETRICS, SendMessageW, SetWindowTextW, WINDOW_EX_STYLE, WINDOW_STYLE, WM_SETFONT,
 };
 
@@ -53,6 +53,16 @@ pub fn set_text(hwnd: HWND, text: &str) {
     let text = wide(text);
     // SAFETY: NUL-terminated text.
     unsafe { SetWindowTextW(hwnd, text.as_ptr()) };
+}
+
+pub fn text(hwnd: HWND) -> String {
+    // SAFETY: the buffer has room for the text and its NUL.
+    unsafe {
+        let len = GetWindowTextLengthW(hwnd);
+        let mut buf = vec![0u16; len as usize + 1];
+        let n = GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+        String::from_utf16_lossy(&buf[..n.max(0) as usize])
+    }
 }
 
 pub fn send(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> isize {

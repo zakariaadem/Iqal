@@ -1,17 +1,25 @@
-//! The main window: the block list on one side, the selected block on the
-//! other, and the service's status at the bottom. Every few seconds it asks
-//! the service whether anything changed and redraws if so.
+//! The main window: the block list on one side, the editor for the selected
+//! block on the other, and the service's status at the bottom. Every few
+//! seconds it asks the service whether anything changed and redraws if so.
+//!
+//! Edits go to a draft of the selected block and reach the service only
+//! when the person presses Save (or Ctrl+S); Discard throws the draft away.
 //!
 //! Window procedures can be re-entered (a control may draw itself while we
 //! send it a message), so the app state is only ever borrowed briefly and
-//! never while sending messages.
+//! never while sending messages. The editor is rebuilt through a posted
+//! message ([`rebuild_later`]), never from inside one of its own controls'
+//! events.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
+use iqal_app::draft::{Draft, ListKey};
 use iqal_app::service::Service;
-use iqal_core::SetId;
+use iqal_core::{BlockSet, SetId};
 use iqal_i18n::{t, ta};
-use iqal_ipc::{SetInfo, Status};
+use iqal_ipc::{ListSummary, Request, Response, SetInfo, Status};
 use windows_sys::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS,
@@ -19,20 +27,24 @@ use windows_sys::Win32::Graphics::Gdi::{
     GetSysColorBrush, HDC, HFONT, InvalidateRect, PAINTSTRUCT, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::Controls::{
-    DRAWITEMSTRUCT, ICC_BAR_CLASSES, ICC_STANDARD_CLASSES, INITCOMMONCONTROLSEX, InitCommonControlsEx, ODS_SELECTED,
-    SBARS_SIZEGRIP,
+    DRAWITEMSTRUCT, ICC_BAR_CLASSES, ICC_STANDARD_CLASSES, ICC_TAB_CLASSES, INITCOMMONCONTROLSEX,
+    InitCommonControlsEx, ODS_SELECTED, SBARS_SIZEGRIP,
 };
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, SetFocus, VK_CONTROL};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DispatchMessageW, FindWindowW, GetMessageW, IDC_ARROW,
-    IsDialogMessageW, KillTimer, LB_ADDSTRING, LB_GETCURSEL, LB_RESETCONTENT, LB_SETCURSEL, LB_SETITEMHEIGHT,
-    LBN_SELCHANGE, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY, LBS_OWNERDRAWFIXED, LoadCursorW, MINMAXINFO, MSG,
-    PostQuitMessage, RegisterClassExW, SW_RESTORE, SW_SHOW, SWP_NOACTIVATE, SWP_NOZORDER,
-    SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_COMMAND, WM_DESTROY,
-    WM_DPICHANGED, WM_DRAWITEM, WM_GETMINMAXINFO, WM_PAINT, WM_SIZE, WM_TIMER, WNDCLASSEXW, WS_CHILD,
-    WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
+    CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, FindWindowW, GetMessageW,
+    GetWindowRect, IDC_ARROW, IsDialogMessageW, KillTimer, LB_ADDSTRING, LB_GETCURSEL, LB_RESETCONTENT, LB_SETCURSEL,
+    LB_SETITEMHEIGHT, LBN_SELCHANGE, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY, LBS_OWNERDRAWFIXED, LoadCursorW, MINMAXINFO,
+    MSG, PostMessageW, PostQuitMessage, RegisterClassExW, SW_RESTORE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOZORDER, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
+    WM_COMMAND, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
+    WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP,
+    WS_VISIBLE, WS_VSCROLL,
 };
 
+use crate::dialog;
+use crate::editor::{self, Editor};
+use crate::panel;
 use crate::win::{self, Fonts, scale};
 
 const CLASS: &str = "IqalMainWindow";
@@ -40,19 +52,26 @@ const ID_LIST: u16 = 100;
 const ID_STATUS: u16 = 101;
 const TIMER_REFRESH: usize = 1;
 const REFRESH_MS: u32 = 3000;
+/// Rebuild the editor (posted, so it never happens inside a control's event).
+const WM_REBUILD: u32 = WM_APP + 1;
 /// Sizes in pixels at 96 DPI.
 const LIST_WIDTH: i32 = 280;
 const MARGIN: i32 = 12;
 const ROW_HEIGHT: i32 = 52;
-const START_SIZE: (i32, i32) = (980, 640);
-const MIN_SIZE: (i32, i32) = (640, 420);
+const START_SIZE: (i32, i32) = (1060, 700);
+const MIN_SIZE: (i32, i32) = (760, 480);
+
+/// Button ids of the "save the changes?" question.
+const ANSWER_SAVE: i32 = 100;
+const ANSWER_DISCARD: i32 = 101;
+const ANSWER_CANCEL: i32 = 102;
 
 struct App {
     hwnd: HWND,
     list: HWND,
     status: HWND,
     dpi: u32,
-    fonts: Fonts,
+    fonts: Rc<Fonts>,
     service: Service,
     sets: Vec<SetInfo>,
     /// The service's change counter when `sets` was loaded.
@@ -61,6 +80,13 @@ struct App {
     /// Shown instead of the blocks (title, then a newline and details).
     error: Option<String>,
     info: Option<Box<Status>>,
+    /// Unsaved changes to the selected block.
+    draft: Option<Draft>,
+    /// The editor tab shown, kept across rebuilds and blocks.
+    tab: usize,
+    editor: Option<Editor>,
+    /// Rules of pre-made lists, by (list, number of rules).
+    list_rules: HashMap<(String, usize), Rc<Vec<String>>>,
 }
 
 thread_local! {
@@ -71,6 +97,10 @@ thread_local! {
 /// messages from inside `f`.
 fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
     APP.with(|app| app.borrow_mut().as_mut().map(f))
+}
+
+pub fn main_window() -> HWND {
+    with_app(|app| app.hwnd).unwrap_or(std::ptr::null_mut())
 }
 
 pub fn run() {
@@ -88,7 +118,7 @@ pub fn run() {
     }
     let controls = INITCOMMONCONTROLSEX {
         dwSize: std::mem::size_of::<INITCOMMONCONTROLSEX>() as u32,
-        dwICC: ICC_STANDARD_CLASSES | ICC_BAR_CLASSES,
+        dwICC: ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_TAB_CLASSES,
     };
     // SAFETY: plain structures; the class name outlives registration.
     let hwnd = unsafe {
@@ -137,6 +167,11 @@ pub fn run() {
         ShowWindow(hwnd, SW_SHOW);
         let mut msg: MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+            // Ctrl+S saves, wherever the focus is.
+            if msg.message == WM_KEYDOWN && msg.wParam == b'S' as usize && GetKeyState(VK_CONTROL as i32) < 0 {
+                save();
+                continue;
+            }
             if IsDialogMessageW(hwnd, &msg) == 0 {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
@@ -148,7 +183,8 @@ pub fn run() {
 /// Creates the child controls and sizes the window for its monitor.
 fn build(hwnd: HWND) {
     let dpi = win::dpi(hwnd);
-    let fonts = Fonts::new(dpi);
+    let fonts = Rc::new(Fonts::new(dpi));
+    panel::set_style(fonts.clone(), dpi);
     let list = win::child(
         hwnd,
         "LISTBOX",
@@ -174,6 +210,10 @@ fn build(hwnd: HWND) {
             selected: None,
             error: None,
             info: None,
+            draft: None,
+            tab: 0,
+            editor: None,
+            list_rules: HashMap::new(),
         })
     });
     // SAFETY: our window.
@@ -185,7 +225,7 @@ fn build(hwnd: HWND) {
             0,
             scale(START_SIZE.0, dpi),
             scale(START_SIZE.1, dpi),
-            SWP_NOZORDER | SWP_NOACTIVATE | 0x0002, // SWP_NOMOVE
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE,
         );
         SetTimer(hwnd, TIMER_REFRESH, REFRESH_MS, None);
         SetFocus(list);
@@ -193,22 +233,25 @@ fn build(hwnd: HWND) {
 }
 
 /// Asks the service what changed; reloads everything after a change, or
-/// when `full`.
-fn refresh(full: bool) {
-    let loaded = with_app(|app| {
+/// when `full`. The editor is rebuilt for the new data, unless the person
+/// is in the middle of editing the block.
+pub fn refresh(full: bool) {
+    let rebuild = with_app(|app| {
         let states = app.service.states();
         let changed = match &states {
             Ok((generation, _)) => full || app.generation != Some(*generation) || app.error.is_some(),
             Err(_) => app.error.is_none() || full,
         };
         if !changed {
-            return false;
+            return None;
         }
+        let before = app.selected;
         match states.and_then(|(generation, _)| Ok((generation, app.service.sets()?, app.service.status()?))) {
             Ok((generation, sets, info)) => {
                 app.generation = Some(generation);
                 if app.selected.is_none_or(|id| !sets.iter().any(|s| s.set.id == id)) {
                     app.selected = sets.first().map(|s| s.set.id);
+                    app.draft = None;
                 }
                 app.sets = sets;
                 app.info = Some(info);
@@ -219,17 +262,23 @@ fn refresh(full: bool) {
                 app.sets.clear();
                 app.info = None;
                 app.error = Some(e);
+                app.draft = None;
             }
         }
-        true
-    });
-    if loaded == Some(true) {
-        redraw();
+        // Keep the editor while there are unsaved changes in it.
+        Some(before != app.selected || !app.draft.as_ref().is_some_and(Draft::dirty))
+    })
+    .flatten();
+    if let Some(rebuild) = rebuild {
+        redraw_list();
+        if rebuild {
+            rebuild_later();
+        }
     }
 }
 
-/// Refills the list and status bar from the app state, and repaints.
-fn redraw() {
+/// Refills the list and status bar from the app state.
+fn redraw_list() {
     let Some((hwnd, list, status, count, selected, status_text)) = with_app(|app| {
         let selected = app.sets.iter().position(|s| Some(s.set.id) == app.selected);
         (app.hwnd, app.list, app.status, app.sets.len(), selected, status_text(app))
@@ -258,7 +307,7 @@ fn status_text(app: &App) -> String {
     parts.join("   ·   ")
 }
 
-fn state_text(info: &SetInfo) -> String {
+pub fn state_text(info: &SetInfo) -> String {
     let state = if !info.set.enabled {
         t("state-off")
     } else if info.active {
@@ -269,20 +318,227 @@ fn state_text(info: &SetInfo) -> String {
     if info.locked { format!("{state} · {}", t("state-locked")) } else { state }
 }
 
+/// Asks for the editor to be rebuilt once the current event is over.
+pub fn rebuild_later() {
+    let hwnd = main_window();
+    // SAFETY: our window; a message without pointers.
+    unsafe { PostMessageW(hwnd, WM_REBUILD, 0, 0) };
+}
+
+/// Replaces the editor with one for the selected block (as drafted).
+fn rebuild_editor() {
+    let Some((hwnd, old, area, show)) = with_app(|app| {
+        let show = app.error.is_none() && app.sets.iter().any(|s| Some(s.set.id) == app.selected);
+        (app.hwnd, app.editor.take(), editor_rect(app), show)
+    }) else {
+        return;
+    };
+    if let Some(old) = old {
+        // SAFETY: our panel and everything in it.
+        unsafe { DestroyWindow(old.root.hwnd) };
+    }
+    let new = if show { editor::build(hwnd, area) } else { None };
+    with_app(|app| app.editor = new);
+    // The placeholder is painted when there is no editor.
+    // SAFETY: our window.
+    unsafe { InvalidateRect(hwnd, std::ptr::null(), 1) };
+}
+
+/// The selected block as the editor shows it: the saved block with the
+/// draft's changes.
+pub struct View {
+    pub info: SetInfo,
+    pub set: BlockSet,
+    pub dirty: bool,
+    pub tab: usize,
+}
+
+pub fn view() -> Option<View> {
+    with_app(|app| {
+        let info = app.sets.iter().find(|s| Some(s.set.id) == app.selected)?.clone();
+        let (set, dirty) = match &app.draft {
+            Some(d) => (d.set.clone(), d.dirty()),
+            None => (info.set.clone(), false),
+        };
+        Some(View { info, set, dirty, tab: app.tab })
+    })
+    .flatten()
+}
+
+/// The rules of a list as edited (draft) or saved, one per line.
+pub fn list_text(key: ListKey) -> String {
+    with_app(|app| match &app.draft {
+        Some(d) => d.texts[key.index()].clone(),
+        None => app.sets.iter().find(|s| Some(s.set.id) == app.selected).map(|s| key.text_of(&s.set)).unwrap_or_default(),
+    })
+    .unwrap_or_default()
+}
+
+fn with_draft<R>(f: impl FnOnce(&mut Draft) -> R) -> Option<R> {
+    with_app(|app| {
+        if app.draft.is_none() {
+            let base = app.sets.iter().find(|s| Some(s.set.id) == app.selected)?.set.clone();
+            app.draft = Some(Draft::new(base));
+        }
+        app.draft.as_mut().map(f)
+    })
+    .flatten()
+}
+
+/// Changes the draft, without rebuilding the editor: for controls that
+/// already show the new value.
+pub fn edit(change: impl FnOnce(&mut BlockSet)) {
+    with_draft(|d| change(&mut d.set));
+    update_dirty();
+}
+
+/// Changes the draft and rebuilds the editor: for changes that show or hide
+/// parts of it.
+pub fn modify(change: impl FnOnce(&mut BlockSet)) {
+    with_draft(|d| change(&mut d.set));
+    update_dirty();
+    rebuild_later();
+}
+
+/// Records the text of a rule list as edited.
+pub fn set_list_text(key: ListKey, text: String) {
+    with_draft(|d| d.texts[key.index()] = text);
+    update_dirty();
+}
+
+pub fn set_tab(tab: usize) {
+    with_app(|app| app.tab = tab);
+    rebuild_later();
+}
+
+fn is_dirty() -> bool {
+    with_app(|app| app.draft.as_ref().is_some_and(Draft::dirty)).unwrap_or(false)
+}
+
+/// Shows or hides the save bar and the "unsaved" mark in the list.
+fn update_dirty() {
+    let dirty = is_dirty();
+    let Some((list, editor)) = with_app(|app| (app.list, app.editor.as_ref().map(Editor::save_bar))) else { return };
+    if let Some((panel, cells)) = editor {
+        for cell in cells {
+            panel.set_hidden(cell, !dirty);
+        }
+    }
+    // SAFETY: our list.
+    unsafe { InvalidateRect(list, std::ptr::null(), 1) };
+}
+
+/// Saves the draft. Returns whether everything is saved.
+pub fn save() -> bool {
+    if !is_dirty() {
+        return true;
+    }
+    let Some(finished) = with_app(|app| app.draft.as_ref().map(Draft::finish)).flatten() else { return true };
+    let owner = main_window();
+    match finished {
+        Ok(set) => match with_app(|app| app.service.save(set)) {
+            Some(Ok(())) => {
+                with_app(|app| app.draft = None);
+                refresh(true);
+                rebuild_later();
+                true
+            }
+            Some(Err(e)) => {
+                dialog::error(owner, &e);
+                false
+            }
+            None => false,
+        },
+        Err(problems) => {
+            dialog::message(owner, dialog::Icon::Warning, &t("save-has-errors"), &problems);
+            false
+        }
+    }
+}
+
+pub fn discard() {
+    with_app(|app| app.draft = None);
+    update_dirty();
+    rebuild_later();
+}
+
+/// Runs `then` once there are no unsaved changes: at once, or after the
+/// person saved or discarded them. Cancelling does nothing.
+fn after_unsaved(then: impl FnOnce()) {
+    if !is_dirty() {
+        return then();
+    }
+    let name = view().map(|v| v.set.name).unwrap_or_default();
+    let answer = dialog::ask(
+        main_window(),
+        Some(dialog::Icon::Warning),
+        &ta("confirm-unsaved", &[("name", name.into())]),
+        &t("confirm-unsaved-detail"),
+        &[(ANSWER_CANCEL, t("action-cancel")), (ANSWER_DISCARD, t("action-discard")), (ANSWER_SAVE, t("action-save"))],
+    );
+    match answer {
+        Some(ANSWER_DISCARD) => {
+            with_app(|app| app.draft = None);
+            then();
+        }
+        Some(ANSWER_SAVE) if save() => then(),
+        _ => {}
+    }
+}
+
+/// Sends a request to the service.
+pub fn call(request: Request) -> Result<Response, String> {
+    with_app(|app| app.service.call(request)).unwrap_or_else(|| Err(t("error-unexpected")))
+}
+
+/// The websites of a pre-made list (asked once per list version).
+pub fn list_rules(list: &ListSummary) -> Rc<Vec<String>> {
+    let key = (list.id.clone(), list.rules);
+    if let Some(rules) = with_app(|app| app.list_rules.get(&key).cloned()).flatten() {
+        return rules;
+    }
+    let rules = match call(Request::ListRules { id: list.id.clone() }) {
+        Ok(Response::ListRules { rules }) => Rc::new(rules),
+        _ => Rc::new(Vec::new()),
+    };
+    with_app(|app| app.list_rules.insert(key, rules.clone()));
+    rules
+}
+
+/// Deletes the selected block (after asking).
+pub fn delete_selected() {
+    let Some(view) = view() else { return };
+    let owner = main_window();
+    let answer = dialog::ask(
+        owner,
+        Some(dialog::Icon::Warning),
+        &ta("confirm-delete", &[("name", view.set.name.clone().into())]),
+        &t("confirm-delete-detail"),
+        &[(ANSWER_CANCEL, t("action-cancel")), (ANSWER_DISCARD, t("action-delete"))],
+    );
+    if answer != Some(ANSWER_DISCARD) {
+        return;
+    }
+    match call(Request::RemoveSet { id: view.set.id }) {
+        Ok(_) => {
+            with_app(|app| app.draft = None);
+            refresh(true);
+        }
+        Err(e) => dialog::error(owner, &e),
+    }
+}
+
 /// Positions the controls for the window's size.
 fn layout(hwnd: HWND) {
-    let Some((list, status, dpi)) = with_app(|app| (app.list, app.status, app.dpi)) else { return };
+    let Some((list, status, dpi, editor)) = with_app(|app| (app.list, app.status, app.dpi, app.editor.as_ref().map(|e| e.root))) else {
+        return;
+    };
     // The status bar sizes itself when told the window changed size.
     win::send(status, WM_SIZE, 0, 0);
     let client = win::client_rect(hwnd);
-    let status_height = {
-        let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
-        // SAFETY: r is a valid out pointer.
-        unsafe { windows_sys::Win32::UI::WindowsAndMessaging::GetWindowRect(status, &mut r) };
-        r.bottom - r.top
-    };
+    let status_height = status_height(status);
     let m = scale(MARGIN, dpi);
-    // SAFETY: our child window.
+    // SAFETY: our child windows.
     unsafe {
         SetWindowPos(
             list,
@@ -293,19 +549,30 @@ fn layout(hwnd: HWND) {
             (client.bottom - status_height - 2 * m).max(0),
             SWP_NOZORDER | SWP_NOACTIVATE,
         );
+        if let Some(root) = editor {
+            let r = with_app(editor_rect).unwrap_or(client);
+            SetWindowPos(root.hwnd, std::ptr::null_mut(), r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOZORDER | SWP_NOACTIVATE);
+        }
         InvalidateRect(hwnd, std::ptr::null(), 1);
     }
 }
 
-/// Where the selected block is shown: right of the list.
-fn content_rect(hwnd: HWND, dpi: u32) -> RECT {
-    let client = win::client_rect(hwnd);
-    let m = scale(MARGIN, dpi);
+fn status_height(status: HWND) -> i32 {
+    let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+    // SAFETY: r is a valid out pointer.
+    unsafe { GetWindowRect(status, &mut r) };
+    r.bottom - r.top
+}
+
+/// Where the editor goes: right of the list, above the status bar.
+fn editor_rect(app: &mut App) -> RECT {
+    let client = win::client_rect(app.hwnd);
+    let m = scale(MARGIN, app.dpi);
     RECT {
-        left: m + scale(LIST_WIDTH, dpi) + 2 * m,
-        top: m * 2,
-        right: client.right - 2 * m,
-        bottom: client.bottom - m * 4,
+        left: m + scale(LIST_WIDTH, app.dpi),
+        top: 0,
+        right: client.right,
+        bottom: client.bottom - status_height(app.status),
     }
 }
 
@@ -324,22 +591,28 @@ fn draw_text(hdc: HDC, font: HFONT, text: &str, rect: &mut RECT, format: u32) ->
     }
 }
 
-/// Paints the selected block (or an empty state or error) right of the list.
+/// Paints the placeholder (no blocks, or an error) where the editor goes.
 fn paint(hwnd: HWND) {
     // SAFETY: a PAINTSTRUCT for BeginPaint to fill.
     let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
     // SAFETY: our window, inside WM_PAINT.
     let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
     with_app(|app| {
-        let (title, lines): (String, Vec<String>) = match (&app.error, app.sets.iter().find(|s| Some(s.set.id) == app.selected)) {
-            (Some(e), _) => {
+        if app.editor.is_some() {
+            return;
+        }
+        let (title, detail) = match &app.error {
+            Some(e) => {
                 let (title, detail) = e.split_once('\n').unwrap_or((e, ""));
-                (title.to_string(), vec![detail.to_string()])
+                (title.to_string(), detail.to_string())
             }
-            (None, Some(info)) => (info.set.name.clone(), vec![state_text(info), summary(info)]),
-            (None, None) => (t("empty-title"), vec![t("empty-detail")]),
+            None => (t("empty-title"), t("empty-detail")),
         };
-        let mut r = content_rect(hwnd, app.dpi);
+        let mut r = editor_rect(app);
+        let m = scale(MARGIN * 2, app.dpi);
+        r.left += m;
+        r.top += m;
+        r.right -= m;
         // SAFETY: painting into hdc.
         unsafe {
             SetBkMode(hdc, TRANSPARENT as i32);
@@ -349,20 +622,18 @@ fn paint(hwnd: HWND) {
         r.top += height + scale(8, app.dpi);
         // SAFETY: as above.
         unsafe { SetTextColor(hdc, color(COLOR_GRAYTEXT as i32)) };
-        for line in lines.iter().filter(|l| !l.is_empty()) {
-            let height = draw_text(hdc, app.fonts.normal, line, &mut r.clone(), DT_WORDBREAK);
-            r.top += height + scale(4, app.dpi);
-        }
+        draw_text(hdc, app.fonts.normal, &detail, &mut r, DT_WORDBREAK);
     });
     // SAFETY: matches BeginPaint.
     unsafe { EndPaint(hwnd, &ps) };
 }
 
-/// One row of the block list: the name, and below it the state and how
-/// many rules the block has.
+/// One row of the block list: the name (with a mark while it has unsaved
+/// changes), and below it the state and how many rules the block has.
 fn draw_row(item: &DRAWITEMSTRUCT) {
     with_app(|app| {
         let Some(info) = app.sets.get(item.itemID as usize) else { return };
+        let unsaved = Some(info.set.id) == app.selected && app.draft.as_ref().is_some_and(Draft::dirty);
         let selected = item.itemState & ODS_SELECTED != 0;
         let (back, fore, dim) = if selected {
             (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_HIGHLIGHTTEXT)
@@ -382,8 +653,9 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
         r.right -= pad;
         r.top += pad / 2;
         let half = (r.bottom - r.top) / 2;
+        let name = if unsaved { format!("{} •", info.set.name) } else { info.set.name.clone() };
         let mut top = RECT { bottom: r.top + half, ..r };
-        draw_text(hdc, app.fonts.bold, &info.set.name, &mut top, DT_SINGLELINE | DT_END_ELLIPSIS);
+        draw_text(hdc, app.fonts.bold, &name, &mut top, DT_SINGLELINE | DT_END_ELLIPSIS);
         let mut bottom = RECT { top: r.top + half, ..r };
         // SAFETY: as above.
         unsafe { SetTextColor(hdc, color(dim as i32)) };
@@ -393,7 +665,7 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
 }
 
 /// How many rules are in use (an allow list does not use the blocked ones).
-fn summary(info: &SetInfo) -> String {
+pub fn summary(info: &SetInfo) -> String {
     let s = &info.set;
     let used = |mode, block: usize, allow: usize| match mode {
         iqal_core::ListMode::Block => block + allow,
@@ -408,28 +680,44 @@ fn summary(info: &SetInfo) -> String {
     )
 }
 
+/// Another block was chosen in the list: switch to it, after dealing with
+/// unsaved changes (or go back to the current one if cancelled).
 fn select_from_list() {
     let Some(list) = with_app(|app| app.list) else { return };
     let index = win::send(list, LB_GETCURSEL, 0, 0);
-    let Some(hwnd) = with_app(|app| {
-        app.selected = usize::try_from(index).ok().and_then(|i| app.sets.get(i)).map(|s| s.set.id);
-        app.hwnd
-    }) else {
+    let Some(chosen) = with_app(|app| usize::try_from(index).ok().and_then(|i| app.sets.get(i)).map(|s| s.set.id)).flatten() else {
         return;
     };
-    // SAFETY: our window.
-    unsafe { InvalidateRect(hwnd, std::ptr::null(), 1) };
+    if with_app(|app| app.selected) == Some(Some(chosen)) {
+        return;
+    }
+    let mut switched = false;
+    after_unsaved(|| {
+        with_app(|app| {
+            app.selected = Some(chosen);
+            app.draft = None;
+        });
+        switched = true;
+    });
+    if switched {
+        redraw_list();
+        rebuild_later();
+    } else {
+        // Cancelled: the list shows the block still being edited.
+        redraw_list();
+    }
 }
 
 /// The window moved to a monitor with another scaling: new fonts and
 /// sizes, and Windows' suggested window rectangle.
 fn dpi_changed(hwnd: HWND, dpi: u32, suggested: &RECT) {
-    let fonts = Fonts::new(dpi);
+    let fonts = Rc::new(Fonts::new(dpi));
     let Some((list, status)) = with_app(|app| (app.list, app.status)) else { return };
     fonts.apply(list);
     fonts.apply(status);
     win::send(list, LB_SETITEMHEIGHT, 0, scale(ROW_HEIGHT, dpi) as isize);
-    // The old fonts are dropped only now that no control uses them.
+    panel::set_style(fonts.clone(), dpi);
+    // The old fonts are dropped once the editor made with them is rebuilt.
     with_app(|app| {
         app.dpi = dpi;
         app.fonts = fonts;
@@ -446,6 +734,7 @@ fn dpi_changed(hwnd: HWND, dpi: u32, suggested: &RECT) {
             SWP_NOZORDER | SWP_NOACTIVATE,
         )
     };
+    rebuild_later();
 }
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -472,6 +761,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             }
             0
         }
+        WM_REBUILD => {
+            rebuild_editor();
+            0
+        }
         WM_TIMER if wparam == TIMER_REFRESH => {
             refresh(false);
             0
@@ -488,6 +781,13 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             // SAFETY: for WM_DPICHANGED, lparam points to the suggested RECT.
             let suggested = unsafe { &*(lparam as *const RECT) };
             dpi_changed(hwnd, win::hiword(wparam) as u32, suggested);
+            0
+        }
+        WM_CLOSE => {
+            // SAFETY: our window.
+            after_unsaved(|| unsafe {
+                DestroyWindow(hwnd);
+            });
             0
         }
         WM_DESTROY => {

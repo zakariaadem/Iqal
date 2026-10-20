@@ -46,6 +46,8 @@ fn source(code: &str) -> Option<&'static str> {
 struct Translator {
     code: &'static str,
     rtl: bool,
+    /// Whether direction isolates are kept (see [`init_with`]).
+    isolate: bool,
     bundle: FluentBundle<FluentResource>,
     english: FluentBundle<FluentResource>,
 }
@@ -117,14 +119,15 @@ pub fn init(code: &str) {
     init_with(code, true);
 }
 
-/// Like [`init`]; `isolate: false` leaves out the Unicode direction isolates
-/// around inserted values, for text drawing that shows them as boxes
-/// (Windows' GDI), which then works out the direction by itself.
+/// Like [`init`]; `isolate: false` is for text drawing that shows the
+/// Unicode direction isolates as boxes (Windows' GDI): none are put around
+/// inserted values, and those written in translations become the older
+/// embeddings.
 pub fn init_with(code: &str, isolate: bool) {
     let (code, _, rtl) = *LANGUAGES.iter().find(|(c, _, _)| *c == code).unwrap_or(&LANGUAGES[0]);
     TRANSLATOR.with(|t| {
         *t.borrow_mut() =
-            Some(Translator { code, rtl, bundle: bundle(code, isolate), english: bundle("en", isolate) });
+            Some(Translator { code, rtl, isolate, bundle: bundle(code, isolate), english: bundle("en", isolate) });
     });
 }
 
@@ -143,7 +146,23 @@ fn format(key: &str, args: Option<&FluentArgs>) -> String {
         for bundle in [&t.bundle, &t.english] {
             if let Some(pattern) = bundle.get_message(key).and_then(|m| m.value()) {
                 let mut errors = Vec::new();
-                return bundle.format_pattern(pattern, args, &mut errors).into_owned();
+                let text = bundle.format_pattern(pattern, args, &mut errors).into_owned();
+                // Translations may also contain isolates of their own: they
+                // become the older embeddings (LRE, RLE, PDF), which GDI
+                // understands.
+                return if t.isolate {
+                    text
+                } else {
+                    text.chars()
+                        .filter_map(|c| match c {
+                            '\u{2066}' => Some('\u{202A}'),
+                            '\u{2067}' => Some('\u{202B}'),
+                            '\u{2068}' => None,
+                            '\u{2069}' => Some('\u{202C}'),
+                            c => Some(c),
+                        })
+                        .collect()
+                };
             }
         }
         key.to_string()

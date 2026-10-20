@@ -89,8 +89,8 @@ confirm-delete-detail = ستُزال مواقعها وتطبيقاتها وأو�
 rule-invalid = لا يمكن استخدام «{ $rule }»: { $problem }
 
 web-blocked = المواقع المحجوبة
-web-placeholder = ⁦example.com⁩ Ø£Ù ⁦example.com/page⁩ Ø£Ù ⁦contains:ÙÙÙØ©⁩ Ø£Ù ⁦search:ÙÙÙØ§Øª⁩
-web-syntax = ⁦example.com⁩ ÙØ­Ø¬Ø¨ Ø§ÙÙÙÙØ¹ ÙÙÙ ÙØ·Ø§ÙØ§ØªÙ Ø§ÙÙØ±Ø¹ÙØ©. ⁦example.com/videos⁩ ÙØ­Ø¬Ø¨ ØªÙÙ Ø§ÙØµÙØ­Ø§Øª ÙÙØ·. ⁦contains:casino⁩ ÙØ­Ø¬Ø¨ Ø£Ù Ø¹ÙÙØ§Ù ÙØ­ØªÙÙ Ø§ÙÙÙÙØ©. ⁦search:Ø£ÙÙØ§Ù ÙØ¬Ø§ÙÙØ©⁩ ÙØ­Ø¬Ø¨ Ø¹ÙÙÙØ§Øª Ø§ÙØ¨Ø­Ø« Ø§ÙØªÙ ØªØ­ØªÙÙ ÙØ°Ù Ø§ÙÙÙÙØ§Øª.
+web-placeholder = ⁦example.com⁩ أو ⁦example.com/page⁩ أو ⁦contains:كلمة⁩ أو ⁦search:كلمات⁩
+web-syntax = ⁦example.com⁩ يحجب الموقع وكل نطاقاته الفرعية. ⁦example.com/videos⁩ يحجب تلك الصفحات فقط. ⁦contains:casino⁩ يحجب أي عنوان يحتوي الكلمة. ⁦search:أفلام مجانية⁩ يحجب عمليات البحث التي تحتوي هذه الكلمات.
 web-allowed = المواقع المسموحة
 web-exceptions = الاستثناءات (مسموحة دائمًا)
 web-safesearch = فرض البحث الآمن (Google وBing وDuckDuckGo وYouTube)
@@ -104,8 +104,8 @@ import-rejected = لم تُستورد: { $name } ({ $why })
 apps-blocked = التطبيقات المحجوبة
 apps-exceptions = الاستثناءات (مسموحة دائمًا)
 apps-allowed = التطبيقات المسموحة
-apps-placeholder = ⁦steam⁩ Ø£Ù ⁦/opt/games/⁩ Ø£Ù ⁦title:YouTube⁩ Ø£Ù ⁦cmd:minecraft⁩
-apps-syntax = Ø§ÙØ§Ø³Ù ÙØ­Ø¬Ø¨ Ø§ÙØ¨Ø±ÙØ§ÙØ¬ Ø§ÙØ°Ù ÙØ­ÙÙ ÙØ°Ø§ Ø§ÙØ§Ø³Ù. Ø§ÙÙØ¬ÙØ¯ Ø§ÙÙÙØªÙÙ Ø¨Ù ⁦/⁩ ÙØ­Ø¬Ø¨ ÙÙ Ø§ÙØ¨Ø±Ø§ÙØ¬ Ø¯Ø§Ø®ÙÙ. ⁦title:ÙØµ⁩ ÙØºÙÙ Ø§ÙÙÙØ§ÙØ° Ø§ÙØªÙ ÙØ­ØªÙÙ Ø¹ÙÙØ§ÙÙØ§ Ø§ÙÙØµ. ⁦cmd:ÙØµ⁩ ÙØ­Ø¬Ø¨ Ø§ÙØ¨Ø±Ø§ÙØ¬ Ø§ÙØªÙ ÙØ­ØªÙÙ Ø³Ø·Ø± Ø£ÙØ§ÙØ±ÙØ§ Ø§ÙÙØµ. Ø§ÙÙØ³Ø® Ø§ÙÙØ¹Ø§Ø¯ ØªØ³ÙÙØªÙØ§ ØªÙÙØªØ´Ù Ø¨ÙÙØ§Ø¹Ø¯ ⁦hash:⁩.
+apps-placeholder = ⁦steam⁩ أو ⁦/opt/games/⁩ أو ⁦title:YouTube⁩ أو ⁦cmd:minecraft⁩
+apps-syntax = الاسم يحجب البرنامج الذي يحمل هذا الاسم. المجلد المنتهي بـ ⁦/⁩ يحجب كل البرامج داخله. ⁦title:نص⁩ يغلق النوافذ التي يحتوي عنوانها النص. ⁦cmd:نص⁩ يحجب البرامج التي يحتوي سطر أوامرها النص. النسخ المعاد تسميتها تُكتشف بقواعد ⁦hash:⁩.
 
 users-applies-to = على من تُطبَّق هذه الكتلة
 users-all = الجميع
@@ -130,7 +130,7 @@ schedule-limited = في أوقات معيّنة فقط
 schedule-limited-detail = تعمل الكتلة فقط خلال الأوقات أدناه.
 schedule-always = تعمل الكتلة دائمًا.
 schedule-times = الأوقات
-schedule-date-placeholder = ÙÙØ±Ø© ÙØ§Ø­Ø¯Ø©: ⁦2026-10-20 08:00 2026-10-22 18:00⁩
+schedule-date-placeholder = لمرة واحدة: ⁦2026-10-20 08:00 2026-10-22 18:00⁩
 schedule-date-invalid = اكتب الفترة الواحدة هكذا: تاريخ البداية، وقت البداية، تاريخ النهاية، وقت النهاية (2026-10-20 08:00 2026-10-22 18:00).
 schedule-add-weekly = إضافة أوقات أسبوعية
 schedule-no-days = اختر يومًا واحدًا على الأقل.
