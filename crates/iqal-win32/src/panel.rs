@@ -16,16 +16,16 @@ use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, SIZE, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
-    DT_CALCRECT, DT_NOPREFIX, DT_WORDBREAK, DrawTextW, GetDC, GetTextExtentPoint32W, HDC, HFONT, RDW_ALLCHILDREN, RDW_ERASE,
-    RDW_FRAME, RDW_INVALIDATE, RedrawWindow, ReleaseDC, SelectObject,
+    DT_CALCRECT, DT_NOPREFIX, DT_WORDBREAK, DrawTextW, GetDC, GetTextExtentPoint32W, HDC, HFONT, InvalidateRect, MapWindowPoints, ReleaseDC,
+    SelectObject, UpdateWindow,
 };
 use windows_sys::Win32::UI::Controls::{CDRF_DODEFAULT, DRAWITEMSTRUCT, NM_CUSTOMDRAW, NMCUSTOMDRAW, NMHDR, SetScrollInfo};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    BS_AUTOCHECKBOX, CreateWindowExW, DefWindowProcW, GetScrollInfo, GetWindowTextLengthW, GetWindowTextW, IDC_ARROW, LoadCursorW,
+    BS_AUTOCHECKBOX, BeginDeferWindowPos, CreateWindowExW, DefWindowProcW, DeferWindowPos, EndDeferWindowPos, GetWindowRect, GetScrollInfo, GetWindowTextLengthW, GetWindowTextW, IDC_ARROW, LoadCursorW,
     RegisterClassExW, SB_LINEDOWN, SB_LINEUP, SB_PAGEDOWN, SB_PAGEUP, SB_THUMBTRACK, SB_VERT, SCROLLINFO, SIF_ALL, SIF_PAGE, SIF_POS,
-    SIF_RANGE, IsWindowVisible, SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOZORDER, SetWindowPos, ShowWindow, SW_HIDE, SW_SHOW, WM_COMMAND,
+    SIF_RANGE, SW_ERASE, SW_INVALIDATE, SW_SCROLLCHILDREN, SWP_NOACTIVATE, SWP_NOZORDER, ScrollWindowEx, SetWindowPos, ShowWindow, SW_HIDE, SW_SHOW, WM_COMMAND,
     WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DRAWITEM, WM_ERASEBKGND, WM_GETFONT, WM_MOUSEWHEEL,
-    WM_NCDESTROY, WM_NOTIFY, WM_SETREDRAW, WM_SIZE, WM_VSCROLL, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CONTROLPARENT,
+    WM_NCDESTROY, WM_NOTIFY, WM_SIZE, WM_VSCROLL, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CONTROLPARENT,
     WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
 
@@ -112,9 +112,18 @@ impl Panel {
     /// A new panel inside `parent`. `scrolls`: content taller than the
     /// panel can be scrolled.
     pub fn new(parent: HWND, scrolls: bool) -> Self {
+        Self::create(parent, scrolls, WS_VISIBLE)
+    }
+
+    /// A panel that is not shown yet (filled out of sight, then shown).
+    pub fn hidden(parent: HWND, scrolls: bool) -> Self {
+        Self::create(parent, scrolls, 0)
+    }
+
+    fn create(parent: HWND, scrolls: bool, visible: u32) -> Self {
         register_class();
         let class = win::wide(CLASS);
-        let style = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | if scrolls { WS_VSCROLL } else { 0 };
+        let style = WS_CHILD | visible | WS_CLIPCHILDREN | if scrolls { WS_VSCROLL } else { 0 };
         // SAFETY: registered class; parent is a live window.
         let hwnd = unsafe {
             CreateWindowExW(
@@ -266,6 +275,11 @@ fn register_class() {
 /// Places the panel's controls; updates the scroll bar.
 fn layout(panel: HWND) {
     let client = win::client_rect(panel);
+    // Not given a size yet (being built): it is laid out when it gets one.
+    // (Measuring wrapped texts at no width at all is slow, too.)
+    if client.right <= 0 {
+        return;
+    }
     let dpi = dpi();
     // Positions are worked out with the state borrowed, and applied after:
     // moving a child panel makes it lay itself out, which needs the state.
@@ -291,24 +305,39 @@ fn layout(panel: HWND) {
     };
     // Moving the controls one by one lets Windows copy each control's old
     // picture to its new place while its neighbours are still moving, which
-    // leaves pieces of text behind. So the panel stops drawing while they
-    // move, and is drawn once afterwards. (Turning drawing back on shows a
-    // hidden window, so hidden panels are left alone.)
-    // SAFETY: our panel.
-    let visible = unsafe { IsWindowVisible(panel) } != 0;
-    if visible {
-        win::send(panel, WM_SETREDRAW, 0, 0);
-    }
-    for (hwnd, x, y, w, h) in moves {
-        // SAFETY: our child controls.
-        unsafe {
-            SetWindowPos(hwnd, std::ptr::null_mut(), x, y, w.max(0), h.max(0), SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS)
-        };
-    }
-    if visible {
-        win::send(panel, WM_SETREDRAW, 1, 0);
-        // SAFETY: our panel.
-        unsafe { RedrawWindow(panel, std::ptr::null(), std::ptr::null_mut(), RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN) };
+    // leaves pieces of text behind. Moved together (DeferWindowPos), Windows
+    // works out what to copy and what to redraw for all of them at once.
+    // Controls already in place are left alone, so nothing is redrawn
+    // without need.
+    let mut resized = HashSet::new();
+    let moves: Vec<Move> = moves
+        .into_iter()
+        .filter(|&(hwnd, x, y, w, h)| match place_of(panel, hwnd) {
+            Some((px, py, pw, ph)) if (pw, ph) == (w.max(0), h.max(0)) => (px, py) != (x, y),
+            _ => {
+                resized.insert(hwnd as isize);
+                true
+            }
+        })
+        .collect();
+    // SAFETY: our child controls; the handle is given back by every call.
+    unsafe {
+        let mut batch = BeginDeferWindowPos(moves.len() as i32);
+        for &(hwnd, x, y, w, h) in &moves {
+            if batch.is_null() {
+                SetWindowPos(hwnd, std::ptr::null_mut(), x, y, w.max(0), h.max(0), SWP_NOZORDER | SWP_NOACTIVATE);
+            } else {
+                batch = DeferWindowPos(batch, hwnd, std::ptr::null_mut(), x, y, w.max(0), h.max(0), SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+        }
+        if !batch.is_null() {
+            EndDeferWindowPos(batch);
+        }
+        // Windows keeps a resized control's old picture where it still
+        // fits; texts must be wrapped anew, so resized controls are redrawn.
+        for &(hwnd, ..) in moves.iter().filter(|m| resized.contains(&(m.0 as isize))) {
+            InvalidateRect(hwnd, std::ptr::null(), 1);
+        }
     }
     if scrolls {
         let info = SCROLLINFO {
@@ -326,6 +355,21 @@ fn layout(panel: HWND) {
 }
 
 type Move = (HWND, i32, i32, i32, i32);
+
+/// Where a control of `panel` is now: (x, y, width, height).
+fn place_of(panel: HWND, hwnd: HWND) -> Option<(i32, i32, i32, i32)> {
+    let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+    // SAFETY: live windows; the rectangle is converted in place (two points).
+    unsafe {
+        if GetWindowRect(hwnd, &mut r) == 0 {
+            return None;
+        }
+        MapWindowPoints(std::ptr::null_mut(), panel, (&raw mut r).cast(), 2);
+    }
+    // In right-to-left windows the mapped corners come out swapped.
+    let (left, right) = (r.left.min(r.right), r.left.max(r.right));
+    Some((left, r.top, right - left, r.bottom - r.top))
+}
 
 /// Lays out `items` from `top` within `width` starting at `x`; returns the
 /// bottom. Positions are collected in `moves`.
@@ -410,9 +454,45 @@ fn place(
     y - gap
 }
 
+/// Scrolls to `to`: the picture and the controls move together (as a
+/// whole, no control is redrawn); only the strip that comes into view is
+/// drawn.
 fn scroll(panel: HWND, to: i32) {
-    with_state(panel, |s| s.offset = to.max(0));
-    layout(panel);
+    let page = win::client_rect(panel).bottom;
+    let Some((before, after)) = with_state(panel, |s| {
+        let before = s.offset;
+        s.offset = to.clamp(0, (s.content - page).max(0));
+        (before, s.offset)
+    }) else {
+        return;
+    };
+    if before == after {
+        return;
+    }
+    // SAFETY: our panel; null rectangles mean the whole client area.
+    unsafe {
+        ScrollWindowEx(
+            panel,
+            0,
+            before - after,
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            SW_SCROLLCHILDREN | SW_INVALIDATE | SW_ERASE,
+        );
+        let info = SCROLLINFO {
+            cbSize: std::mem::size_of::<SCROLLINFO>() as u32,
+            fMask: SIF_POS,
+            nMin: 0,
+            nMax: 0,
+            nPage: 0,
+            nPos: after,
+            nTrackPos: 0,
+        };
+        SetScrollInfo(panel, SB_VERT, &info, 1);
+        UpdateWindow(panel);
+    }
 }
 
 fn current_offset(panel: HWND) -> i32 {

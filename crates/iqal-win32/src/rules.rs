@@ -39,8 +39,11 @@ const LINE_HEIGHT: i32 = 24;
 struct State {
     /// The block's own rules, as edited.
     own: Vec<String>,
-    /// Rules of chosen pre-made lists: (rule, list name), each website once.
-    listed: Vec<(String, String)>,
+    /// The chosen pre-made lists: (name, websites).
+    lists: Vec<(String, Rc<Vec<String>>)>,
+    /// Their websites shown, each once: (list, website) indexes into `lists`
+    /// (no copies: a list can have tens of thousands).
+    listed: Vec<(u32, u32)>,
     /// What the search box asks for, lower case.
     filter: String,
     /// The rows shown: indexes into `own`, then into `listed` (after
@@ -52,7 +55,12 @@ impl State {
     fn refilter(&mut self) {
         let matches = |s: &str| self.filter.is_empty() || s.to_lowercase().contains(&self.filter);
         let own = self.own.iter().enumerate().filter(|(_, r)| matches(r)).map(|(i, _)| i);
-        let listed = self.listed.iter().enumerate().filter(|(_, (r, _))| matches(r)).map(|(i, _)| self.own.len() + i);
+        let listed = self
+            .listed
+            .iter()
+            .enumerate()
+            .filter(|(_, (l, r))| matches(&self.lists[*l as usize].1[*r as usize]))
+            .map(|(i, _)| self.own.len() + i);
         self.shown = own.chain(listed).collect();
     }
 }
@@ -77,13 +85,14 @@ pub fn editor(
     let own: Vec<String> =
         ui::list_text(key).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect();
     let mut seen: HashSet<&str> = own.iter().map(String::as_str).collect();
-    let listed: Vec<(String, String)> = lists
+    let listed: Vec<(u32, u32)> = lists
         .iter()
-        .flat_map(|(name, rules)| rules.iter().map(move |r| (r, name)))
-        .filter(|(r, _)| seen.insert(r.as_str()))
-        .map(|(r, name)| (r.clone(), name.clone()))
+        .enumerate()
+        .flat_map(|(l, (_, rules))| rules.iter().enumerate().map(move |(r, rule)| (l as u32, r as u32, rule)))
+        .filter(|&(_, _, rule)| seen.insert(rule.as_str()))
+        .map(|(l, r, _)| (l, r))
         .collect();
-    let state = Rc::new(RefCell::new(State { own, listed, filter: String::new(), shown: Vec::new() }));
+    let state = Rc::new(RefCell::new(State { own, lists: lists.to_vec(), listed, filter: String::new(), shown: Vec::new() }));
     state.borrow_mut().refilter();
 
     // Left: adding.
@@ -255,7 +264,11 @@ fn draw(state: &State, item: &DRAWITEMSTRUCT) {
     let Some(&index) = state.shown.get(item.itemID as usize) else { return };
     let (text, from_list) = match index.checked_sub(state.own.len()) {
         None => (state.own[index].clone(), false),
-        Some(i) => (format!("{}   ·   {}", state.listed[i].0, state.listed[i].1), true),
+        Some(i) => {
+            let (l, r) = state.listed[i];
+            let (name, rules) = &state.lists[l as usize];
+            (format!("{}   ·   {}", rules[r as usize], name), true)
+        }
     };
     let selected = item.itemState & ODS_SELECTED != 0;
     let (back, fore) = match (selected, from_list) {

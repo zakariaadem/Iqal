@@ -57,7 +57,8 @@ impl Editor {
 /// Builds the editor for the selected block in `area` of the main window.
 pub fn build(main: HWND, area: RECT) -> Option<Editor> {
     let view = ui::view()?;
-    let root = Panel::new(main, false);
+    // Shown by the caller once it is complete.
+    let root = Panel::hidden(main, false);
     // SAFETY: our new panel.
     unsafe {
         SetWindowPos(
@@ -125,11 +126,12 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
         ],
         height: panel::ROW,
     });
-    root.set_items(items);
+    // Hidden before the controls are placed: placing them is the slow part.
     let save_cells = vec![unsaved, discard, save];
     for &cell in &save_cells {
         root.set_hidden(cell, !view.dirty);
     }
+    root.set_items(items);
     Some(Editor { root, save_cells })
 }
 
@@ -186,20 +188,31 @@ fn header(root: Panel, view: &View) -> Vec<Item> {
             ui::delete_selected();
         }
     });
-    // Two rows, so the name keeps its room in a narrow window.
-    let spacer = root.control("STATIC", "", 0, 0);
-    vec![
-        Item::Row { cells: vec![(name, Width::Flex), (enabled, Width::Dip(switch_width))], height: panel::ROW },
-        Item::Row {
-            cells: vec![
-                (lock, button_width(&lock_text)),
-                (export, button_width(&t("action-export-block"))),
-                (delete, button_width(&t("action-delete-block"))),
-                (spacer, Width::Flex),
-            ],
-            height: panel::ROW,
-        },
-    ]
+    // The window is kept wide enough for this row (see `min_width`), so the
+    // name always has room.
+    vec![Item::Row {
+        cells: vec![
+            (name, Width::Flex),
+            (enabled, Width::Dip(switch_width)),
+            (lock, button_width(&lock_text)),
+            (export, button_width(&t("action-export-block"))),
+            (delete, button_width(&t("action-delete-block"))),
+        ],
+        height: panel::ROW,
+    }]
+}
+
+/// The narrowest the editor can be, in pixels at 96 DPI: the top row with
+/// room for the name.
+pub fn min_width() -> i32 {
+    const NAME: i32 = 140;
+    const MARGINS: i32 = 2 * 16;
+    const GAP: i32 = 8;
+    let width = |w: Width| if let Width::Dip(d) = w { d } else { 0 };
+    let switch = ["block-switch-on", "block-switch-off"].map(|k| crate::theme::switch_width(&t(k))).into_iter().max().unwrap_or(0);
+    let lock = ["action-lock", "action-unlock"].map(|k| width(button_width(&t(k)))).into_iter().max().unwrap_or(0);
+    let buttons = width(button_width(&t("action-export-block"))) + width(button_width(&t("action-delete-block")));
+    MARGINS + NAME + switch + lock + buttons + 4 * GAP
 }
 
 /// A check box that changes the draft (the box shows the new value itself).

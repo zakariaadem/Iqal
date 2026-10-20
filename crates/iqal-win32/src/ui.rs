@@ -36,7 +36,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetWindowRect, IDC_ARROW, IsDialogMessageW, KillTimer, LB_ADDSTRING, LB_GETCURSEL, LB_RESETCONTENT, LB_SETCURSEL,
     LB_SETITEMHEIGHT, LBN_SELCHANGE, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY, LBS_OWNERDRAWFIXED, LoadCursorW, MINMAXINFO,
     MSG, PostMessageW, PostQuitMessage, RegisterClassExW, SW_RESTORE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOZORDER, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
+    SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, HWND_TOP, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
     WM_COMMAND, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_ERASEBKGND, WM_SETTINGCHANGE, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
     BN_CLICKED, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP,
     WS_VISIBLE, WS_VSCROLL,
@@ -98,6 +98,8 @@ struct App {
 
 thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+    /// A rebuild of the editor is posted and has not happened yet.
+    static REBUILD_PENDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// Runs `f` with the app state, if the window exists. Never send window
@@ -112,10 +114,11 @@ pub fn main_window() -> HWND {
 
 pub fn run() {
     let class = win::wide(CLASS);
-    // Iqal is already open: bring that window to the front instead.
+    // Iqal is already open: bring that window to the front instead. (Not
+    // when talking to another service, for testing.)
     // SAFETY: NUL-terminated class name.
     let existing = unsafe { FindWindowW(class.as_ptr(), std::ptr::null()) };
-    if !existing.is_null() {
+    if !existing.is_null() && std::env::var_os(iqal_ipc::SOCKET_ENV).is_none() {
         // SAFETY: a window of ours in another process.
         unsafe {
             ShowWindow(existing, SW_RESTORE);
@@ -336,6 +339,10 @@ pub fn state_text(info: &SetInfo) -> String {
 
 /// Asks for the editor to be rebuilt once the current event is over.
 pub fn rebuild_later() {
+    // Several requests before it happens make one rebuild.
+    if REBUILD_PENDING.with(|p| p.replace(true)) {
+        return;
+    }
     let hwnd = main_window();
     // SAFETY: our window; a message without pointers.
     unsafe { PostMessageW(hwnd, WM_REBUILD, 0, 0) };
@@ -349,15 +356,26 @@ fn rebuild_editor() {
     }) else {
         return;
     };
-    if let Some(old) = old {
-        // SAFETY: our panel and everything in it.
-        unsafe { DestroyWindow(old.root.hwnd) };
-    }
+    // The new editor is built out of sight and then shown over the old one
+    // in one step, so the window never shows a half-built editor or an
+    // empty gap between the two.
     let new = if show { editor::build(hwnd, area) } else { None };
+    // SAFETY: our panels and everything in them.
+    unsafe {
+        if let Some(new) = &new {
+            SetWindowPos(new.root.hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
+        if let Some(old) = old {
+            DestroyWindow(old.root.hwnd);
+        }
+    }
+    let placeholder = new.is_none();
     with_app(|app| app.editor = new);
-    // The placeholder is painted when there is no editor.
-    // SAFETY: our window.
-    unsafe { InvalidateRect(hwnd, std::ptr::null(), 1) };
+    if placeholder {
+        // The placeholder is painted when there is no editor.
+        // SAFETY: our window.
+        unsafe { InvalidateRect(hwnd, std::ptr::null(), 1) };
+    }
 }
 
 /// The selected block as the editor shows it: the saved block with the
@@ -879,6 +897,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             0
         }
         WM_REBUILD => {
+            REBUILD_PENDING.with(|p| p.set(false));
             rebuild_editor();
             0
         }
@@ -890,7 +909,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             let dpi = win::dpi(hwnd);
             // SAFETY: for WM_GETMINMAXINFO, lparam points to a MINMAXINFO.
             let info = unsafe { &mut *(lparam as *mut MINMAXINFO) };
-            info.ptMinTrackSize.x = scale(MIN_SIZE.0, dpi);
+            // Wide enough for the editor's top row (and the window's frame).
+            let editor = MARGIN + LIST_WIDTH + editor::min_width() + 16;
+            info.ptMinTrackSize.x = scale(MIN_SIZE.0.max(editor), dpi);
             info.ptMinTrackSize.y = scale(MIN_SIZE.1, dpi);
             0
         }
