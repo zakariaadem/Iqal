@@ -1,0 +1,143 @@
+# Builds and tests Iqal for Windows, and builds the setup program.
+#
+# Signing (SignPath Foundation, free for open-source projects) runs once
+# the repository variable SIGNPATH_ORGANIZATION_ID and the secret
+# SIGNPATH_API_TOKEN are set. Windows checks the signature of every program
+# it starts, so the programs are signed first, then packed into the setup,
+# which is signed in turn. Without signing, the setup is built from the
+# unsigned programs.
+#
+# A tag "v1.2.3" also makes a draft release with the setup attached.
+
+name: Windows
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Release tags are signed with the release policy; everything else with
+  # the test policy (SignPath's names for the two).
+  SIGNING_POLICY: ${{ startsWith(github.ref, 'refs/tags/v') && 'release-signing' || 'test-signing' }}
+
+jobs:
+  programs:
+    runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      signing: ${{ steps.signing.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: cargo test --locked --workspace --exclude iqal-gtk
+      - name: Build the programs
+        run: powershell -File packaging\windows\build-setup.ps1 -Stage programs
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: iqal-programs
+          path: target/setup-payload/
+          if-no-files-found: error
+      - id: signing
+        name: Is signing set up?
+        shell: bash
+        run: echo "enabled=${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}" >> "$GITHUB_OUTPUT"
+
+  sign-programs:
+    needs: programs
+    if: needs.programs.outputs.signing == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: iqal
+          signing-policy-slug: ${{ env.SIGNING_POLICY }}
+          artifact-configuration-slug: programs
+          github-artifact-id: ${{ needs.programs.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: iqal-programs-signed
+          path: signed/
+          if-no-files-found: error
+
+  setup:
+    needs: [programs, sign-programs]
+    # Also when signing was skipped.
+    if: always() && needs.programs.result == 'success' && needs.sign-programs.result != 'failure'
+    runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.sign-programs.result == 'success' && 'iqal-programs-signed' || 'iqal-programs' }}
+          path: payload
+      - name: Build the setup
+        run: powershell -File packaging\windows\build-setup.ps1 -Stage setup -Payload payload
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: iqal-setup
+          path: dist/iqal-setup-*.exe
+          if-no-files-found: error
+
+  sign-setup:
+    needs: [programs, setup]
+    if: needs.programs.outputs.signing == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: iqal
+          signing-policy-slug: ${{ env.SIGNING_POLICY }}
+          artifact-configuration-slug: setup
+          github-artifact-id: ${{ needs.setup.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iqal-setup-signed
+          path: signed/
+          if-no-files-found: error
+      - name: Draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" signed/*.exe --repo "${{ github.repository }}" --draft --title "Iqal ${{ github.ref_name }}" --generate-notes
+
+  # Before signing is set up (SignPath asks for a first release), a tag
+  # makes a draft release with the unsigned setup.
+  release-unsigned:
+    needs: [programs, setup]
+    if: startsWith(github.ref, 'refs/tags/v') && needs.programs.outputs.signing != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: iqal-setup
+          path: setup
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" setup/*.exe --repo "${{ github.repository }}" --draft --title "Iqal ${{ github.ref_name }}" --generate-notes

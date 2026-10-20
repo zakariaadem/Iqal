@@ -30,7 +30,7 @@ Iqal connects to the internet for these purposes only:
 
 ## Your choices
 
-You decide what is blocked, and you can see, change or delete your blocks and statistics in the Iqal app. Uninstalling Iqal removes the extension and the app's data. (A block that is locked keeps Iqal installed until its lock ends; that is what a lock is for.)
+You decide what is blocked, and you can see, change or delete your blocks and statistics in the Iqal app. Uninstalling Iqal removes the extension and the programs. On Linux, `apt purge iqal` also deletes your blocks and statistics; on Windows they are kept in `C:\ProgramData\Iqal`, in case you install Iqal again, until you delete that folder. (A block that is locked keeps Iqal installed until its lock ends; that is what a lock is for.)
 
 ## Contact
 

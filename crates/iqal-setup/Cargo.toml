@@ -6,6 +6,12 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+# Asks for administrator rights when started, so it cannot run as a test.
+[[bin]]
+name = "iqal-setup"
+path = "src/main.rs"
+test = false
+
 [build-dependencies]
 iqal-winres = { path = "../iqal-winres" }
 

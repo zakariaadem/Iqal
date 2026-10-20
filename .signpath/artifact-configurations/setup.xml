@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "setup": the iqal-setup build artifact
+     (a zip holding iqal-setup-<version>.exe), signed with Authenticode. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file-set>
+      <include path="iqal-setup-*.exe" min-matches="1" max-matches="1" />
+      <for-each>
+        <authenticode-sign />
+      </for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>

@@ -21,6 +21,9 @@ A native, open-source website and app blocker for Linux Mint and Windows 11.
 | `lists` | Curated starter lists for the pre-made categories |
 | `locales` | Interface translations (11 languages) |
 | `packaging/linux` | systemd unit, agent autostart entry |
+| `packaging/windows` | Builds the Windows setup (`build-setup.ps1`) |
+| `crates/iqal-win32` | The graphical app on Windows |
+| `crates/iqal-setup` | The Windows setup and uninstaller |
 | `scripts/dev-install.sh` | Install a local build as a system service |
 
 ## Building the package (Linux Mint 22 / Ubuntu 24.04)
@@ -60,6 +63,16 @@ Tests and lookup benchmark:
 cargo test
 cargo run --release --example bench -p iqal-core
 ```
+
+## Building the setup (Windows 11)
+
+With Rust and Visual Studio's C++ build tools installed:
+
+```powershell
+powershell -File packaging\windows\build-setup.ps1   # -> dist\iqal-setup-<version>.exe
+```
+
+The setup installs Iqal into `Program Files\Iqal` (or updates it), and `iqal-setup.exe --uninstall` removes it again; Settings > Apps does the same. Both are refused while any block is locked. GitHub Actions builds and tests every change ([`.github/workflows/windows.yml`](.github/workflows/windows.yml)) and signs releases: see the [code signing policy](docs/code-signing-policy.md).
 
 ## License
 
