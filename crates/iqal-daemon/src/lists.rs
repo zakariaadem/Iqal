@@ -1,5 +1,5 @@
 //! Pre-made lists: the curated starter files shipped with Iqal, merged
-//! with upstream lists downloaded daily (only for lists some block uses).
+//! with upstream lists downloaded daily.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

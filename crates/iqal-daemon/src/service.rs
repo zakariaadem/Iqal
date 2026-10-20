@@ -675,16 +675,12 @@ impl Service {
         self.list_rules.read().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
-    /// Downloads lists that blocks use and are due; recompiles if any changed.
+    /// Downloads the lists that are due; recompiles if any changed. All of
+    /// them, not only the ones blocks use, so the list picker shows the
+    /// complete lists from the start.
     pub fn update_lists(&self) {
-        let ids: Vec<String> = {
-            let inner = self.lock_inner();
-            let mut ids: Vec<String> = inner.config.block_sets.iter().flat_map(|s| s.web.lists.iter().cloned()).collect();
-            ids.sort();
-            ids.dedup();
-            ids
-        };
-        if ids.is_empty() || !self.lists.update(&ids) {
+        let ids: Vec<String> = iqal_core::lists::CATALOG.iter().map(|l| l.id.to_string()).collect();
+        if !self.lists.update(&ids) {
             return;
         }
         let (rules, summaries) = self.lists.load();
