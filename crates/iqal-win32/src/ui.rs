@@ -38,11 +38,12 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     MSG, PostMessageW, PostQuitMessage, RegisterClassExW, SW_RESTORE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE,
     SWP_NOZORDER, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
     WM_COMMAND, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
-    WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP,
+    BN_CLICKED, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP,
     WS_VISIBLE, WS_VSCROLL,
 };
 
 use crate::dialog;
+use crate::menu;
 use crate::editor::{self, Editor};
 use crate::panel;
 use crate::win::{self, Fonts, scale};
@@ -50,6 +51,8 @@ use crate::win::{self, Fonts, scale};
 const CLASS: &str = "IqalMainWindow";
 const ID_LIST: u16 = 100;
 const ID_STATUS: u16 = 101;
+const ID_NEW: u16 = 102;
+const ID_MENU: u16 = 103;
 const TIMER_REFRESH: usize = 1;
 const REFRESH_MS: u32 = 3000;
 /// Rebuild the editor (posted, so it never happens inside a control's event).
@@ -70,6 +73,9 @@ struct App {
     hwnd: HWND,
     list: HWND,
     status: HWND,
+    /// "New block" and "Menu", above the list.
+    new_button: HWND,
+    menu_button: HWND,
     dpi: u32,
     fonts: Rc<Fonts>,
     service: Service,
@@ -194,14 +200,19 @@ fn build(hwnd: HWND) {
         ID_LIST,
     );
     let status = win::child(hwnd, "msctls_statusbar32", "", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, ID_STATUS);
-    fonts.apply(list);
-    fonts.apply(status);
+    let new_button = win::child(hwnd, "BUTTON", &t("action-new-block"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, ID_NEW);
+    let menu_button = win::child(hwnd, "BUTTON", &t("menu"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, ID_MENU);
+    for control in [list, status, new_button, menu_button] {
+        fonts.apply(control);
+    }
     win::send(list, LB_SETITEMHEIGHT, 0, scale(ROW_HEIGHT, dpi) as isize);
     APP.with(|app| {
         *app.borrow_mut() = Some(App {
             hwnd,
             list,
             status,
+            new_button,
+            menu_button,
             dpi,
             fonts,
             service: Service::new(),
@@ -546,6 +557,21 @@ pub fn list_rules(list: &ListSummary) -> Rc<Vec<String>> {
     rules
 }
 
+/// Shows `id` in the editor (the person dealt with unsaved changes first).
+pub fn select(id: SetId) {
+    with_app(|app| {
+        app.selected = Some(id);
+        app.draft = None;
+    });
+    redraw_list();
+    rebuild_later();
+}
+
+/// What the service last reported about itself.
+pub fn status() -> Option<Box<Status>> {
+    with_app(|app| app.info.clone()).flatten()
+}
+
 /// Deletes the selected block (after asking).
 pub fn delete_selected() {
     let Some(view) = view() else { return };
@@ -571,7 +597,9 @@ pub fn delete_selected() {
 
 /// Positions the controls for the window's size.
 fn layout(hwnd: HWND) {
-    let Some((list, status, dpi, editor)) = with_app(|app| (app.list, app.status, app.dpi, app.editor.as_ref().map(|e| e.root))) else {
+    let Some((list, status, new_button, menu_button, dpi, editor)) = with_app(|app| {
+        (app.list, app.status, app.new_button, app.menu_button, app.dpi, app.editor.as_ref().map(|e| e.root))
+    }) else {
         return;
     };
     // The status bar sizes itself when told the window changed size.
@@ -579,15 +607,21 @@ fn layout(hwnd: HWND) {
     let client = win::client_rect(hwnd);
     let status_height = status_height(status);
     let m = scale(MARGIN, dpi);
+    let row = scale(panel::ROW, dpi);
+    let width = scale(LIST_WIDTH, dpi);
+    // "New block" and "Menu" share the row above the list.
+    let menu_width = scale(panel::text_width(&t("menu")) * 96 / dpi.max(1) as i32 + 32, dpi);
     // SAFETY: our child windows.
     unsafe {
+        SetWindowPos(new_button, std::ptr::null_mut(), m, m, width - menu_width - m / 2, row, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(menu_button, std::ptr::null_mut(), m + width - menu_width, m, menu_width, row, SWP_NOZORDER | SWP_NOACTIVATE);
         SetWindowPos(
             list,
             std::ptr::null_mut(),
             m,
-            m,
-            scale(LIST_WIDTH, dpi),
-            (client.bottom - status_height - 2 * m).max(0),
+            m + row + m / 2,
+            width,
+            (client.bottom - status_height - 2 * m - row - m / 2).max(0),
             SWP_NOZORDER | SWP_NOACTIVATE,
         );
         if let Some(root) = editor {
@@ -753,9 +787,11 @@ fn select_from_list() {
 /// sizes, and Windows' suggested window rectangle.
 fn dpi_changed(hwnd: HWND, dpi: u32, suggested: &RECT) {
     let fonts = Rc::new(Fonts::new(dpi));
-    let Some((list, status)) = with_app(|app| (app.list, app.status)) else { return };
-    fonts.apply(list);
-    fonts.apply(status);
+    let Some(controls) = with_app(|app| [app.list, app.status, app.new_button, app.menu_button]) else { return };
+    let list = controls[0];
+    for control in controls {
+        fonts.apply(control);
+    }
     win::send(list, LB_SETITEMHEIGHT, 0, scale(ROW_HEIGHT, dpi) as isize);
     panel::set_style(fonts.clone(), dpi);
     // The old fonts are dropped once the editor made with them is rebuilt.
@@ -797,8 +833,15 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             1
         }
         WM_COMMAND => {
-            if win::loword(wparam) == ID_LIST && win::hiword(wparam) == LBN_SELCHANGE as u16 {
-                select_from_list();
+            match (win::loword(wparam), win::hiword(wparam) as u32) {
+                (ID_LIST, LBN_SELCHANGE) => select_from_list(),
+                (ID_NEW, BN_CLICKED) => after_unsaved(menu::new_block),
+                (ID_MENU, BN_CLICKED) => {
+                    if let Some(button) = with_app(|app| app.menu_button) {
+                        menu::show(hwnd, button);
+                    }
+                }
+                _ => {}
             }
             0
         }

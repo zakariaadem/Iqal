@@ -332,3 +332,4 @@ schedule-explain = Zeiten legen fest, wann diese Sperre blockiert. Ein Schloss l
 location-name = Name des Ortes
 location-name-placeholder = Zum Beispiel: Zuhause
 area-named = bei „{ $name }“
+action-close = Schließen

@@ -323,3 +323,4 @@ schedule-explain = Saatler bu engelin ne zaman engellediğini belirler. Kilit is
 location-name = Yerin adı
 location-name-placeholder = Örneğin: Ev
 area-named = “{ $name }” konumunda
+action-close = Kapat

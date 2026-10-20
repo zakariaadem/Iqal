@@ -352,3 +352,4 @@ schedule-explain = الأوقات تحدد متى تحجب هذه الكتلة. 
 location-name = اسم المكان
 location-name-placeholder = مثلًا: المنزل
 area-named = في «{ $name }»
+action-close = إغلاق

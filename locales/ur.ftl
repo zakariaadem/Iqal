@@ -329,3 +329,4 @@ schedule-explain = اوقات طے کرتے ہیں کہ یہ بلاک کب رو�
 location-name = جگہ کا نام
 location-name-placeholder = مثال کے طور پر: گھر
 area-named = «{ $name }» میں
+action-close = بند کریں

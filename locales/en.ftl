@@ -332,3 +332,4 @@ schedule-explain = Times decide when this block blocks. A lock decides when the 
 location-name = Name of the place
 location-name-placeholder = For example: Home
 area-named = at “{ $name }”
+action-close = Close

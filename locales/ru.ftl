@@ -342,3 +342,4 @@ schedule-explain = Время определяет, когда этот блок
 location-name = Название места
 location-name-placeholder = Например: Дом
 area-named = в месте «{ $name }»
+action-close = Закрыть

@@ -332,3 +332,4 @@ schedule-explain = Les horaires décident quand ce bloc bloque. Un verrou décid
 location-name = Nom du lieu
 location-name-placeholder = Par exemple : Maison
 area-named = à « { $name } »
+action-close = Fermer

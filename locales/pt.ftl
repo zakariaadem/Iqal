@@ -332,3 +332,4 @@ schedule-explain = Os horários decidem quando este bloqueio bloqueia. Uma tranc
 location-name = Nome do lugar
 location-name-placeholder = Por exemplo: Casa
 area-named = em «{ $name }»
+action-close = Fechar

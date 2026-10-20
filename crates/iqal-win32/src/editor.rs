@@ -161,6 +161,12 @@ fn header(root: Panel, view: &View) -> Item {
             }
         }
     });
+    let export = root.control("BUTTON", &t("action-export-block"), WS_TABSTOP, 0);
+    panel::on(export, move |code| {
+        if code == BN_CLICKED {
+            crate::menu::export(Some(vec![id]));
+        }
+    });
     let delete = root.control("BUTTON", &t("action-delete-block"), WS_TABSTOP, 0);
     // SAFETY: our button.
     unsafe { EnableWindow(delete, i32::from(!view.info.locked)) };
@@ -174,6 +180,7 @@ fn header(root: Panel, view: &View) -> Item {
             (name, Width::Flex),
             (enabled, Width::Dip(panel::text_width(&t("block-enabled")) * 96 / panel::dpi().max(1) as i32 + 32)),
             (lock, button_width(&lock_text)),
+            (export, button_width(&t("action-export-block"))),
             (delete, button_width(&t("action-delete-block"))),
         ],
         height: panel::ROW,

@@ -332,3 +332,4 @@ schedule-explain = Los horarios deciden cuándo bloquea este bloque. Un bloqueo 
 location-name = Nombre del lugar
 location-name-placeholder = Por ejemplo: Casa
 area-named = en «{ $name }»
+action-close = Cerrar

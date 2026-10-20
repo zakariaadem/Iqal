@@ -317,3 +317,4 @@ schedule-explain = Waktu menentukan kapan blok ini memblokir. Kunci menentukan k
 location-name = Nama tempat
 location-name-placeholder = Misalnya: Rumah
 area-named = di “{ $name }”
+action-close = Tutup

@@ -317,3 +317,4 @@ schedule-explain = 时间决定这个拦截组什么时候拦截。锁决定拦�
 location-name = 地点名称
 location-name-placeholder = 例如：家
 area-named = 在“{ $name }”
+action-close = 关闭
