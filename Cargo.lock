@@ -1107,6 +1107,7 @@ dependencies = [
  "iqal-i18n",
  "iqal-ipc",
  "serde_json",
+ "windows-sys",
  "zbus",
 ]
 
