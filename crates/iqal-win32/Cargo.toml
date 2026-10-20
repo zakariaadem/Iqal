@@ -11,6 +11,7 @@ iqal-app = { path = "../iqal-app" }
 iqal-core = { path = "../iqal-core" }
 iqal-i18n = { path = "../iqal-i18n" }
 iqal-ipc = { path = "../iqal-ipc" }
+jiff.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
@@ -18,6 +19,7 @@ windows-sys = { workspace = true, features = [
     "Win32_Graphics_Gdi",
     "Win32_NetworkManagement_NetManagement",
     "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
     "Win32_UI_Controls",
     "Win32_UI_Controls_Dialogs",
     "Win32_UI_HiDpi",

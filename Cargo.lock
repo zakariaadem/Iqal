@@ -1117,6 +1117,7 @@ dependencies = [
  "iqal-core",
  "iqal-i18n",
  "iqal-ipc",
+ "jiff",
  "serde",
  "serde_json",
 ]
@@ -1222,6 +1223,7 @@ dependencies = [
  "iqal-core",
  "iqal-i18n",
  "iqal-ipc",
+ "jiff",
  "windows-sys",
 ]
 

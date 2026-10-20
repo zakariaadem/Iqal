@@ -27,7 +27,7 @@ use windows_sys::Win32::Graphics::Gdi::{
     GetSysColorBrush, HDC, HFONT, InvalidateRect, PAINTSTRUCT, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::Controls::{
-    DRAWITEMSTRUCT, ICC_BAR_CLASSES, ICC_STANDARD_CLASSES, ICC_TAB_CLASSES, INITCOMMONCONTROLSEX,
+    DRAWITEMSTRUCT, ICC_BAR_CLASSES, ICC_DATE_CLASSES, ICC_STANDARD_CLASSES, ICC_TAB_CLASSES, INITCOMMONCONTROLSEX,
     InitCommonControlsEx, ODS_SELECTED, SBARS_SIZEGRIP,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, SetFocus, VK_CONTROL};
@@ -118,7 +118,7 @@ pub fn run() {
     }
     let controls = INITCOMMONCONTROLSEX {
         dwSize: std::mem::size_of::<INITCOMMONCONTROLSEX>() as u32,
-        dwICC: ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_TAB_CLASSES,
+        dwICC: ICC_STANDARD_CLASSES | ICC_BAR_CLASSES | ICC_TAB_CLASSES | ICC_DATE_CLASSES,
     };
     // SAFETY: plain structures; the class name outlives registration.
     let hwnd = unsafe {

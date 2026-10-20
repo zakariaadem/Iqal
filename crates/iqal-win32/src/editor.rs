@@ -8,24 +8,28 @@
 use std::rc::Rc;
 
 use iqal_app::draft::ListKey;
-use iqal_core::{ListMode, UserScope};
+use iqal_app::describe::{day_name, describe_schedule};
+use iqal_core::schedule::{DateRange, Day, Schedule, WeeklyRange};
+use iqal_core::{Allowance, ListMode, UserScope};
 use iqal_core::import::parse_rules_text;
 use iqal_i18n::{t, ta};
 use iqal_ipc::{Request, Response};
-use windows_sys::Win32::Foundation::{HWND, RECT};
+use windows_sys::Win32::Foundation::{HWND, RECT, SYSTEMTIME};
 use windows_sys::Win32::NetworkManagement::NetManagement::{
     FILTER_NORMAL_ACCOUNT, MAX_PREFERRED_LENGTH, NetApiBufferFree, NetUserEnum, UF_ACCOUNTDISABLE, USER_INFO_3,
 };
 use windows_sys::Win32::UI::Controls::Dialogs::{
     GetOpenFileNameW, OFN_EXPLORER, OFN_FILEMUSTEXIST, OFN_PATHMUSTEXIST, OPENFILENAMEW,
 };
+use windows_sys::Win32::System::SystemInformation::GetLocalTime;
 use windows_sys::Win32::UI::Controls::{
-    BST_CHECKED, TCIF_TEXT, TCITEMW, TCM_GETCURSEL, TCM_INSERTITEMW, TCM_SETCURSEL, TCN_SELCHANGE,
+    BST_CHECKED, DTM_GETSYSTEMTIME, DTM_SETFORMATW, DTM_SETSYSTEMTIME, DTS_TIMEFORMAT, DTS_UPDOWN, GDT_VALID, TCIF_TEXT, TCITEMW, TCM_GETCURSEL, TCM_INSERTITEMW, TCM_SETCURSEL, TCN_SELCHANGE,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    BM_GETCHECK, BM_SETCHECK, BN_CLICKED, BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON, BS_DEFPUSHBUTTON, CB_ADDSTRING, CB_GETCURSEL,
-    CB_SETCURSEL, CBN_SELCHANGE, CBS_DROPDOWNLIST, EN_CHANGE, ES_AUTOHSCROLL, SWP_NOACTIVATE, SWP_NOZORDER,
+    BM_GETCHECK, BM_SETCHECK, BN_CLICKED, BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON, BS_DEFPUSHBUTTON, BS_PUSHLIKE, CB_ADDSTRING, CB_GETCURSEL,
+    CB_SETCURSEL, CBN_SELCHANGE, CBS_DROPDOWNLIST, EN_CHANGE, ES_AUTOHSCROLL, ES_NUMBER, LB_ADDSTRING, LB_GETCURSEL,
+    LBS_NOINTEGRALHEIGHT, LBS_NOTIFY, SWP_NOACTIVATE, SWP_NOZORDER,
     SetWindowPos, WS_CLIPSIBLINGS, WS_EX_CLIENTEDGE, WS_GROUP, WS_TABSTOP, WS_VSCROLL,
 };
 
@@ -36,6 +40,7 @@ use crate::{dialog, win};
 
 /// Static texts centred vertically (single line), without & shortcuts.
 const SS_LABEL: u32 = 0x2000 | 0x0200;
+const EM_SETCUEBANNER: u32 = 0x1501;
 
 pub struct Editor {
     pub root: Panel,
@@ -92,6 +97,7 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
         0 => websites(page, &view),
         1 => apps(page, &view),
         2 => people(page, &view),
+        3 => times(page, &view),
         _ => page.set_items(vec![Item::Text(page.note(&t("list-empty")))]),
     }
     items.push(Item::Fill(page.hwnd));
@@ -356,6 +362,198 @@ fn people(page: Panel, view: &View) {
     items.push(Item::Space(8));
     items.push(Item::Text(page.note(&t("users-note"))));
     page.set_items(items);
+}
+
+/// When the block is in force (weekly times, one-off periods), and the
+/// daily time allowance.
+fn times(page: Panel, view: &View) {
+    let set = &view.set;
+    // How this differs from a lock, which people easily mix up.
+    let mut items = vec![Item::Text(page.note(&t("schedule-explain")))];
+    let limited = page.control("BUTTON", &t("schedule-limited"), WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
+    win::send(limited, BM_SETCHECK, if set.schedule.is_some() { BST_CHECKED as usize } else { 0 }, 0);
+    panel::on(limited, move |code| {
+        if code == BN_CLICKED {
+            let on = win::send(limited, BM_GETCHECK, 0, 0) == BST_CHECKED as isize;
+            ui::modify(move |s| s.schedule = on.then(Schedule::default));
+        }
+    });
+    items.push(Item::Full { hwnd: limited, height: 26 });
+    let detail = if set.schedule.is_some() { "schedule-limited-detail" } else { "schedule-always" };
+    items.push(Item::Text(page.note(&t(detail))));
+
+    if let Some(schedule) = &set.schedule {
+        items.push(Item::Space(8));
+        items.push(Item::Full { hwnd: page.heading(&t("schedule-times")), height: 22 });
+        let lines = describe_schedule(schedule);
+        if lines.is_empty() {
+            items.push(Item::Text(page.note(&t("list-empty"))));
+        } else {
+            let list = page.control("LISTBOX", "", WS_TABSTOP | WS_VSCROLL | (LBS_NOTIFY | LBS_NOINTEGRALHEIGHT) as u32, WS_EX_CLIENTEDGE);
+            for line in &lines {
+                let text = win::wide(line);
+                win::send(list, LB_ADDSTRING, 0, text.as_ptr() as isize);
+            }
+            let remove = page.control("BUTTON", &t("action-remove"), WS_TABSTOP, 0);
+            let weekly_len = schedule.weekly.len();
+            panel::on(remove, move |code| {
+                if code != BN_CLICKED {
+                    return;
+                }
+                let Ok(i) = usize::try_from(win::send(list, LB_GETCURSEL, 0, 0)) else { return };
+                ui::modify(move |s| {
+                    if let Some(sc) = s.schedule.as_mut() {
+                        if i < weekly_len {
+                            sc.weekly.remove(i);
+                        } else if i - weekly_len < sc.dates.len() {
+                            sc.dates.remove(i - weekly_len);
+                        }
+                    }
+                });
+            });
+            items.push(Item::Full { hwnd: list, height: (lines.len() as i32 * 22 + 8).min(160) });
+            items.push(Item::Row { cells: vec![(remove, button_width(&t("action-remove")))], height: panel::ROW });
+        }
+
+        // A one-off period: "2026-10-20 08:00 2026-10-22 18:00".
+        let period = page.control("EDIT", "", WS_TABSTOP | ES_AUTOHSCROLL as u32, WS_EX_CLIENTEDGE);
+        let cue = win::wide(&t("schedule-date-placeholder"));
+        win::send(period, EM_SETCUEBANNER, 1, cue.as_ptr() as isize);
+        let add_period = page.control("BUTTON", &t("action-add"), WS_TABSTOP, 0);
+        panel::on(add_period, move |code| {
+            if code != BN_CLICKED {
+                return;
+            }
+            let text = win::text(period);
+            let parts: Vec<&str> = text.split_whitespace().collect();
+            let parse = |d: &str, h: &str| format!("{d}T{h}").parse::<jiff::civil::DateTime>();
+            let range = match parts.as_slice() {
+                [d1, h1, d2, h2] => match (parse(d1, h1), parse(d2, h2)) {
+                    (Ok(start), Ok(end)) if start < end => Some(DateRange { start, end }),
+                    _ => None,
+                },
+                _ => None,
+            };
+            match range {
+                Some(range) => ui::modify(move |s| s.schedule.get_or_insert_with(Schedule::default).dates.push(range)),
+                None => dialog::message(ui::main_window(), dialog::Icon::Warning, &t("schedule-date-invalid"), ""),
+            }
+        });
+        items.push(Item::Row {
+            cells: vec![(period, Width::Flex), (add_period, button_width(&t("action-add")))],
+            height: panel::ROW,
+        });
+
+        // Weekly times: days, from, to.
+        items.push(Item::Space(8));
+        items.push(Item::Full { hwnd: page.heading(&t("schedule-add-weekly")), height: 22 });
+        let days: Vec<(Day, HWND)> = Day::ALL
+            .iter()
+            .map(|&d| {
+                let b = page.control("BUTTON", &day_name(d), WS_TABSTOP | (BS_AUTOCHECKBOX | BS_PUSHLIKE) as u32, 0);
+                let workday = !matches!(d, Day::Sat | Day::Sun);
+                win::send(b, BM_SETCHECK, if workday { BST_CHECKED as usize } else { 0 }, 0);
+                (d, b)
+            })
+            .collect();
+        let day_width = Day::ALL.iter().map(|&d| panel::text_width(&day_name(d))).max().unwrap_or(0) * 96
+            / panel::dpi().max(1) as i32
+            + 24;
+        items.push(Item::Row { cells: days.iter().map(|&(_, b)| (b, Width::Dip(day_width))).collect(), height: panel::ROW });
+        let from_label = page.control("STATIC", &t("time-from"), SS_LABEL, 0);
+        let from = time_picker(page, 9 * 60);
+        let to_label = page.control("STATIC", &t("time-to"), SS_LABEL, 0);
+        let to = time_picker(page, 17 * 60);
+        let add_times = page.control("BUTTON", &t("action-add-times"), WS_TABSTOP, 0);
+        panel::on(add_times, move |code| {
+            if code != BN_CLICKED {
+                return;
+            }
+            let chosen: Vec<Day> =
+                days.iter().filter(|(_, b)| win::send(*b, BM_GETCHECK, 0, 0) == BST_CHECKED as isize).map(|(d, _)| *d).collect();
+            if chosen.is_empty() {
+                return dialog::message(ui::main_window(), dialog::Icon::Warning, &t("schedule-no-days"), "");
+            }
+            let start = picked_minutes(from);
+            // 00:00 as the end means midnight at the end of the day.
+            let end = match picked_minutes(to) {
+                0 => 24 * 60,
+                m => m,
+            };
+            ui::modify(move |s| {
+                s.schedule.get_or_insert_with(Schedule::default).weekly.push(WeeklyRange { days: chosen, start, end })
+            });
+        });
+        let label_width = |key: &str| Width::Dip(panel::text_width(&t(key)) * 96 / panel::dpi().max(1) as i32 + 8);
+        items.push(Item::Row {
+            cells: vec![
+                (from_label, label_width("time-from")),
+                (from, Width::Dip(90)),
+                (to_label, label_width("time-to")),
+                (to, Width::Dip(90)),
+                (add_times, button_width(&t("action-add-times"))),
+            ],
+            height: panel::ROW,
+        });
+    }
+
+    // The daily allowance.
+    items.push(Item::Space(16));
+    let allowance = page.control("BUTTON", &t("allowance"), WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
+    win::send(allowance, BM_SETCHECK, if set.allowance.is_some() { BST_CHECKED as usize } else { 0 }, 0);
+    panel::on(allowance, move |code| {
+        if code == BN_CLICKED {
+            let on = win::send(allowance, BM_GETCHECK, 0, 0) == BST_CHECKED as isize;
+            ui::modify(move |s| s.allowance = on.then_some(Allowance { daily_secs: 30 * 60 }));
+        }
+    });
+    items.push(Item::Full { hwnd: allowance, height: 26 });
+    items.push(Item::Text(page.note(&t("allowance-detail"))));
+    if let Some(a) = set.allowance {
+        let label = page.control("STATIC", &t("allowance-minutes"), SS_LABEL, 0);
+        let minutes =
+            page.control("EDIT", &(a.daily_secs / 60).to_string(), WS_TABSTOP | (ES_NUMBER | ES_AUTOHSCROLL) as u32, WS_EX_CLIENTEDGE);
+        panel::on(minutes, move |code| {
+            if code == EN_CHANGE as u32
+                && let Ok(m) = win::text(minutes).trim().parse::<u32>()
+                && (1..=24 * 60).contains(&m)
+            {
+                ui::edit(move |s| s.allowance = Some(Allowance { daily_secs: m * 60 }));
+            }
+        });
+        let width = Width::Dip(panel::text_width(&t("allowance-minutes")) * 96 / panel::dpi().max(1) as i32 + 12);
+        items.push(Item::Row { cells: vec![(label, width), (minutes, Width::Dip(80))], height: panel::ROW });
+        let used = ta(
+            "allowance-used-today",
+            &[("used", ((view.info.used_today_secs / 60) as i64).into()), ("total", ((a.daily_secs / 60) as i64).into())],
+        );
+        items.push(Item::Text(page.control("STATIC", &used, 0x2000, 0)));
+    }
+    page.set_items(items);
+}
+
+/// A time picker (hours and minutes) set to `minutes` after midnight.
+fn time_picker(page: Panel, minutes: u16) -> HWND {
+    let picker = page.control("SysDateTimePick32", "", WS_TABSTOP | (DTS_TIMEFORMAT | DTS_UPDOWN) as u32, 0);
+    let format = win::wide("HH':'mm");
+    win::send(picker, DTM_SETFORMATW, 0, format.as_ptr() as isize);
+    // SAFETY: plain data.
+    let mut time: SYSTEMTIME = unsafe { std::mem::zeroed() };
+    // SAFETY: as above.
+    unsafe { GetLocalTime(&mut time) };
+    time.wHour = minutes / 60;
+    time.wMinute = minutes % 60;
+    time.wSecond = 0;
+    time.wMilliseconds = 0;
+    win::send(picker, DTM_SETSYSTEMTIME, GDT_VALID as usize, (&raw const time) as isize);
+    picker
+}
+
+fn picked_minutes(picker: HWND) -> u16 {
+    // SAFETY: plain data, filled in by the picker.
+    let mut time: SYSTEMTIME = unsafe { std::mem::zeroed() };
+    win::send(picker, DTM_GETSYSTEMTIME, 0, (&raw mut time) as isize);
+    time.wHour * 60 + time.wMinute
 }
 
 /// People's accounts on this computer: enabled local accounts with a
