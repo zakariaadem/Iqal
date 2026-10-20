@@ -8,11 +8,14 @@
 use std::rc::Rc;
 
 use iqal_app::draft::ListKey;
-use iqal_core::ListMode;
+use iqal_core::{ListMode, UserScope};
 use iqal_core::import::parse_rules_text;
 use iqal_i18n::{t, ta};
 use iqal_ipc::{Request, Response};
 use windows_sys::Win32::Foundation::{HWND, RECT};
+use windows_sys::Win32::NetworkManagement::NetManagement::{
+    FILTER_NORMAL_ACCOUNT, MAX_PREFERRED_LENGTH, NetApiBufferFree, NetUserEnum, UF_ACCOUNTDISABLE, USER_INFO_3,
+};
 use windows_sys::Win32::UI::Controls::Dialogs::{
     GetOpenFileNameW, OFN_EXPLORER, OFN_FILEMUSTEXIST, OFN_PATHMUSTEXIST, OPENFILENAMEW,
 };
@@ -21,9 +24,9 @@ use windows_sys::Win32::UI::Controls::{
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    BM_GETCHECK, BM_SETCHECK, BN_CLICKED, BS_AUTOCHECKBOX, BS_DEFPUSHBUTTON, CB_ADDSTRING, CB_GETCURSEL,
+    BM_GETCHECK, BM_SETCHECK, BN_CLICKED, BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON, BS_DEFPUSHBUTTON, CB_ADDSTRING, CB_GETCURSEL,
     CB_SETCURSEL, CBN_SELCHANGE, CBS_DROPDOWNLIST, EN_CHANGE, ES_AUTOHSCROLL, SWP_NOACTIVATE, SWP_NOZORDER,
-    SetWindowPos, WS_CLIPSIBLINGS, WS_EX_CLIENTEDGE, WS_TABSTOP, WS_VSCROLL,
+    SetWindowPos, WS_CLIPSIBLINGS, WS_EX_CLIENTEDGE, WS_GROUP, WS_TABSTOP, WS_VSCROLL,
 };
 
 use crate::panel::{self, Item, Panel, Width, button_width};
@@ -87,6 +90,8 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
     let page = Panel::new(root.hwnd, true);
     match view.tab {
         0 => websites(page, &view),
+        1 => apps(page, &view),
+        2 => people(page, &view),
         _ => page.set_items(vec![Item::Text(page.note(&t("list-empty")))]),
     }
     items.push(Item::Fill(page.hwnd));
@@ -259,6 +264,131 @@ fn websites(page: Panel, view: &View) {
         items.push(Item::Full { hwnd: check, height: 26 });
     }
     page.set_items(items);
+}
+
+fn apps(page: Panel, view: &View) {
+    let set = &view.set;
+    let mut items =
+        vec![mode_dropdown(page, set.apps.mode, [t("apps-mode-block"), t("apps-mode-allow-only")], |s, m| s.apps.mode = m)];
+    let examples = t("apps-placeholder");
+    // An allow list stands on its own; a block list has exceptions.
+    let lists: &[(ListKey, &str, &str)] = match set.apps.mode {
+        ListMode::AllowOnly => &[(ListKey::AppAllow, "add-apps", "apps-allowed")],
+        ListMode::Block => &[(ListKey::AppBlock, "add-apps", "apps-blocked"), (ListKey::AppAllow, "add-exceptions", "apps-exceptions")],
+    };
+    for &(key, add_title, title) in lists {
+        let file = page.control("BUTTON", &t("action-add-program-file"), WS_TABSTOP, 0);
+        let editor = rules::editor(page, key, &t(add_title), &t(title), &examples, &[], &[file]);
+        let add = editor.add.clone();
+        panel::on(file, move |code| {
+            if code == BN_CLICKED
+                && let Some(path) = open_file(ui::main_window(), &t("action-add-program-file"))
+            {
+                add(vec![format!("path:{path}")]);
+            }
+        });
+        items.extend(editor.items);
+    }
+    items.push(Item::Text(page.note(&t("apps-syntax"))));
+    page.set_items(items);
+}
+
+/// Who the block applies to: everyone, everyone except some accounts, or
+/// only some.
+fn people(page: Panel, view: &View) {
+    let (kind, names) = match &view.set.users {
+        UserScope::All => (0, Vec::new()),
+        UserScope::AllExcept(n) => (1, n.clone()),
+        UserScope::Only(n) => (2, n.clone()),
+    };
+    let mut items = vec![Item::Full { hwnd: page.heading(&t("users-applies-to")), height: 22 }];
+    for (i, key) in ["users-all", "users-all-except", "users-only"].iter().enumerate() {
+        // The first radio button starts the group.
+        let group = if i == 0 { WS_GROUP } else { 0 };
+        let radio = page.control("BUTTON", &t(key), WS_TABSTOP | group | BS_AUTORADIOBUTTON as u32, 0);
+        win::send(radio, BM_SETCHECK, if i == kind { BST_CHECKED as usize } else { 0 }, 0);
+        let names = names.clone();
+        panel::on(radio, move |code| {
+            if code == BN_CLICKED && i != kind {
+                let names = names.clone();
+                // The account list shows or hides: rebuild.
+                ui::modify(move |s| {
+                    s.users = match i {
+                        0 => UserScope::All,
+                        1 => UserScope::AllExcept(names),
+                        _ => UserScope::Only(names),
+                    };
+                });
+            }
+        });
+        items.push(Item::Full { hwnd: radio, height: 26 });
+    }
+    if kind != 0 {
+        items.push(Item::Space(8));
+        let heading = if kind == 1 { "users-except-these" } else { "users-only-these" };
+        items.push(Item::Full { hwnd: page.heading(&t(heading)), height: 22 });
+        let mut all = windows_accounts();
+        for n in &names {
+            if !all.contains(n) {
+                all.push(n.clone());
+            }
+        }
+        for user in all {
+            let check = page.control("BUTTON", &user, WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
+            win::send(check, BM_SETCHECK, if names.contains(&user) { BST_CHECKED as usize } else { 0 }, 0);
+            panel::on(check, move |code| {
+                if code == BN_CLICKED {
+                    let on = win::send(check, BM_GETCHECK, 0, 0) == BST_CHECKED as isize;
+                    let user = user.clone();
+                    ui::edit(move |s| {
+                        if let UserScope::AllExcept(list) | UserScope::Only(list) = &mut s.users {
+                            list.retain(|n| *n != user);
+                            if on {
+                                list.push(user);
+                            }
+                        }
+                    });
+                }
+            });
+            items.push(Item::Full { hwnd: check, height: 26 });
+        }
+    }
+    items.push(Item::Space(8));
+    items.push(Item::Text(page.note(&t("users-note"))));
+    page.set_items(items);
+}
+
+/// People's accounts on this computer: enabled local accounts with a
+/// relative id of 1000 or more (as the service enforces; not the built-in
+/// Administrator, Guest and service accounts).
+fn windows_accounts() -> Vec<String> {
+    let mut out = Vec::new();
+    let mut buf: *mut u8 = std::ptr::null_mut();
+    let (mut read, mut total, mut resume) = (0u32, 0u32, 0u32);
+    // SAFETY: valid out pointers; the buffer is freed below.
+    let status = unsafe {
+        NetUserEnum(std::ptr::null(), 3, FILTER_NORMAL_ACCOUNT, &mut buf, MAX_PREFERRED_LENGTH, &mut read, &mut total, &mut resume)
+    };
+    if status != 0 || buf.is_null() {
+        return out;
+    }
+    // SAFETY: NetUserEnum returned `read` USER_INFO_3 entries.
+    let users = unsafe { std::slice::from_raw_parts(buf.cast::<USER_INFO_3>(), read as usize) };
+    for user in users {
+        if user.usri3_user_id < 1000 || user.usri3_flags & UF_ACCOUNTDISABLE != 0 {
+            continue;
+        }
+        // SAFETY: a NUL-terminated name inside the buffer.
+        let name = unsafe {
+            let len = (0..).take_while(|&i| *user.usri3_name.add(i) != 0).count();
+            String::from_utf16_lossy(std::slice::from_raw_parts(user.usri3_name, len))
+        };
+        out.push(name);
+    }
+    // SAFETY: allocated by NetUserEnum.
+    unsafe { NetApiBufferFree(buf.cast()) };
+    out.sort_by_key(|n| n.to_lowercase());
+    out
 }
 
 /// Adds the rules of a text file (a list, or a hosts file) to the blocked
