@@ -9,6 +9,10 @@ mod dialog;
 #[cfg(windows)]
 mod editor;
 #[cfg(windows)]
+mod lockui;
+#[cfg(windows)]
+mod modal;
+#[cfg(windows)]
 mod panel;
 #[cfg(windows)]
 mod rules;

@@ -327,3 +327,8 @@ location-here-detail = Bei Ja merkt sich Iqal die WLAN-Netze in der Nähe und we
 location-here-unanswered = Wählen Sie, ob dieser Computer jetzt an dem Ort ist.
 lock-confirm-timer = Wenn die Zeit abgelaufen ist, wird auch die Sperre ausgeschaltet.
 schedule-explain = Zeiten legen fest, wann diese Sperre blockiert. Ein Schloss legt fest, wann die Sperre nicht geändert oder ausgeschaltet werden kann. Beispiel: Sperren Sie hier soziale Medien werktags von 9:00 bis 17:00 und fügen Sie ein Passwort-Schloss hinzu, damit die Zeiten nicht gelockert werden können. Ein Schloss „Für eine Weile“ oder „Bis zu einem Datum“ schaltet die Sperre aus, wenn es endet.
+
+# Windows: a place lock by name (no map)
+location-name = Name des Ortes
+location-name-placeholder = Zum Beispiel: Zuhause
+area-named = bei „{ $name }“

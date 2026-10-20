@@ -312,3 +312,8 @@ location-here-detail = Jika ya, Iqal mengingat jaringan Wi-Fi di sekitarnya dan 
 location-here-unanswered = Pilih apakah komputer ini sedang berada di tempat itu.
 lock-confirm-timer = Saat waktunya habis, blok juga dimatikan.
 schedule-explain = Waktu menentukan kapan blok ini memblokir. Kunci menentukan kapan blok tidak bisa diubah atau dimatikan. Contoh: blokir media sosial di sini pada hari kerja pukul 9:00–17:00, lalu tambahkan kunci kata sandi agar waktunya tidak bisa dilonggarkan. Kunci "Untuk sementara" atau "Sampai tanggal tertentu" mematikan blok saat berakhir.
+
+# Windows: a place lock by name (no map)
+location-name = Nama tempat
+location-name-placeholder = Misalnya: Rumah
+area-named = di “{ $name }”

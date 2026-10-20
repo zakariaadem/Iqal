@@ -14,6 +14,9 @@ pub enum GeoArea {
     Circle { lat: f64, lon: f64, radius_m: f64 },
     /// Vertices as `[lat, lon]`, in order; the ring closes automatically.
     Polygon { points: Vec<[f64; 2]> },
+    /// A place known only by name ("Home"), without a position: it is
+    /// recognised by the Wi-Fi networks learned there, never by a position.
+    Named { name: String },
 }
 
 /// A position estimate.
@@ -39,6 +42,8 @@ pub enum GeoError {
     BadRadius,
     #[error("an area needs at least 3 points")]
     TooFewPoints,
+    #[error("a place needs a name (at most 60 characters)")]
+    BadName,
 }
 
 impl GeoArea {
@@ -61,6 +66,12 @@ impl GeoArea {
                     return Err(GeoError::BadCoordinates);
                 }
             }
+            GeoArea::Named { name } => {
+                let len = name.trim().chars().count();
+                if len == 0 || len > 60 {
+                    return Err(GeoError::BadName);
+                }
+            }
         }
         Ok(())
     }
@@ -80,6 +91,7 @@ impl GeoArea {
                 let d = distance_to_ring_m(lat, lon, points);
                 if point_in_polygon(lat, lon, points) { -d } else { d }
             }
+            GeoArea::Named { .. } => return Relation::Unknown,
         };
         if signed + accuracy <= 0.0 {
             Relation::Inside
@@ -186,5 +198,9 @@ mod tests {
         assert_eq!(GeoArea::Circle { lat: 91.0, lon: 0.0, radius_m: 200.0 }.validate(), Err(GeoError::BadCoordinates));
         assert_eq!(GeoArea::Circle { lat: 0.0, lon: 0.0, radius_m: 1.0 }.validate(), Err(GeoError::BadRadius));
         assert_eq!(GeoArea::Polygon { points: vec![[0.0, 0.0]; 2] }.validate(), Err(GeoError::TooFewPoints));
+        assert!(GeoArea::Named { name: "Home".into() }.validate().is_ok());
+        assert_eq!(GeoArea::Named { name: "  ".into() }.validate(), Err(GeoError::BadName));
+        let here = LocationFix::Known { lat: LAT, lon: LON, accuracy_m: 5.0 };
+        assert_eq!(GeoArea::Named { name: "Home".into() }.relation(here), Relation::Unknown, "by Wi-Fi only");
     }
 }

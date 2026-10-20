@@ -734,6 +734,7 @@ fn describe_lock(lock: Option<&Lock>) -> String {
                 format!("while within {radius_m:.0} m of {lat:.5}, {lon:.5}")
             }
             iqal_core::GeoArea::Polygon { points } => format!("while inside an area of {} points", points.len()),
+            iqal_core::GeoArea::Named { name } => format!("while at \"{name}\""),
         },
     };
     if lock.unlock_delay_secs > 0 {

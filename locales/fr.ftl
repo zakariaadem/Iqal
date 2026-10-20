@@ -327,3 +327,8 @@ location-here-detail = Si oui, Iqal retient les réseaux Wi-Fi autour et sait en
 location-here-unanswered = Indiquez si cet ordinateur est à cet endroit maintenant.
 lock-confirm-timer = À la fin du temps, le bloc s’arrête aussi.
 schedule-explain = Les horaires décident quand ce bloc bloque. Un verrou décide quand le bloc ne peut pas être modifié ni arrêté. Par exemple : bloquez ici les réseaux sociaux en semaine de 9 h à 17 h, et ajoutez un verrou par mot de passe pour que les horaires ne puissent pas être assouplis. Un verrou « Pendant un moment » ou « Jusqu’à une date » arrête le bloc quand il se termine.
+
+# Windows: a place lock by name (no map)
+location-name = Nom du lieu
+location-name-placeholder = Par exemple : Maison
+area-named = à « { $name } »

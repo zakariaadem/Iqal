@@ -74,6 +74,8 @@ struct PanelState {
     offset: i32,
     /// Controls whose layout space is taken but that are not shown.
     hidden: HashSet<isize>,
+    /// Height of the content at the last layout, in device pixels.
+    content: i32,
 }
 
 thread_local! {
@@ -129,7 +131,7 @@ impl Panel {
             )
         };
         PANELS.with(|p| {
-            p.borrow_mut().insert(hwnd as isize, PanelState { items: Vec::new(), scrolls, offset: 0, hidden: HashSet::new() })
+            p.borrow_mut().insert(hwnd as isize, PanelState { items: Vec::new(), scrolls, offset: 0, hidden: HashSet::new(), content: 0 })
         });
         Self { hwnd }
     }
@@ -180,6 +182,11 @@ impl Panel {
 
     pub fn relayout(&self) {
         layout(self.hwnd);
+    }
+
+    /// How tall the content is, in device pixels (as last laid out).
+    pub fn content_height(&self) -> i32 {
+        with_state(self.hwnd, |s| s.content).unwrap_or(0)
     }
 }
 
@@ -265,6 +272,7 @@ fn layout(panel: HWND) {
                 mv.2 += shift;
             }
         }
+        s.content = height;
         (s.offset, s.scrolls, height, moves)
     }) else {
         return;

@@ -34,7 +34,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::panel::{self, Item, Panel, Width, button_width};
-use crate::rules;
+use crate::{lockui, rules};
 use crate::ui::{self, View};
 use crate::{dialog, win};
 
@@ -98,6 +98,7 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
         1 => apps(page, &view),
         2 => people(page, &view),
         3 => times(page, &view),
+        4 => lockui::page(page, &view),
         _ => page.set_items(vec![Item::Text(page.note(&t("list-empty")))]),
     }
     items.push(Item::Fill(page.hwnd));
@@ -147,6 +148,19 @@ fn header(root: Panel, view: &View) -> Item {
         }
     });
     let enabled = check_box(root, &t("block-enabled"), view.set.enabled, |s, on| s.enabled = on);
+    // Lock, or unlock while locked (the same as on the Lock tab).
+    let lock_text = t(if view.info.locked { "action-unlock" } else { "action-lock" });
+    let lock = root.control("BUTTON", &lock_text, WS_TABSTOP, 0);
+    let (locked, id) = (view.info.locked, view.set.id);
+    panel::on(lock, move |code| {
+        if code == BN_CLICKED {
+            if locked {
+                lockui::start_unlock(id);
+            } else {
+                lockui::lock_dialog();
+            }
+        }
+    });
     let delete = root.control("BUTTON", &t("action-delete-block"), WS_TABSTOP, 0);
     // SAFETY: our button.
     unsafe { EnableWindow(delete, i32::from(!view.info.locked)) };
@@ -159,6 +173,7 @@ fn header(root: Panel, view: &View) -> Item {
         cells: vec![
             (name, Width::Flex),
             (enabled, Width::Dip(panel::text_width(&t("block-enabled")) * 96 / panel::dpi().max(1) as i32 + 32)),
+            (lock, button_width(&lock_text)),
             (delete, button_width(&t("action-delete-block"))),
         ],
         height: panel::ROW,
@@ -447,56 +462,20 @@ fn times(page: Panel, view: &View) {
         // Weekly times: days, from, to.
         items.push(Item::Space(8));
         items.push(Item::Full { hwnd: page.heading(&t("schedule-add-weekly")), height: 22 });
-        let days: Vec<(Day, HWND)> = Day::ALL
-            .iter()
-            .map(|&d| {
-                let b = page.control("BUTTON", &day_name(d), WS_TABSTOP | (BS_AUTOCHECKBOX | BS_PUSHLIKE) as u32, 0);
-                let workday = !matches!(d, Day::Sat | Day::Sun);
-                win::send(b, BM_SETCHECK, if workday { BST_CHECKED as usize } else { 0 }, 0);
-                (d, b)
-            })
-            .collect();
-        let day_width = Day::ALL.iter().map(|&d| panel::text_width(&day_name(d))).max().unwrap_or(0) * 96
-            / panel::dpi().max(1) as i32
-            + 24;
-        items.push(Item::Row { cells: days.iter().map(|&(_, b)| (b, Width::Dip(day_width))).collect(), height: panel::ROW });
-        let from_label = page.control("STATIC", &t("time-from"), SS_LABEL, 0);
-        let from = time_picker(page, 9 * 60);
-        let to_label = page.control("STATIC", &t("time-to"), SS_LABEL, 0);
-        let to = time_picker(page, 17 * 60);
+        let (picker, picked) = weekly_picker(page);
+        items.extend(picker);
         let add_times = page.control("BUTTON", &t("action-add-times"), WS_TABSTOP, 0);
         panel::on(add_times, move |code| {
             if code != BN_CLICKED {
                 return;
             }
-            let chosen: Vec<Day> =
-                days.iter().filter(|(_, b)| win::send(*b, BM_GETCHECK, 0, 0) == BST_CHECKED as isize).map(|(d, _)| *d).collect();
-            if chosen.is_empty() {
-                return dialog::message(ui::main_window(), dialog::Icon::Warning, &t("schedule-no-days"), "");
+            match picked() {
+                Some(range) => ui::modify(move |s| s.schedule.get_or_insert_with(Schedule::default).weekly.push(range)),
+                None => dialog::message(ui::main_window(), dialog::Icon::Warning, &t("schedule-no-days"), ""),
             }
-            let start = picked_minutes(from);
-            // 00:00 as the end means midnight at the end of the day.
-            let end = match picked_minutes(to) {
-                0 => 24 * 60,
-                m => m,
-            };
-            ui::modify(move |s| {
-                s.schedule.get_or_insert_with(Schedule::default).weekly.push(WeeklyRange { days: chosen, start, end })
-            });
         });
-        let label_width = |key: &str| Width::Dip(panel::text_width(&t(key)) * 96 / panel::dpi().max(1) as i32 + 8);
-        items.push(Item::Row {
-            cells: vec![
-                (from_label, label_width("time-from")),
-                (from, Width::Dip(90)),
-                (to_label, label_width("time-to")),
-                (to, Width::Dip(90)),
-                (add_times, button_width(&t("action-add-times"))),
-            ],
-            height: panel::ROW,
-        });
+        items.push(Item::Row { cells: vec![(add_times, button_width(&t("action-add-times")))], height: panel::ROW });
     }
-
     // The daily allowance.
     items.push(Item::Space(16));
     let allowance = page.control("BUTTON", &t("allowance"), WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
@@ -532,8 +511,56 @@ fn times(page: Panel, view: &View) {
     page.set_items(items);
 }
 
+/// Day buttons (weekdays chosen) and from/to times; returns the rows and a
+/// function giving the chosen times (`None` when no day is chosen).
+pub fn weekly_picker(page: Panel) -> (Vec<Item>, Rc<dyn Fn() -> Option<WeeklyRange>>) {
+    let days: Vec<(Day, HWND)> = Day::ALL
+        .iter()
+        .map(|&d| {
+            let b = page.control("BUTTON", &day_name(d), WS_TABSTOP | (BS_AUTOCHECKBOX | BS_PUSHLIKE) as u32, 0);
+            let workday = !matches!(d, Day::Sat | Day::Sun);
+            win::send(b, BM_SETCHECK, if workday { BST_CHECKED as usize } else { 0 }, 0);
+            (d, b)
+        })
+        .collect();
+    let day_width =
+        Day::ALL.iter().map(|&d| panel::text_width(&day_name(d))).max().unwrap_or(0) * 96 / panel::dpi().max(1) as i32 + 24;
+    let from_label = page.control("STATIC", &t("time-from"), SS_LABEL, 0);
+    let from = time_picker(page, 9 * 60);
+    let to_label = page.control("STATIC", &t("time-to"), SS_LABEL, 0);
+    let to = time_picker(page, 17 * 60);
+    let label_width = |key: &str| Width::Dip(panel::text_width(&t(key)) * 96 / panel::dpi().max(1) as i32 + 8);
+    let items = vec![
+        Item::Row { cells: days.iter().map(|&(_, b)| (b, Width::Dip(day_width))).collect(), height: panel::ROW },
+        Item::Row {
+            cells: vec![
+                (from_label, label_width("time-from")),
+                (from, Width::Dip(90)),
+                (to_label, label_width("time-to")),
+                (to, Width::Dip(90)),
+            ],
+            height: panel::ROW,
+        },
+    ];
+    let picked = move || {
+        let chosen: Vec<Day> =
+            days.iter().filter(|(_, b)| win::send(*b, BM_GETCHECK, 0, 0) == BST_CHECKED as isize).map(|(d, _)| *d).collect();
+        if chosen.is_empty() {
+            return None;
+        }
+        let start = picked_minutes(from);
+        // 00:00 as the end means midnight at the end of the day.
+        let end = match picked_minutes(to) {
+            0 => 24 * 60,
+            m => m,
+        };
+        Some(WeeklyRange { days: chosen, start, end })
+    };
+    (items, Rc::new(picked))
+}
+
 /// A time picker (hours and minutes) set to `minutes` after midnight.
-fn time_picker(page: Panel, minutes: u16) -> HWND {
+pub fn time_picker(page: Panel, minutes: u16) -> HWND {
     let picker = page.control("SysDateTimePick32", "", WS_TABSTOP | (DTS_TIMEFORMAT | DTS_UPDOWN) as u32, 0);
     let format = win::wide("HH':'mm");
     win::send(picker, DTM_SETFORMATW, 0, format.as_ptr() as isize);
@@ -549,7 +576,7 @@ fn time_picker(page: Panel, minutes: u16) -> HWND {
     picker
 }
 
-fn picked_minutes(picker: HWND) -> u16 {
+pub fn picked_minutes(picker: HWND) -> u16 {
     // SAFETY: plain data, filled in by the picker.
     let mut time: SYSTEMTIME = unsafe { std::mem::zeroed() };
     win::send(picker, DTM_GETSYSTEMTIME, 0, (&raw mut time) as isize);

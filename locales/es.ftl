@@ -327,3 +327,8 @@ location-here-detail = Si respondes sí, Iqal recuerda las redes Wi-Fi de alrede
 location-here-unanswered = Indica si este ordenador está en el lugar ahora.
 lock-confirm-timer = Cuando termine el tiempo, el bloque también se desactivará.
 schedule-explain = Los horarios deciden cuándo bloquea este bloque. Un bloqueo decide cuándo el bloque no se puede cambiar ni desactivar. Por ejemplo: bloquea aquí las redes sociales los días laborables de 9:00 a 17:00 y añade un bloqueo con contraseña para que los horarios no se puedan relajar. Un bloqueo «Durante un tiempo» o «Hasta una fecha» desactiva el bloque cuando termina.
+
+# Windows: a place lock by name (no map)
+location-name = Nombre del lugar
+location-name-placeholder = Por ejemplo: Casa
+area-named = en «{ $name }»

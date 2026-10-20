@@ -46,6 +46,7 @@ pub fn describe_area(area: &GeoArea) -> String {
             &[("radius", format!("{radius_m:.0}").into()), ("lat", format!("{lat:.4}").into()), ("lon", format!("{lon:.4}").into())],
         ),
         GeoArea::Polygon { points } => ta("area-polygon", &[("count", (points.len() as i64).into())]),
+        GeoArea::Named { name } => ta("area-named", &[("name", name.clone().into())]),
     }
 }
 

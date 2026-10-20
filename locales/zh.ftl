@@ -312,3 +312,8 @@ location-here-detail = 如果是，Iqal 会记住周围的 Wi-Fi 网络，此后
 location-here-unanswered = 请选择这台电脑现在是否在该地方。
 lock-confirm-timer = 时间到了以后，拦截组也会关闭。
 schedule-explain = 时间决定这个拦截组什么时候拦截。锁决定拦截组什么时候不能被更改或关闭。例如：在这里设置工作日 9:00 到 17:00 拦截社交媒体，再加一个密码锁，让这些时间无法被放宽。“一段时间”或“到某个日期”的锁结束时会关闭拦截组。
+
+# Windows: a place lock by name (no map)
+location-name = 地点名称
+location-name-placeholder = 例如：家
+area-named = 在“{ $name }”

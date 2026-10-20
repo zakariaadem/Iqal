@@ -456,6 +456,47 @@ pub fn save() -> bool {
     }
 }
 
+/// Changes the block and saves at once, with any other unsaved edits: used
+/// for locks, which take effect when confirmed. If saving fails the change
+/// is undone and the other edits are kept. `owner` shows any message.
+pub fn commit(owner: HWND, change: impl FnOnce(&mut BlockSet)) -> bool {
+    let Some(base) = with_app(|app| {
+        let info = app.sets.iter().find(|s| Some(s.set.id) == app.selected)?;
+        Some(match &app.draft {
+            Some(d) => d.finish(),
+            None => Ok(info.set.clone()),
+        })
+    })
+    .flatten() else {
+        return false;
+    };
+    let mut set = match base {
+        Ok(set) => set,
+        Err(problems) => {
+            dialog::message(owner, dialog::Icon::Warning, &t("save-has-errors"), &problems);
+            return false;
+        }
+    };
+    change(&mut set);
+    match with_app(|app| app.service.save(set)) {
+        Some(Ok(())) => {
+            with_app(|app| app.draft = None);
+            refresh(true);
+            rebuild_later();
+            true
+        }
+        Some(Err(e)) => {
+            dialog::error(owner, &e);
+            false
+        }
+        None => false,
+    }
+}
+
+pub fn has_unsaved_changes() -> bool {
+    is_dirty()
+}
+
 pub fn discard() {
     with_app(|app| app.draft = None);
     update_dirty();

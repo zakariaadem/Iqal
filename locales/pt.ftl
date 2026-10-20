@@ -327,3 +327,8 @@ location-here-detail = Se sim, o Iqal lembra as redes Wi-Fi ao redor e a partir 
 location-here-unanswered = Escolha se este computador está no lugar agora.
 lock-confirm-timer = Quando o tempo acabar, o bloqueio também é desligado.
 schedule-explain = Os horários decidem quando este bloqueio bloqueia. Uma tranca decide quando o bloqueio não pode ser alterado nem desligado. Por exemplo: bloqueie aqui as redes sociais nos dias úteis das 9:00 às 17:00 e adicione uma tranca com senha para que os horários não possam ser afrouxados. Uma tranca "Por um tempo" ou "Até uma data" desliga o bloqueio quando termina.
+
+# Windows: a place lock by name (no map)
+location-name = Nome do lugar
+location-name-placeholder = Por exemplo: Casa
+area-named = em «{ $name }»

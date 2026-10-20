@@ -327,3 +327,8 @@ location-here-detail = If yes, Iqal remembers the Wi-Fi networks around it and f
 location-here-unanswered = Choose whether this computer is at the place now.
 lock-confirm-timer = When the time is up, the block turns off too.
 schedule-explain = Times decide when this block blocks. A lock decides when the block cannot be changed or turned off. For example: block social media on weekdays from 9:00 to 17:00 here, and add a password lock so that the times cannot be loosened. A lock "For a while" or "Until a date" turns the block off when it ends.
+
+# Windows: a place lock by name (no map)
+location-name = Name of the place
+location-name-placeholder = For example: Home
+area-named = at “{ $name }”

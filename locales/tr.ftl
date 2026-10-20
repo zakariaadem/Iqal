@@ -318,3 +318,8 @@ location-here-detail = Evet ise Iqal çevredeki Wi-Fi ağlarını hatırlar ve b
 location-here-unanswered = Bu bilgisayarın şu anda o yerde olup olmadığını seçin.
 lock-confirm-timer = Süre dolduğunda engel de kapanır.
 schedule-explain = Saatler bu engelin ne zaman engellediğini belirler. Kilit ise engelin ne zaman değiştirilemeyeceğini veya kapatılamayacağını belirler. Örnek: sosyal medyayı burada hafta içi 9:00–17:00 arası engelleyin ve saatler gevşetilemesin diye bir parola kilidi ekleyin. "Bir süreliğine" veya "Bir tarihe kadar" kilidi bittiğinde engeli kapatır.
+
+# Windows: a place lock by name (no map)
+location-name = Yerin adı
+location-name-placeholder = Örneğin: Ev
+area-named = “{ $name }” konumunda
