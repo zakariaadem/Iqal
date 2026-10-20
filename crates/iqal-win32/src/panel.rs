@@ -16,18 +16,20 @@ use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, SIZE, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
-    COLOR_GRAYTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_CALCRECT, DT_NOPREFIX, DT_WORDBREAK, DrawTextW, GetDC, GetSysColor,
-    GetSysColorBrush, GetTextExtentPoint32W, HDC, HFONT, ReleaseDC, SelectObject, SetBkColor, SetTextColor,
+    DT_CALCRECT, DT_NOPREFIX, DT_WORDBREAK, DrawTextW, GetDC, GetTextExtentPoint32W, HDC, HFONT, RDW_ALLCHILDREN, RDW_ERASE,
+    RDW_FRAME, RDW_INVALIDATE, RedrawWindow, ReleaseDC, SelectObject,
 };
-use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, NMHDR, SetScrollInfo};
+use windows_sys::Win32::UI::Controls::{CDRF_DODEFAULT, DRAWITEMSTRUCT, NM_CUSTOMDRAW, NMCUSTOMDRAW, NMHDR, SetScrollInfo};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, GetScrollInfo, GetWindowTextLengthW, GetWindowTextW, IDC_ARROW, LoadCursorW, RegisterClassExW, SB_LINEDOWN,
-    SB_LINEUP, SB_PAGEDOWN, SB_PAGEUP, SB_THUMBTRACK, SB_VERT, SCROLLINFO, SIF_ALL, SIF_PAGE, SIF_POS, SIF_RANGE,
-    SWP_NOACTIVATE, SWP_NOZORDER, SetWindowPos, ShowWindow, SW_HIDE, SW_SHOW, WM_COMMAND,
-    WM_CTLCOLORBTN, WM_CTLCOLORSTATIC, WM_DRAWITEM, WM_MOUSEWHEEL, WM_GETFONT, WM_NCDESTROY, WM_NOTIFY, WM_SIZE, WM_VSCROLL,
-    WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CONTROLPARENT, WS_VISIBLE, WS_VSCROLL,
+    BS_AUTOCHECKBOX, CreateWindowExW, DefWindowProcW, GetScrollInfo, GetWindowTextLengthW, GetWindowTextW, IDC_ARROW, LoadCursorW,
+    RegisterClassExW, SB_LINEDOWN, SB_LINEUP, SB_PAGEDOWN, SB_PAGEUP, SB_THUMBTRACK, SB_VERT, SCROLLINFO, SIF_ALL, SIF_PAGE, SIF_POS,
+    SIF_RANGE, IsWindowVisible, SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOZORDER, SetWindowPos, ShowWindow, SW_HIDE, SW_SHOW, WM_COMMAND,
+    WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DRAWITEM, WM_ERASEBKGND, WM_GETFONT, WM_MOUSEWHEEL,
+    WM_NCDESTROY, WM_NOTIFY, WM_SETREDRAW, WM_SIZE, WM_VSCROLL, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CONTROLPARENT,
+    WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
 
+use crate::theme;
 use crate::win::{self, Fonts, scale};
 
 const CLASS: &str = "IqalPanel";
@@ -133,6 +135,7 @@ impl Panel {
         PANELS.with(|p| {
             p.borrow_mut().insert(hwnd as isize, PanelState { items: Vec::new(), scrolls, offset: 0, hidden: HashSet::new(), content: 0 })
         });
+        theme::control(hwnd);
         Self { hwnd }
     }
 
@@ -142,6 +145,13 @@ impl Panel {
         if let Some(fonts) = fonts() {
             fonts.apply(hwnd);
         }
+        hwnd
+    }
+
+    /// An on/off switch (a check box drawn as a switch).
+    pub fn switch(&self, text: &str) -> HWND {
+        let hwnd = self.control("BUTTON", text, WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
+        theme::make_switch(hwnd);
         hwnd
     }
 
@@ -243,7 +253,8 @@ fn register_class() {
             hInstance: win::instance(),
             hIcon: std::ptr::null_mut(),
             hCursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW),
-            hbrBackground: GetSysColorBrush(COLOR_WINDOW),
+            // Painted in WM_ERASEBKGND, in the app's light or dark colour.
+            hbrBackground: std::ptr::null_mut(),
             lpszMenuName: std::ptr::null(),
             lpszClassName: class.as_ptr(),
             hIconSm: std::ptr::null_mut(),
@@ -278,9 +289,26 @@ fn layout(panel: HWND) {
     }) else {
         return;
     };
+    // Moving the controls one by one lets Windows copy each control's old
+    // picture to its new place while its neighbours are still moving, which
+    // leaves pieces of text behind. So the panel stops drawing while they
+    // move, and is drawn once afterwards. (Turning drawing back on shows a
+    // hidden window, so hidden panels are left alone.)
+    // SAFETY: our panel.
+    let visible = unsafe { IsWindowVisible(panel) } != 0;
+    if visible {
+        win::send(panel, WM_SETREDRAW, 0, 0);
+    }
     for (hwnd, x, y, w, h) in moves {
         // SAFETY: our child controls.
-        unsafe { SetWindowPos(hwnd, std::ptr::null_mut(), x, y, w.max(0), h.max(0), SWP_NOZORDER | SWP_NOACTIVATE) };
+        unsafe {
+            SetWindowPos(hwnd, std::ptr::null_mut(), x, y, w.max(0), h.max(0), SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS)
+        };
+    }
+    if visible {
+        win::send(panel, WM_SETREDRAW, 1, 0);
+        // SAFETY: our panel.
+        unsafe { RedrawWindow(panel, std::ptr::null(), std::ptr::null_mut(), RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN) };
     }
     if scrolls {
         let info = SCROLLINFO {
@@ -425,6 +453,9 @@ fn forget(panel: HWND) {
             n.remove(c);
         }
     });
+    for c in controls {
+        theme::forget(c as HWND);
+    }
 }
 
 fn collect(items: &[Item], out: &mut Vec<isize>) {
@@ -456,6 +487,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_NOTIFY => {
             // SAFETY: for WM_NOTIFY, lparam points to an NMHDR.
             let header = unsafe { &*(lparam as *const NMHDR) };
+            if header.code == NM_CUSTOMDRAW {
+                // SAFETY: for NM_CUSTOMDRAW from a button, lparam points to an NMCUSTOMDRAW.
+                let draw = unsafe { &*(lparam as *const NMCUSTOMDRAW) };
+                return theme::custom_draw(draw).unwrap_or(CDRF_DODEFAULT as LRESULT);
+            }
             if let Some(f) = handler(header.hwndFrom) {
                 f(header.code);
             }
@@ -469,18 +505,17 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             }
             1
         }
-        WM_CTLCOLORSTATIC | WM_CTLCOLORBTN => {
+        WM_CTLCOLORSTATIC | WM_CTLCOLORBTN | WM_CTLCOLOREDIT | WM_CTLCOLORLISTBOX => {
             // Texts, check boxes and radio buttons on the window colour;
             // notes greyed.
             let grey = NOTES.with(|n| n.borrow().contains(&lparam));
-            let colour = if grey { COLOR_GRAYTEXT } else { COLOR_WINDOWTEXT };
-            // SAFETY: wparam is the control's DC during this message.
-            unsafe {
-                SetTextColor(wparam as HDC, GetSysColor(colour));
-                SetBkColor(wparam as HDC, GetSysColor(COLOR_WINDOW));
-                GetSysColorBrush(COLOR_WINDOW) as LRESULT
+            match theme::ctl_color(msg, wparam as HDC, grey) {
+                Some(brush) => brush,
+                // SAFETY: default handling.
+                None => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
             }
         }
+        WM_ERASEBKGND => theme::erase(hwnd, wparam as HDC),
         WM_SIZE => {
             layout(hwnd);
             0

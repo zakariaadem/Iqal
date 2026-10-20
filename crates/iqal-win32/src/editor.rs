@@ -70,7 +70,7 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
             SWP_NOZORDER | SWP_NOACTIVATE,
         )
     };
-    let mut items = vec![header(root, &view)];
+    let mut items = header(root, &view);
     if view.info.locked {
         items.push(Item::Text(root.note(&t("locked-banner"))));
     }
@@ -133,8 +133,8 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
     Some(Editor { root, save_cells })
 }
 
-/// Name, on or off, delete.
-fn header(root: Panel, view: &View) -> Item {
+/// Name, on or off, lock, export, delete.
+fn header(root: Panel, view: &View) -> Vec<Item> {
     let name = root.control("EDIT", &view.set.name, WS_TABSTOP | ES_AUTOHSCROLL as u32, WS_EX_CLIENTEDGE);
     if let Some(fonts) = panel::fonts() {
         win::send(name, windows_sys::Win32::UI::WindowsAndMessaging::WM_SETFONT, fonts.bold as usize, 1);
@@ -147,7 +147,18 @@ fn header(root: Panel, view: &View) -> Item {
             }
         }
     });
-    let enabled = check_box(root, &t("block-enabled"), view.set.enabled, |s, on| s.enabled = on);
+    // On or off: a switch whose text says which.
+    let state_text = |on: bool| t(if on { "block-switch-on" } else { "block-switch-off" });
+    let enabled = root.switch(&state_text(view.set.enabled));
+    win::send(enabled, BM_SETCHECK, if view.set.enabled { BST_CHECKED as usize } else { 0 }, 0);
+    panel::on(enabled, move |code| {
+        if code == BN_CLICKED {
+            let on = win::send(enabled, BM_GETCHECK, 0, 0) == BST_CHECKED as isize;
+            win::set_text(enabled, &state_text(on));
+            ui::edit(|s| s.enabled = on);
+        }
+    });
+    let switch_width = [true, false].map(|on| crate::theme::switch_width(&state_text(on))).into_iter().max().unwrap_or(0);
     // Lock, or unlock while locked (the same as on the Lock tab).
     let lock_text = t(if view.info.locked { "action-unlock" } else { "action-lock" });
     let lock = root.control("BUTTON", &lock_text, WS_TABSTOP, 0);
@@ -175,16 +186,20 @@ fn header(root: Panel, view: &View) -> Item {
             ui::delete_selected();
         }
     });
-    Item::Row {
-        cells: vec![
-            (name, Width::Flex),
-            (enabled, Width::Dip(panel::text_width(&t("block-enabled")) * 96 / panel::dpi().max(1) as i32 + 32)),
-            (lock, button_width(&lock_text)),
-            (export, button_width(&t("action-export-block"))),
-            (delete, button_width(&t("action-delete-block"))),
-        ],
-        height: panel::ROW,
-    }
+    // Two rows, so the name keeps its room in a narrow window.
+    let spacer = root.control("STATIC", "", 0, 0);
+    vec![
+        Item::Row { cells: vec![(name, Width::Flex), (enabled, Width::Dip(switch_width))], height: panel::ROW },
+        Item::Row {
+            cells: vec![
+                (lock, button_width(&lock_text)),
+                (export, button_width(&t("action-export-block"))),
+                (delete, button_width(&t("action-delete-block"))),
+                (spacer, Width::Flex),
+            ],
+            height: panel::ROW,
+        },
+    ]
 }
 
 /// A check box that changes the draft (the box shows the new value itself).

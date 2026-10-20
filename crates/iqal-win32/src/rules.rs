@@ -16,7 +16,7 @@ use iqal_i18n::{t, ta};
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
     COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
-    DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, GetSysColor, GetSysColorBrush, InvalidateRect,
+    DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, InvalidateRect,
     SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, ODS_SELECTED};
@@ -271,9 +271,9 @@ fn draw(state: &State, item: &DRAWITEMSTRUCT) {
     let text: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
     // SAFETY: drawing into the list's DC during WM_DRAWITEM.
     unsafe {
-        FillRect(item.hDC, &item.rcItem, GetSysColorBrush(back as i32));
+        FillRect(item.hDC, &item.rcItem, crate::theme::brush(back as i32));
         SetBkMode(item.hDC, TRANSPARENT as i32);
-        SetTextColor(item.hDC, GetSysColor(fore as i32));
+        SetTextColor(item.hDC, crate::theme::color(fore as i32));
         SelectObject(item.hDC, fonts.normal);
         DrawTextW(
             item.hDC,

@@ -14,7 +14,7 @@ use windows_sys::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPAR
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, COLOR_GRAYTEXT, COLOR_HOTLIGHT, COLOR_WINDOW, COLOR_WINDOWTEXT, CreateSolidBrush, DT_CALCRECT,
     DT_CENTER, DT_END_ELLIPSIS, DT_LEFT, DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE, DT_VCENTER,
-    DeleteObject, DrawTextW, EndPaint, FillRect, GetSysColor, GetSysColorBrush, HDC, HFONT, InvalidateRect,
+    DeleteObject, DrawTextW, EndPaint, FillRect, HDC, HFONT, InvalidateRect,
     PAINTSTRUCT, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -294,16 +294,15 @@ fn paint(hwnd: HWND) {
         let (Some(v), Some(fonts)) = (v.as_mut(), fonts) else { return };
         // SAFETY: painting into hdc.
         unsafe {
-            FillRect(hdc, &client, GetSysColorBrush(COLOR_WINDOW as i32));
+            FillRect(hdc, &client, crate::theme::brush(COLOR_WINDOW as i32));
             SetBkMode(hdc, TRANSPARENT as i32);
         }
         v.links.clear();
         let Some(stats) = &v.stats else { return };
         let (text, grey, back) = (
-            // SAFETY: no pointers involved.
-            unsafe { GetSysColor(COLOR_WINDOWTEXT as i32) },
-            unsafe { GetSysColor(COLOR_GRAYTEXT as i32) },
-            unsafe { GetSysColor(COLOR_WINDOW as i32) },
+            crate::theme::color(COLOR_WINDOWTEXT as i32),
+            crate::theme::color(COLOR_GRAYTEXT as i32),
+            crate::theme::color(COLOR_WINDOW as i32),
         );
         if is_empty(stats) {
             let r = RECT { top: p.s(60), ..client };
@@ -430,8 +429,7 @@ fn paint(hwnd: HWND) {
                 } else {
                     ta("stats-show-all", &[("count", (list.rows.len() as i64).into())])
                 };
-                // SAFETY: no pointers involved.
-                let link_colour = unsafe { GetSysColor(COLOR_HOTLIGHT as i32) };
+                let link_colour = crate::theme::color(COLOR_HOTLIGHT as i32);
                 let r = RECT { left: x, right: x + half, top: *cy, bottom: *cy + p.s(ROW) };
                 let w = p.text(fonts.normal, link_colour, &label, r, DT_SINGLELINE | DT_VCENTER);
                 links.push((RECT { right: x + w, ..r }, index));
@@ -472,7 +470,8 @@ fn register_class() {
             hInstance: win::instance(),
             hIcon: std::ptr::null_mut(),
             hCursor: std::ptr::null_mut(),
-            hbrBackground: GetSysColorBrush(COLOR_WINDOW),
+            // Painted in WM_ERASEBKGND, in the app's light or dark colour.
+            hbrBackground: std::ptr::null_mut(),
             lpszMenuName: std::ptr::null(),
             lpszClassName: class.as_ptr(),
             hIconSm: std::ptr::null_mut(),

@@ -1,5 +1,9 @@
-//! Message boxes, through Windows' task dialog: a short title, an
+//! Message boxes, through Windows' task dialog (in dark mode, Iqal's own
+//! dialog window, as the task dialog is always light): a short title, an
 //! explanation, and buttons named in the app's language.
+
+use std::cell::Cell;
+use std::rc::Rc;
 
 use iqal_i18n::t;
 use windows_sys::Win32::Foundation::HWND;
@@ -8,8 +12,17 @@ use windows_sys::Win32::UI::Controls::{
     TDF_RTL_LAYOUT,
     TaskDialogIndirect,
 };
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus;
+use windows_sys::Win32::UI::WindowsAndMessaging::{
+    BN_CLICKED, BS_DEFPUSHBUTTON, IDI_ERROR, IDI_INFORMATION, IDI_WARNING, LoadIconW, STM_SETICON, WS_TABSTOP,
+};
 
+use crate::modal;
+use crate::panel::{self, Item, Width, button_width};
 use crate::win::{self, wide};
+
+/// Static control showing an icon.
+const SS_ICON: u32 = 0x3;
 
 /// Which icon a message shows.
 #[derive(Clone, Copy)]
@@ -50,6 +63,10 @@ pub fn error(owner: HWND, message: &str) {
 }
 
 fn show(owner: HWND, icon: Option<Icon>, title: &str, detail: &str, buttons: &[(i32, String)]) -> Option<i32> {
+    // Windows' task dialog is always light.
+    if crate::theme::is_dark() {
+        return show_own(owner, icon, title, detail, buttons);
+    }
     let window_title = wide(&t("app-name"));
     let (title, detail) = (wide(title), wide(detail));
     let texts: Vec<Vec<u16>> = buttons.iter().map(|(_, text)| wide(text)).collect();
@@ -84,4 +101,56 @@ fn show(owner: HWND, icon: Option<Icon>, title: &str, detail: &str, buttons: &[(
     // SAFETY: config is filled in as TaskDialogIndirect requires.
     let hr = unsafe { TaskDialogIndirect(&config, &mut pressed, std::ptr::null_mut(), std::ptr::null_mut()) };
     (hr >= 0 && buttons.iter().any(|(id, _)| *id == pressed)).then_some(pressed)
+}
+
+/// The same message in Iqal's own dialog window, which follows dark mode.
+fn show_own(owner: HWND, icon: Option<Icon>, title: &str, detail: &str, buttons: &[(i32, String)]) -> Option<i32> {
+    // A message without a question has a Close button.
+    let message_only = buttons.is_empty();
+    let ok = [(0, t("action-close"))];
+    let buttons = if message_only { &ok[..] } else { buttons };
+    let pressed = Rc::new(Cell::new(None));
+    modal::run(owner, &t("app-name"), (460, 400), |page, closer| {
+        let heading = page.heading(title);
+        let mut items = Vec::new();
+        match icon {
+            Some(icon) => {
+                let picture = page.control("STATIC", "", SS_ICON, 0);
+                let id = match icon {
+                    Icon::Warning => IDI_WARNING,
+                    Icon::Error => IDI_ERROR,
+                    Icon::Info => IDI_INFORMATION,
+                };
+                // SAFETY: a stock icon; no freeing needed.
+                let handle = unsafe { LoadIconW(std::ptr::null_mut(), id) };
+                win::send(picture, STM_SETICON, handle as usize, 0);
+                items.push(Item::Row { cells: vec![(picture, Width::Dip(32)), (heading, Width::Flex)], height: 32 });
+            }
+            None => items.push(Item::Text(heading)),
+        }
+        if !detail.is_empty() {
+            items.push(Item::Text(page.control("STATIC", detail, 0x2000 /* SS_NOPREFIX */, 0)));
+        }
+        items.push(Item::Space(8));
+        let mut row = vec![(page.control("STATIC", "", 0, 0), Width::Flex)];
+        for (i, (id, text)) in buttons.iter().enumerate() {
+            let default = if i + 1 == buttons.len() { BS_DEFPUSHBUTTON as u32 } else { 0 };
+            let button = page.control("BUTTON", text, WS_TABSTOP | default, 0);
+            let (id, pressed, closer) = (*id, pressed.clone(), closer.clone());
+            panel::on(button, move |code| {
+                if code == BN_CLICKED {
+                    pressed.set(Some(id));
+                    closer.close();
+                }
+            });
+            row.push((button, button_width(text)));
+            if i + 1 == buttons.len() {
+                // SAFETY: our button.
+                unsafe { SetFocus(button) };
+            }
+        }
+        items.push(Item::Row { cells: row, height: panel::ROW });
+        page.set_items(items);
+    });
+    if message_only { None } else { pressed.get() }
 }

@@ -23,6 +23,8 @@ mod rules;
 #[cfg(windows)]
 mod stats;
 #[cfg(windows)]
+mod theme;
+#[cfg(windows)]
 mod ui;
 #[cfg(windows)]
 mod win;
@@ -33,6 +35,7 @@ fn main() {
     let language = saved.language.as_deref().unwrap_or_else(|| iqal_i18n::system_language());
     // GDI shows the direction isolates around inserted values as boxes.
     iqal_i18n::init_with(language, false);
+    theme::init();
     ui::run();
 }
 

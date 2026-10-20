@@ -31,7 +31,7 @@ pub fn hiword(v: usize) -> u16 {
 pub fn child(parent: HWND, class: &str, text: &str, style: WINDOW_STYLE, ex_style: WINDOW_EX_STYLE, id: u16) -> HWND {
     let (class, text) = (wide(class), wide(text));
     // SAFETY: strings are NUL-terminated; parent is a live window.
-    unsafe {
+    let hwnd = unsafe {
         CreateWindowExW(
             ex_style,
             class.as_ptr(),
@@ -46,6 +46,20 @@ pub fn child(parent: HWND, class: &str, text: &str, style: WINDOW_STYLE, ex_styl
             instance(),
             std::ptr::null(),
         )
+    };
+    crate::theme::control(hwnd);
+    hwnd
+}
+
+/// Copies a NUL-terminated UTF-16 string.
+///
+/// # Safety
+/// `p` points to a NUL-terminated string.
+pub unsafe fn from_wide_ptr(p: *const u16) -> String {
+    // SAFETY: as promised by the caller.
+    unsafe {
+        let len = (0..).take_while(|&i| *p.add(i) != 0).count();
+        String::from_utf16_lossy(std::slice::from_raw_parts(p, len))
     }
 }
 

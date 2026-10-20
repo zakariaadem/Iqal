@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 pub struct GuiSettings {
     /// Language code; `None` follows the system.
     pub language: Option<String>,
+    /// "light" or "dark"; `None` follows the system.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 #[cfg(not(windows))]

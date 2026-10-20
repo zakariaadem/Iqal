@@ -5,17 +5,18 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{COLOR_WINDOW, GetSysColorBrush};
+use windows_sys::Win32::Graphics::Gdi::HDC;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, GetWindowRect,
     IDC_ARROW, IsDialogMessageW, IsWindow, LoadCursorW, MSG, PostMessageW, RegisterClassExW, SW_SHOW,
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetForegroundWindow, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
-    WM_KEYDOWN, WM_SIZE, WNDCLASSEXW, WS_CAPTION, WS_CLIPCHILDREN, WS_EX_DLGMODALFRAME, WS_EX_LAYOUTRTL, WS_POPUP,
+    WM_ERASEBKGND, WM_KEYDOWN, WM_SIZE, WNDCLASSEXW, WS_CAPTION, WS_CLIPCHILDREN, WS_EX_DLGMODALFRAME, WS_EX_LAYOUTRTL, WS_POPUP,
     WS_SYSMENU,
 };
 
 use crate::panel::{self, Panel};
+use crate::theme;
 use crate::win::{self, scale};
 
 const CLASS: &str = "IqalDialog";
@@ -103,6 +104,7 @@ pub fn run(owner: HWND, title: &str, size: (i32, i32), build: impl FnOnce(Panel,
     if hwnd.is_null() {
         return;
     }
+    theme::window(hwnd);
     let body = Panel::new(hwnd, true);
     resize(hwnd);
     let closer = Closer { hwnd, body, max_height: scale(size.1, dpi) };
@@ -167,7 +169,8 @@ fn register_class() {
             hInstance: win::instance(),
             hIcon: std::ptr::null_mut(),
             hCursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW),
-            hbrBackground: GetSysColorBrush(COLOR_WINDOW),
+            // Painted in WM_ERASEBKGND, in the app's light or dark colour.
+            hbrBackground: std::ptr::null_mut(),
             lpszMenuName: std::ptr::null(),
             lpszClassName: class.as_ptr(),
             hIconSm: std::ptr::null_mut(),
@@ -182,6 +185,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             resize(hwnd);
             0
         }
+        WM_ERASEBKGND => theme::erase(hwnd, wparam as HDC),
         WM_CLOSE => {
             // Ends the dialog's loop; the window is destroyed after it.
             // SAFETY: our window.

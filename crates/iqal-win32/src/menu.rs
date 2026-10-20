@@ -8,7 +8,7 @@ use iqal_ipc::{BlockEvent, EventKind, Request, Response};
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
     COLOR_GRAYTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE,
-    DrawTextW, FillRect, GetSysColor, GetSysColorBrush, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
+    DrawTextW, FillRect, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::Controls::DRAWITEMSTRUCT;
 use windows_sys::Win32::UI::Controls::Dialogs::{GetSaveFileNameW, OFN_EXPLORER, OFN_OVERWRITEPROMPT, OPENFILENAMEW};
@@ -218,13 +218,13 @@ fn draw_event(events: &[BlockEvent], item: &DRAWITEMSTRUCT) {
     let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
     // SAFETY: drawing into the list's DC during WM_DRAWITEM.
     unsafe {
-        FillRect(item.hDC, &item.rcItem, GetSysColorBrush(COLOR_WINDOW as i32));
+        FillRect(item.hDC, &item.rcItem, crate::theme::brush(COLOR_WINDOW as i32));
         SetBkMode(item.hDC, TRANSPARENT as i32);
         SelectObject(item.hDC, fonts.normal);
         for (i, (text, colour)) in lines.iter().enumerate() {
             let top = item.rcItem.top + pad / 2 + i as i32 * (half - pad / 2);
             let mut r = RECT { left: item.rcItem.left + pad, right: item.rcItem.right - pad, top, bottom: top + half };
-            SetTextColor(item.hDC, GetSysColor(*colour as i32));
+            SetTextColor(item.hDC, crate::theme::color(*colour as i32));
             // Ends in a zero: DrawTextW reads through the pointer even for an empty text.
             let text: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
             DrawTextW(item.hDC, text.as_ptr(), text.len() as i32 - 1, &mut r, DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX | rtl);
@@ -236,7 +236,7 @@ fn draw_event(events: &[BlockEvent], item: &DRAWITEMSTRUCT) {
 fn settings() {
     let owner = ui::main_window();
     let status = ui::status();
-    modal::run(owner, &t("menu-settings"), (560, 460), move |page, closer| {
+    modal::run(owner, &t("menu-settings"), (560, 540), move |page, closer| {
         let mut items = vec![Item::Full { hwnd: page.heading(&t("settings-language")), height: 22 }];
         let language = page.control("COMBOBOX", "", WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST as u32, 0);
         let mut names = vec![t("settings-language-system")];
@@ -264,6 +264,29 @@ fn settings() {
             });
         }
         items.push(Item::Dropdown { hwnd: language, width: Width::Dip(260) });
+
+        // Light or dark, at once.
+        items.push(Item::Space(8));
+        items.push(Item::Full { hwnd: page.heading(&t("settings-theme")), height: 22 });
+        let appearance = page.control("COMBOBOX", "", WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST as u32, 0);
+        const THEMES: [Option<&str>; 3] = [None, Some("light"), Some("dark")];
+        for key in ["settings-theme-system", "settings-theme-light", "settings-theme-dark"] {
+            let text = win::wide(&t(key));
+            win::send(appearance, CB_ADDSTRING, 0, text.as_ptr() as isize);
+        }
+        let pos = THEMES.iter().position(|th| *th == saved.theme.as_deref()).unwrap_or(0);
+        win::send(appearance, CB_SETCURSEL, pos, 0);
+        panel::on(appearance, move |code| {
+            if code != CBN_SELCHANGE {
+                return;
+            }
+            let mut s = GuiSettings::load();
+            s.theme = THEMES.get(win::send(appearance, CB_GETCURSEL, 0, 0).max(0) as usize).copied().flatten().map(String::from);
+            s.save();
+            crate::theme::init();
+            crate::theme::apply_everywhere();
+        });
+        items.push(Item::Dropdown { hwnd: appearance, width: Width::Dip(260) });
 
         if let Some(s) = &status {
             items.push(Item::Space(12));

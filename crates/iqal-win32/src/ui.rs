@@ -23,8 +23,8 @@ use iqal_ipc::{ListSummary, Request, Response, SetInfo, Status};
 use windows_sys::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS,
-    DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE, DT_WORDBREAK, DrawTextW, EndPaint, FillRect, GetSysColor,
-    GetSysColorBrush, HDC, HFONT, InvalidateRect, PAINTSTRUCT, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
+    DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE, DT_WORDBREAK, DrawTextW, EndPaint, FillRect,
+    HDC, HFONT, InvalidateRect, PAINTSTRUCT, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::Controls::{
     DRAWITEMSTRUCT, ICC_BAR_CLASSES, ICC_DATE_CLASSES, ICC_STANDARD_CLASSES, ICC_TAB_CLASSES, INITCOMMONCONTROLSEX,
@@ -37,7 +37,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     LB_SETITEMHEIGHT, LBN_SELCHANGE, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY, LBS_OWNERDRAWFIXED, LoadCursorW, MINMAXINFO,
     MSG, PostMessageW, PostQuitMessage, RegisterClassExW, SW_RESTORE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE,
     SWP_NOZORDER, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
-    WM_COMMAND, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
+    WM_COMMAND, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_ERASEBKGND, WM_SETTINGCHANGE, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
     BN_CLICKED, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP,
     WS_VISIBLE, WS_VSCROLL,
 };
@@ -46,6 +46,7 @@ use crate::dialog;
 use crate::menu;
 use crate::editor::{self, Editor};
 use crate::panel;
+use crate::theme;
 use crate::win::{self, Fonts, scale};
 
 const CLASS: &str = "IqalMainWindow";
@@ -139,7 +140,8 @@ pub fn run() {
             // Iqal's icon, resource 1 (see build.rs).
             hIcon: windows_sys::Win32::UI::WindowsAndMessaging::LoadIconW(win::instance(), 1 as _),
             hCursor: LoadCursorW(std::ptr::null_mut(), IDC_ARROW),
-            hbrBackground: GetSysColorBrush(COLOR_WINDOW),
+            // Painted in WM_ERASEBKGND, in the app's light or dark colour.
+            hbrBackground: std::ptr::null_mut(),
             lpszMenuName: std::ptr::null(),
             lpszClassName: class.as_ptr(),
             // Windows makes the small icon from the large one.
@@ -167,6 +169,7 @@ pub fn run() {
     if hwnd.is_null() {
         return;
     }
+    theme::window(hwnd);
     build(hwnd);
     refresh(true);
     // SAFETY: our window; standard message loop. IsDialogMessage gives
@@ -659,8 +662,7 @@ fn editor_rect(app: &mut App) -> RECT {
 }
 
 fn color(index: i32) -> COLORREF {
-    // SAFETY: no pointers involved.
-    unsafe { GetSysColor(index) }
+    theme::color(index)
 }
 
 fn draw_text(hdc: HDC, font: HFONT, text: &str, rect: &mut RECT, format: u32) -> i32 {
@@ -728,7 +730,7 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
         let mut r = item.rcItem;
         // SAFETY: drawing into the list's DC during WM_DRAWITEM.
         unsafe {
-            FillRect(hdc, &r, GetSysColorBrush(back as i32));
+            FillRect(hdc, &r, theme::brush(back as i32));
             SetBkMode(hdc, TRANSPARENT as i32);
             SetTextColor(hdc, color(fore as i32));
         }
@@ -831,6 +833,29 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_PAINT => {
             paint(hwnd);
             0
+        }
+        WM_ERASEBKGND => theme::erase(hwnd, wparam as HDC),
+        WM_CTLCOLORSTATIC | WM_CTLCOLORBTN | WM_CTLCOLOREDIT | WM_CTLCOLORLISTBOX => {
+            match theme::ctl_color(msg, wparam as HDC, false) {
+                Some(brush) => brush,
+                // SAFETY: default handling.
+                None => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+            }
+        }
+        WM_SETTINGCHANGE => {
+            // Windows switched between light and dark: follow, unless the
+            // person chose one in Iqal's settings.
+            // SAFETY: for WM_SETTINGCHANGE, lparam is null or a NUL-terminated string.
+            let area = unsafe { (lparam != 0).then(|| win::from_wide_ptr(lparam as *const u16)) }.unwrap_or_default();
+            if area == "ImmersiveColorSet" {
+                let was = theme::is_dark();
+                theme::init();
+                if theme::is_dark() != was {
+                    theme::apply_everywhere();
+                }
+            }
+            // SAFETY: default handling.
+            unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
         }
         WM_DRAWITEM => {
             // SAFETY: for WM_DRAWITEM, lparam points to a DRAWITEMSTRUCT.
