@@ -331,3 +331,4 @@ lock-location-detail-named = Bu bilgisayar bu yerde olduğu sürece ve Iqal nere
 time-source-network = ağ saati
 time-source-system = eşitlenmiş sistem saati
 time-source-counted = son güvenilir saatten sayılan (çevrimdışı)
+tray-open = Iqal’ı aç

@@ -4,8 +4,12 @@
 //! It enforces nothing itself: blocking happens in the service, so
 //! stopping the agent only hides the notifications.
 
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 #[cfg(target_os = "linux")]
 mod notify;
+#[cfg(windows)]
+mod windows;
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -25,7 +29,24 @@ fn main() {
         Some(guard) => guard,
         None => return, // another agent already runs in this session
     };
+    #[cfg(windows)]
+    {
+        if windows::single_instance().is_none() {
+            return; // another agent already runs in this session
+        }
+        // The icon needs this thread for its messages; events come in on
+        // another, which needs the translations too (they are per thread).
+        std::thread::spawn(|| {
+            iqal_i18n::init(&language());
+            listen_forever();
+        });
+        windows::run();
+    }
+    #[cfg(not(windows))]
+    listen_forever();
+}
 
+fn listen_forever() {
     let mut notifier = Notifier::new();
     let mut backoff = Duration::from_secs(1);
     loop {
@@ -87,6 +108,10 @@ impl Notifier {
         self.recent.insert(key, Instant::now());
 
         let Some((summary, body)) = message(event) else { return };
+        #[cfg(windows)]
+        if windows::notify(&summary, &body) {
+            return;
+        }
         #[cfg(target_os = "linux")]
         {
             if self.desktop.is_none() {
@@ -145,9 +170,12 @@ fn shorten(s: &str, max: usize) -> String {
 }
 
 
-/// The language chosen in the Iqal app (~/.config/iqal/gui.json), or
-/// the system's.
+/// The language chosen in the Iqal app (~/.config/iqal/gui.json; on
+/// Windows %APPDATA%\iqal\gui.json), or the system's.
 fn language() -> String {
+    #[cfg(windows)]
+    let path = std::env::var_os("APPDATA").map(|d| std::path::PathBuf::from(d).join(r"iqal\gui.json"));
+    #[cfg(not(windows))]
     let path = std::env::var_os("XDG_CONFIG_HOME")
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))

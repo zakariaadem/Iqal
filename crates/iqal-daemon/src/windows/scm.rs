@@ -172,7 +172,7 @@ pub fn install() -> Result<(), String> {
         service_type: ServiceType::OWN_PROCESS,
         start_type: ServiceStartType::AutoStart,
         error_control: ServiceErrorControl::Normal,
-        executable_path: exe,
+        executable_path: exe.clone(),
         launch_arguments: vec![],
         dependencies: vec![],
         account_name: None, // LocalSystem
@@ -204,8 +204,28 @@ pub fn install() -> Result<(), String> {
     if !running {
         service.start::<OsString>(&[]).map_err(|e| format!("starting the service: {e}"))?;
     }
+    // The agent (notifications) starts whenever anyone signs in.
+    let agent = exe.with_file_name("iqal-agent.exe");
+    if agent.exists() {
+        let command = format!("\"{}\"", agent.display());
+        super::reg::set(RUN_KEY, &[(AGENT_VALUE, super::reg::Value::Str(&command))])
+            .map_err(|e| format!("starting the agent at sign-in: {e}"))?;
+        // Its notifications are shown under Iqal's name and icon.
+        let icon = exe.with_file_name("iqal.png");
+        std::fs::write(&icon, ICON).map_err(|e| format!("writing {}: {e}", icon.display()))?;
+        let icon = icon.display().to_string();
+        super::reg::set(APP_ID_KEY, &[("DisplayName", super::reg::Value::Str("Iqal")), ("IconUri", super::reg::Value::Str(&icon))])
+            .map_err(|e| format!("naming the notifications: {e}"))?;
+    }
     Ok(())
 }
+
+/// Programs Windows starts when anyone signs in.
+const RUN_KEY: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+const AGENT_VALUE: &str = "Iqal";
+/// The agent's app identity (APP_ID in iqal-agent): its name and icon.
+const APP_ID_KEY: &str = r"SOFTWARE\Classes\AppUserModelId\Iqal.Iqal";
+const ICON: &[u8] = include_bytes!("../../../../extension/icon-96.png");
 
 /// Stops and removes the service.
 pub fn uninstall() -> Result<(), String> {
@@ -215,6 +235,8 @@ pub fn uninstall() -> Result<(), String> {
         .open_service(SERVICE_NAME, ServiceAccess::STOP | ServiceAccess::DELETE | ServiceAccess::QUERY_STATUS)
         .map_err(|e| format!("opening the service: {e}"))?;
     service.delete().map_err(|e| format!("removing the service: {e}"))?;
+    let _ = super::reg::delete_value(RUN_KEY, AGENT_VALUE);
+    let _ = super::reg::delete_tree(APP_ID_KEY);
     if service.query_status().is_ok_and(|s| s.current_state != ServiceState::Stopped) {
         let _ = service.stop();
     }

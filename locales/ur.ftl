@@ -337,3 +337,4 @@ lock-location-detail-named = جب تک یہ کمپیوٹر اس جگہ پر ہے
 time-source-network = نیٹ ورک کا وقت
 time-source-system = ہم وقت شدہ سسٹم کا وقت
 time-source-counted = آخری قابلِ اعتماد وقت سے گنا گیا (آف لائن)
+tray-open = عِقال کھولیں

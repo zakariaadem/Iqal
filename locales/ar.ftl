@@ -360,3 +360,4 @@ lock-location-detail-named = تبقى الكتلة مقفلة ما دام هذا
 time-source-network = وقت الشبكة
 time-source-system = وقت النظام المتزامن
 time-source-counted = محسوب من آخر وقت موثوق (دون اتصال)
+tray-open = افتح عِقال

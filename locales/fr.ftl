@@ -340,3 +340,4 @@ lock-location-detail-named = Le blocage reste verrouillé tant que cet ordinateu
 time-source-network = heure du réseau
 time-source-system = heure système synchronisée
 time-source-counted = comptée depuis la dernière heure fiable (hors ligne)
+tray-open = Ouvrir Iqal

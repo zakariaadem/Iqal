@@ -340,3 +340,4 @@ lock-location-detail-named = Die Sperre bleibt gesperrt, solange dieser Computer
 time-source-network = Netzwerkzeit
 time-source-system = synchronisierte Systemzeit
 time-source-counted = gezählt ab der letzten vertrauenswürdigen Zeit (offline)
+tray-open = Iqal öffnen

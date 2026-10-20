@@ -340,3 +340,4 @@ lock-location-detail-named = The block stays locked while this computer is at th
 time-source-network = network time
 time-source-system = synchronised system time
 time-source-counted = counted from the last trusted time (offline)
+tray-open = Open Iqal

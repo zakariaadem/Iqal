@@ -325,3 +325,4 @@ lock-location-detail-named = 只要这台电脑在这个地方，以及 Iqal 无
 time-source-network = 网络时间
 time-source-system = 已同步的系统时间
 time-source-counted = 从上次可信时间起计算（离线）
+tray-open = 打开 Iqal

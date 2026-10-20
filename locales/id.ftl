@@ -325,3 +325,4 @@ lock-location-detail-named = Blokir tetap terkunci selama komputer ini berada di
 time-source-network = waktu jaringan
 time-source-system = waktu sistem yang tersinkron
 time-source-counted = dihitung dari waktu tepercaya terakhir (luring)
+tray-open = Buka Iqal

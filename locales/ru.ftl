@@ -350,3 +350,4 @@ lock-location-detail-named = Блокировка остаётся заперт�
 time-source-network = сетевое время
 time-source-system = синхронизированное системное время
 time-source-counted = отсчитано от последнего надёжного времени (без сети)
+tray-open = Открыть Iqal
