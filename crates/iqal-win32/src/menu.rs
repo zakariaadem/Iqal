@@ -30,10 +30,11 @@ const SS_LABEL: u32 = 0x2000 | 0x0200;
 
 /// Shows the menu under `button` and runs the chosen entry.
 pub fn show(owner: HWND, button: HWND) {
-    let entries: [(&str, fn()); 5] = [
+    let entries: [(&str, fn()); 6] = [
         ("menu-import", import_blocks),
         ("menu-export-all", export_all),
         ("menu-activity", activity),
+        ("menu-stats", crate::stats::open),
         ("menu-settings", settings),
         ("menu-about", about),
     ];
@@ -224,8 +225,9 @@ fn draw_event(events: &[BlockEvent], item: &DRAWITEMSTRUCT) {
             let top = item.rcItem.top + pad / 2 + i as i32 * (half - pad / 2);
             let mut r = RECT { left: item.rcItem.left + pad, right: item.rcItem.right - pad, top, bottom: top + half };
             SetTextColor(item.hDC, GetSysColor(*colour as i32));
-            let text: Vec<u16> = text.encode_utf16().collect();
-            DrawTextW(item.hDC, text.as_ptr(), text.len() as i32, &mut r, DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX | rtl);
+            // Ends in a zero: DrawTextW reads through the pointer even for an empty text.
+            let text: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
+            DrawTextW(item.hDC, text.as_ptr(), text.len() as i32 - 1, &mut r, DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX | rtl);
         }
     }
 }

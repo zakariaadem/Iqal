@@ -264,7 +264,8 @@ fn draw(state: &State, item: &DRAWITEMSTRUCT) {
     let pad = scale(6, panel::dpi());
     let mut r = RECT { left: item.rcItem.left + pad, right: item.rcItem.right - pad, ..item.rcItem };
     let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
-    let text: Vec<u16> = text.encode_utf16().collect();
+    // Ends in a zero: DrawTextW reads through the pointer even for an empty text.
+    let text: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
     // SAFETY: drawing into the list's DC during WM_DRAWITEM.
     unsafe {
         FillRect(item.hDC, &item.rcItem, GetSysColorBrush(back as i32));
@@ -274,7 +275,7 @@ fn draw(state: &State, item: &DRAWITEMSTRUCT) {
         DrawTextW(
             item.hDC,
             text.as_ptr(),
-            text.len() as i32,
+            text.len() as i32 - 1,
             &mut r,
             DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX | rtl,
         );

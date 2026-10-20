@@ -567,6 +567,11 @@ pub fn select(id: SetId) {
     rebuild_later();
 }
 
+/// All blocks, as last loaded.
+pub fn blocks() -> Vec<SetInfo> {
+    with_app(|app| app.sets.clone()).unwrap_or_default()
+}
+
 /// What the service last reported about itself.
 pub fn status() -> Option<Box<Status>> {
     with_app(|app| app.info.clone()).flatten()
@@ -658,11 +663,12 @@ fn color(index: i32) -> COLORREF {
 
 fn draw_text(hdc: HDC, font: HFONT, text: &str, rect: &mut RECT, format: u32) -> i32 {
     let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
-    let text: Vec<u16> = text.encode_utf16().collect();
+    // Ends in a zero: DrawTextW reads through the pointer even for an empty text.
+    let text: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
     // SAFETY: hdc is being painted; text and rect are valid.
     unsafe {
         SelectObject(hdc, font);
-        DrawTextW(hdc, text.as_ptr(), text.len() as i32, rect, format | DT_NOPREFIX | rtl)
+        DrawTextW(hdc, text.as_ptr(), text.len() as i32 - 1, rect, format | DT_NOPREFIX | rtl)
     }
 }
 

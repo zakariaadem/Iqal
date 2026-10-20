@@ -19,6 +19,8 @@ mod panel;
 #[cfg(windows)]
 mod rules;
 #[cfg(windows)]
+mod stats;
+#[cfg(windows)]
 mod ui;
 #[cfg(windows)]
 mod win;
