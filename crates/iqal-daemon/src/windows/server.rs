@@ -129,7 +129,9 @@ fn handle_client(mut stream: File, service: &Service) -> io::Result<()> {
     // Windows reveals the client's identity only once it has sent something.
     let Some(mut request) = read_frame::<_, Request>(&mut stream)? else { return Ok(()) };
     let peer = system::pipe_peer(&stream)?;
-    let caller = Caller { user: peer.user, admin: peer.admin };
+    // Everyone may change blocks on Windows (the owner's choice); locked
+    // blocks protect themselves.
+    let caller = Caller { user: peer.user, admin: peer.admin, editor: true };
     loop {
         if let Request::Subscribe = request {
             return feed(stream, service, &caller.user);

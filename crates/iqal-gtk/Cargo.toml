@@ -11,6 +11,7 @@ name = "iqal"
 path = "src/main.rs"
 
 [dependencies]
+iqal-app = { path = "../iqal-app" }
 iqal-core = { path = "../iqal-core" }
 iqal-i18n = { path = "../iqal-i18n" }
 iqal-ipc = { path = "../iqal-ipc" }

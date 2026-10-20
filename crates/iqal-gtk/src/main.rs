@@ -8,14 +8,13 @@ mod editor;
 mod lockui;
 mod mapdialog;
 mod rules;
-mod service;
-mod settings;
 mod stats;
 mod ui;
 mod widgets;
 
 use gtk::glib;
 use gtk::prelude::*;
+use iqal_app::{service, settings};
 
 const APP_ID: &str = "org.iqal.Iqal";
 

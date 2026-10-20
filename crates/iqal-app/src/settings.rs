@@ -1,4 +1,5 @@
-//! Per-user app settings (~/.config/iqal/gui.json).
+//! Per-user app settings (`~/.config/iqal/gui.json`; on Windows
+//! `%APPDATA%\iqal\gui.json`).
 
 use std::path::PathBuf;
 
@@ -10,10 +11,16 @@ pub struct GuiSettings {
     pub language: Option<String>,
 }
 
+#[cfg(not(windows))]
 fn config_dir() -> Option<PathBuf> {
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+}
+
+#[cfg(windows)]
+fn config_dir() -> Option<PathBuf> {
+    std::env::var_os("APPDATA").map(PathBuf::from)
 }
 
 fn path() -> Option<PathBuf> {

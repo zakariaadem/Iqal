@@ -93,7 +93,10 @@ use crate::storage::Store;
 #[derive(Debug, Clone)]
 pub struct Caller {
     pub user: String,
+    /// May see everyone's activity and the stored form of lock passwords.
     pub admin: bool,
+    /// May change blocks (locked blocks still refuse to be weakened).
+    pub editor: bool,
 }
 
 pub struct Service {
@@ -405,11 +408,8 @@ impl Service {
                 | Request::WatchWindows
                 | Request::Windows { .. }
         );
-        if mutating && !caller.admin {
-            return Response::error(
-                ErrorCode::PermissionDenied,
-                "only administrators can change Iqal settings",
-            );
+        if mutating && !caller.editor {
+            return Response::error(ErrorCode::PermissionDenied, "only administrators can change Iqal settings");
         }
         let wrong_answer = matches!(request, Request::UnlockAnswer { .. });
         let response = self.dispatch(caller, request).unwrap_or_else(|e| e);
@@ -433,7 +433,7 @@ impl Service {
                         version: env!("CARGO_PKG_VERSION").into(),
                         protocol: PROTOCOL_VERSION,
                         user: caller.user.clone(),
-                        admin: caller.admin,
+                        admin: caller.editor,
                         sets: sets.len(),
                         locked_sets: sets.iter().filter(|s| lock::is_locked(s, &ctx)).count(),
                         hardened: inner.config.hardened,
@@ -802,7 +802,7 @@ mod tests {
     }
 
     fn admin() -> Caller {
-        Caller { user: "alice".into(), admin: true }
+        Caller { user: "alice".into(), admin: true, editor: true }
     }
 
     fn check_url(svc: &Service, url: &str) -> bool {
@@ -828,10 +828,24 @@ mod tests {
     #[test]
     fn non_admins_cannot_change_anything() {
         let (svc, dir) = service("perm");
-        let user = Caller { user: "bob".into(), admin: false };
+        let user = Caller { user: "bob".into(), admin: false, editor: false };
         let r = svc.handle(&user, Request::UpsertSet { set: Box::new(BlockSet::new("x")) });
         assert!(matches!(r, Response::Error { code: ErrorCode::PermissionDenied, .. }));
         assert!(matches!(svc.handle(&user, Request::Status), Response::Status { .. }));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn editors_change_blocks_but_see_no_password_hashes() {
+        let (svc, dir) = service("editor");
+        let editor = Caller { user: "bob".into(), admin: false, editor: true };
+        let mut set = BlockSet::new("x");
+        let hash = PasswordHash { salt: "s".into(), hash: "h".into(), m_kib: 8, t: 1, p: 1 };
+        set.lock = Some(Lock { kind: LockKind::Password { hash }, unlock_delay_secs: 0 });
+        assert!(matches!(svc.handle(&editor, Request::UpsertSet { set: Box::new(set) }), Response::Done));
+        let Response::Sets { sets } = svc.handle(&editor, Request::ListSets) else { panic!("no sets") };
+        let Some(Lock { kind: LockKind::Password { hash }, .. }) = &sets[0].set.lock else { panic!("no lock") };
+        assert!(hash.hash.is_empty(), "the stored password must not reach non-administrators");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

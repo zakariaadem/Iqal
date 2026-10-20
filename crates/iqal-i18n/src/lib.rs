@@ -54,9 +54,10 @@ thread_local! {
     static TRANSLATOR: RefCell<Option<Translator>> = const { RefCell::new(None) };
 }
 
-fn bundle(code: &str) -> FluentBundle<FluentResource> {
+fn bundle(code: &str, isolate: bool) -> FluentBundle<FluentResource> {
     let lang: LanguageIdentifier = code.parse().unwrap_or_default();
     let mut bundle = FluentBundle::new(vec![lang]);
+    bundle.set_use_isolating(isolate);
     let res = FluentResource::try_new(source(code).unwrap_or_default().to_string())
         .unwrap_or_else(|(res, errors)| {
             eprintln!("iqal: {} translation errors in {code}.ftl", errors.len());
@@ -72,7 +73,31 @@ pub fn match_language(locale: &str) -> &'static str {
     LANGUAGES.iter().find(|(c, _, _)| *c == primary).map_or("en", |(c, _, _)| c)
 }
 
+/// The user's Windows display languages, in order of preference.
+#[cfg(windows)]
+pub fn system_language() -> &'static str {
+    use windows_sys::Win32::Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME};
+    let (mut count, mut len) = (0u32, 0u32);
+    // SAFETY: asking for the size only.
+    if unsafe { GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, std::ptr::null_mut(), &mut len) } == 0 {
+        return "en";
+    }
+    let mut buf = vec![0u16; len as usize];
+    // SAFETY: buf has room for len characters.
+    if unsafe { GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, buf.as_mut_ptr(), &mut len) } == 0 {
+        return "en";
+    }
+    // A list of names ("ar-SA\0en-US\0\0").
+    String::from_utf16_lossy(&buf)
+        .split('\0')
+        .filter(|name| !name.is_empty())
+        .map(|name| (name, match_language(name)))
+        .find(|(name, code)| *code != "en" || name.starts_with("en"))
+        .map_or("en", |(_, code)| code)
+}
+
 /// The user's language from the environment (LANGUAGE, LC_ALL, LC_MESSAGES, LANG).
+#[cfg(not(windows))]
 pub fn system_language() -> &'static str {
     for var in ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"] {
         if let Ok(v) = std::env::var(var) {
@@ -89,9 +114,17 @@ pub fn system_language() -> &'static str {
 
 /// Selects the language for this thread (the UI thread).
 pub fn init(code: &str) {
+    init_with(code, true);
+}
+
+/// Like [`init`]; `isolate: false` leaves out the Unicode direction isolates
+/// around inserted values, for text drawing that shows them as boxes
+/// (Windows' GDI), which then works out the direction by itself.
+pub fn init_with(code: &str, isolate: bool) {
     let (code, _, rtl) = *LANGUAGES.iter().find(|(c, _, _)| *c == code).unwrap_or(&LANGUAGES[0]);
     TRANSLATOR.with(|t| {
-        *t.borrow_mut() = Some(Translator { code, rtl, bundle: bundle(code), english: bundle("en") });
+        *t.borrow_mut() =
+            Some(Translator { code, rtl, bundle: bundle(code, isolate), english: bundle("en", isolate) });
     });
 }
 

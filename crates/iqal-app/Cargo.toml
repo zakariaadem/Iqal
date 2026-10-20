@@ -1,0 +1,14 @@
+[package]
+name = "iqal-app"
+description = "What the Iqal apps (GTK, Win32) share: the service connection and app settings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+iqal-core = { path = "../iqal-core" }
+iqal-i18n = { path = "../iqal-i18n" }
+iqal-ipc = { path = "../iqal-ipc" }
+serde.workspace = true
+serde_json.workspace = true

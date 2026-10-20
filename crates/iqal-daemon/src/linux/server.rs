@@ -63,7 +63,8 @@ pub fn serve(listener: UnixListener, service: Arc<Service>) {
 
 fn handle_client(mut stream: UnixStream, service: &Service) -> io::Result<()> {
     let (uid, pid) = system::peer(&stream)?;
-    let caller = Caller { user: system::user_name(uid), admin: system::is_admin(uid) };
+    let admin = system::is_admin(uid);
+    let caller = Caller { user: system::user_name(uid), admin, editor: admin };
     while let Some(request) = read_frame::<_, Request>(&mut stream)? {
         if let Request::Subscribe = request {
             return feed(stream, service, &caller.user);

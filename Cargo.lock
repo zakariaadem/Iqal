@@ -1111,6 +1111,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "iqal-app"
+version = "0.1.0"
+dependencies = [
+ "iqal-core",
+ "iqal-i18n",
+ "iqal-ipc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "iqal-cli"
 version = "0.1.0"
 dependencies = [
@@ -1159,6 +1170,7 @@ name = "iqal-gtk"
 version = "0.1.0"
 dependencies = [
  "gtk4",
+ "iqal-app",
  "iqal-core",
  "iqal-i18n",
  "iqal-ipc",
@@ -1182,6 +1194,7 @@ version = "0.1.0"
 dependencies = [
  "fluent-bundle",
  "unic-langid",
+ "windows-sys",
 ]
 
 [[package]]
@@ -1199,6 +1212,17 @@ name = "iqal-pack"
 version = "0.1.0"
 dependencies = [
  "sha2",
+]
+
+[[package]]
+name = "iqal-win32"
+version = "0.1.0"
+dependencies = [
+ "iqal-app",
+ "iqal-core",
+ "iqal-i18n",
+ "iqal-ipc",
+ "windows-sys",
 ]
 
 [[package]]
