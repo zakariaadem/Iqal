@@ -105,7 +105,9 @@ apps-blocked = التطبيقات المحجوبة
 apps-exceptions = الاستثناءات (مسموحة دائمًا)
 apps-allowed = التطبيقات المسموحة
 apps-placeholder = ⁦steam⁩ أو ⁦/opt/games/⁩ أو ⁦title:YouTube⁩ أو ⁦cmd:minecraft⁩
+apps-placeholder-windows = ⁦steam⁩ أو ⁦C:\Games\⁩ أو ⁦title:YouTube⁩ أو ⁦cmd:minecraft⁩
 apps-syntax = الاسم يحجب البرنامج الذي يحمل هذا الاسم. المجلد المنتهي بـ ⁦/⁩ يحجب كل البرامج داخله. ⁦title:نص⁩ يغلق النوافذ التي يحتوي عنوانها النص. ⁦cmd:نص⁩ يحجب البرامج التي يحتوي سطر أوامرها النص. النسخ المعاد تسميتها تُكتشف بقواعد ⁦hash:⁩.
+apps-syntax-windows = الاسم يحجب البرنامج الذي يحمل هذا الاسم. المجلد المنتهي بـ ⁦\⁩ يحجب كل البرامج داخله. ⁦title:نص⁩ يغلق النوافذ التي يحتوي عنوانها النص. ⁦cmd:نص⁩ يحجب البرامج التي يحتوي سطر أوامرها النص. النسخ المعاد تسميتها تُكتشف بقواعد ⁦hash:⁩.
 
 users-applies-to = على من تُطبَّق هذه الكتلة
 users-all = الجميع
@@ -353,3 +355,8 @@ location-name = اسم المكان
 location-name-placeholder = مثلًا: المنزل
 area-named = في «{ $name }»
 action-close = إغلاق
+
+lock-location-detail-named = تبقى الكتلة مقفلة ما دام هذا الحاسوب في هذا المكان، وكذلك كلما تعذّر على عِقال معرفة مكانه.
+time-source-network = وقت الشبكة
+time-source-system = وقت النظام المتزامن
+time-source-counted = محسوب من آخر وقت موثوق (دون اتصال)

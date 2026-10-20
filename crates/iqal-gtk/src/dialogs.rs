@@ -189,7 +189,7 @@ pub fn settings(ui: &Rc<Ui>) {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
         body.append(&heading(&t("settings-status")));
         body.append(&note(&ta("status-service", &[("version", s.version.clone().into())])));
-        body.append(&note(&ta("status-time", &[("source", s.clock.clone().into())])));
+        body.append(&note(&ta("status-time", &[("source", iqal_app::describe::time_source(&s.clock).into())])));
         body.append(&note(&ta("status-location", &[("state", s.location.clone().into())])));
         let ext = if s.extensions.is_empty() { t("status-no-extensions") } else { s.extensions.join(", ") };
         body.append(&note(&ta("status-extensions", &[("list", ext.into())])));

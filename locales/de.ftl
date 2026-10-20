@@ -101,7 +101,9 @@ apps-blocked = Gesperrte Apps
 apps-exceptions = Ausnahmen (immer erlaubt)
 apps-allowed = Erlaubte Apps
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
+apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
 apps-syntax = Ein Name sperrt das Programm mit diesem Namen. Ein Ordner, der auf / endet, sperrt alle Programme darin. title:Text schließt Fenster, deren Titel den Text enthält. cmd:Text sperrt Programme, deren Befehlszeile ihn enthält. Umbenannte Kopien werden mit hash:-Regeln erkannt.
+apps-syntax-windows = Ein Name sperrt das Programm mit diesem Namen. Ein Ordner, der auf \ endet, sperrt alle Programme darin. title:Text schließt Fenster, deren Titel den Text enthält. cmd:Text sperrt Programme, deren Befehlszeile ihn enthält. Umbenannte Kopien werden mit hash:-Regeln erkannt.
 
 users-applies-to = Für wen diese Sperre gilt
 users-all = Alle
@@ -333,3 +335,8 @@ location-name = Name des Ortes
 location-name-placeholder = Zum Beispiel: Zuhause
 area-named = bei „{ $name }“
 action-close = Schließen
+
+lock-location-detail-named = Die Sperre bleibt gesperrt, solange dieser Computer an diesem Ort ist, und auch immer dann, wenn Iqal nicht erkennen kann, wo er ist.
+time-source-network = Netzwerkzeit
+time-source-system = synchronisierte Systemzeit
+time-source-counted = gezählt ab der letzten vertrauenswürdigen Zeit (offline)

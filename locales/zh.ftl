@@ -98,7 +98,9 @@ apps-blocked = 被拦截的应用
 apps-exceptions = 例外（始终允许）
 apps-allowed = 允许的应用
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
+apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
 apps-syntax = 名称会拦截同名程序。以 / 结尾的文件夹会拦截其中的所有程序。title:文字 会关闭标题包含该文字的窗口。cmd:文字 会拦截命令行包含该文字的程序。改名后的副本可用 hash: 规则识别。
+apps-syntax-windows = 名称会拦截同名程序。以 \ 结尾的文件夹会拦截其中的所有程序。title:文字 会关闭标题包含该文字的窗口。cmd:文字 会拦截命令行包含该文字的程序。改名后的副本可用 hash: 规则识别。
 
 users-applies-to = 此拦截组适用于谁
 users-all = 所有人
@@ -318,3 +320,8 @@ location-name = 地点名称
 location-name-placeholder = 例如：家
 area-named = 在“{ $name }”
 action-close = 关闭
+
+lock-location-detail-named = 只要这台电脑在这个地方，以及 Iqal 无法判断它在哪里时，拦截组都会保持锁定。
+time-source-network = 网络时间
+time-source-system = 已同步的系统时间
+time-source-counted = 从上次可信时间起计算（离线）

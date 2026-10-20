@@ -101,7 +101,9 @@ apps-blocked = Engellenen uygulamalar
 apps-exceptions = İstisnalar (her zaman izinli)
 apps-allowed = İzin verilen uygulamalar
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
+apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
 apps-syntax = Bir ad, o adı taşıyan programı engeller. / ile biten bir klasör içindeki tüm programları engeller. title:Metin, başlığı metni içeren pencereleri kapatır. cmd:Metin, komut satırı onu içeren programları engeller. Yeniden adlandırılmış kopyalar hash: kurallarıyla yakalanır.
+apps-syntax-windows = Bir ad, o adı taşıyan programı engeller. \ ile biten bir klasör içindeki tüm programları engeller. title:Metin, başlığı metni içeren pencereleri kapatır. cmd:Metin, komut satırı onu içeren programları engeller. Yeniden adlandırılmış kopyalar hash: kurallarıyla yakalanır.
 
 users-applies-to = Bu engel kimlere uygulanır
 users-all = Herkes
@@ -324,3 +326,8 @@ location-name = Yerin adı
 location-name-placeholder = Örneğin: Ev
 area-named = “{ $name }” konumunda
 action-close = Kapat
+
+lock-location-detail-named = Bu bilgisayar bu yerde olduğu sürece ve Iqal nerede olduğunu anlayamadığı her durumda engel kilitli kalır.
+time-source-network = ağ saati
+time-source-system = eşitlenmiş sistem saati
+time-source-counted = son güvenilir saatten sayılan (çevrimdışı)

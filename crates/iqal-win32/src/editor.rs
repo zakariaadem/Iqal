@@ -298,15 +298,27 @@ fn apps(page: Panel, view: &View) {
     let set = &view.set;
     let mut items =
         vec![mode_dropdown(page, set.apps.mode, [t("apps-mode-block"), t("apps-mode-allow-only")], |s, m| s.apps.mode = m)];
-    let examples = t("apps-placeholder");
+    let examples = t("apps-placeholder-windows");
     // An allow list stands on its own; a block list has exceptions.
     let lists: &[(ListKey, &str, &str)] = match set.apps.mode {
         ListMode::AllowOnly => &[(ListKey::AppAllow, "add-apps", "apps-allowed")],
         ListMode::Block => &[(ListKey::AppBlock, "add-apps", "apps-blocked"), (ListKey::AppAllow, "add-exceptions", "apps-exceptions")],
     };
     for &(key, add_title, title) in lists {
+        let installed = page.control("BUTTON", &t("action-add-installed-app"), WS_TABSTOP, 0);
         let file = page.control("BUTTON", &t("action-add-program-file"), WS_TABSTOP, 0);
-        let editor = rules::editor(page, key, &t(add_title), &t(title), &examples, &[], &[file]);
+        let editor = rules::editor(page, key, &t(add_title), &t(title), &examples, &[], &[installed, file]);
+        {
+            let add = editor.add.clone();
+            panel::on(installed, move |code| {
+                if code == BN_CLICKED {
+                    let add = add.clone();
+                    crate::apppicker::pick(ui::main_window(), move |rules| {
+                        add(rules);
+                    });
+                }
+            });
+        }
         let add = editor.add.clone();
         panel::on(file, move |code| {
             if code == BN_CLICKED
@@ -317,7 +329,7 @@ fn apps(page: Panel, view: &View) {
         });
         items.extend(editor.items);
     }
-    items.push(Item::Text(page.note(&t("apps-syntax"))));
+    items.push(Item::Text(page.note(&t("apps-syntax-windows"))));
     page.set_items(items);
 }
 

@@ -101,7 +101,9 @@ apps-blocked = Applications bloquées
 apps-exceptions = Exceptions (toujours autorisées)
 apps-allowed = Applications autorisées
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
+apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
 apps-syntax = Un nom bloque le programme portant ce nom. Un dossier terminé par / bloque tous les programmes qu’il contient. title:Texte ferme les fenêtres dont le titre contient le texte. cmd:Texte bloque les programmes dont la ligne de commande le contient. Les copies renommées sont repérées avec les règles hash:.
+apps-syntax-windows = Un nom bloque le programme portant ce nom. Un dossier terminé par \ bloque tous les programmes qu’il contient. title:Texte ferme les fenêtres dont le titre contient le texte. cmd:Texte bloque les programmes dont la ligne de commande le contient. Les copies renommées sont repérées avec les règles hash:.
 
 users-applies-to = À qui s’applique ce bloc
 users-all = Tout le monde
@@ -333,3 +335,8 @@ location-name = Nom du lieu
 location-name-placeholder = Par exemple : Maison
 area-named = à « { $name } »
 action-close = Fermer
+
+lock-location-detail-named = Le blocage reste verrouillé tant que cet ordinateur est à cet endroit, et aussi chaque fois qu’Iqal ne peut pas savoir où il se trouve.
+time-source-network = heure du réseau
+time-source-system = heure système synchronisée
+time-source-counted = comptée depuis la dernière heure fiable (hors ligne)

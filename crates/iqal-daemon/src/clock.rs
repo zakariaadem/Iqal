@@ -32,6 +32,8 @@ pub enum Source {
 }
 
 impl Source {
+    /// The apps translate these texts (iqal_app::describe::time_source):
+    /// change both together.
     pub fn describe(self) -> &'static str {
         match self {
             Source::Network => "network time",

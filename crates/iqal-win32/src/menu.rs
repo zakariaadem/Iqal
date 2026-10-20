@@ -271,7 +271,7 @@ fn settings() {
             let ext = if s.extensions.is_empty() { t("status-no-extensions") } else { s.extensions.join(", ") };
             let mut lines = vec![
                 ta("status-service", &[("version", s.version.clone().into())]),
-                ta("status-time", &[("source", s.clock.clone().into())]),
+                ta("status-time", &[("source", iqal_app::describe::time_source(&s.clock).into())]),
                 ta("status-location", &[("state", s.location.clone().into())]),
                 ta("status-extensions", &[("list", ext.into())]),
             ];

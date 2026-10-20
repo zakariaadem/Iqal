@@ -310,7 +310,7 @@ fn status_text(app: &App) -> String {
     let Some(info) = &app.info else { return String::new() };
     let mut parts = vec![
         ta("status-service", &[("version", info.version.clone().into())]),
-        ta("status-time", &[("source", info.clock.clone().into())]),
+        ta("status-time", &[("source", iqal_app::describe::time_source(&info.clock).into())]),
     ];
     if !info.admin {
         parts.push(t("status-not-admin"));

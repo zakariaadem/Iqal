@@ -101,7 +101,9 @@ apps-blocked = بلاک شدہ ایپس
 apps-exceptions = استثنا (ہمیشہ اجازت)
 apps-allowed = اجازت یافتہ ایپس
 apps-placeholder = ⁦steam⁩ یا ⁦/opt/games/⁩ یا ⁦title:YouTube⁩ یا ⁦cmd:minecraft⁩
+apps-placeholder-windows = ⁦steam⁩ یا ⁦C:\Games\⁩ یا ⁦title:YouTube⁩ یا ⁦cmd:minecraft⁩
 apps-syntax = نام اسی نام والے پروگرام کو بلاک کرتا ہے۔ ⁦/⁩ پر ختم ہونے والا فولڈر اس کے اندر ہر پروگرام بلاک کرتا ہے۔ ⁦title:متن⁩ وہ ونڈوز بند کرتا ہے جن کے عنوان میں یہ متن ہو۔ ⁦cmd:متن⁩ وہ پروگرام بلاک کرتا ہے جن کی کمانڈ لائن میں یہ ہو۔ نام بدلی ہوئی نقلیں ⁦hash:⁩ اصولوں سے پکڑی جاتی ہیں۔
+apps-syntax-windows = نام اسی نام والے پروگرام کو بلاک کرتا ہے۔ ⁦\⁩ پر ختم ہونے والا فولڈر اس کے اندر ہر پروگرام بلاک کرتا ہے۔ ⁦title:متن⁩ وہ ونڈوز بند کرتا ہے جن کے عنوان میں یہ متن ہو۔ ⁦cmd:متن⁩ وہ پروگرام بلاک کرتا ہے جن کی کمانڈ لائن میں یہ ہو۔ نام بدلی ہوئی نقلیں ⁦hash:⁩ اصولوں سے پکڑی جاتی ہیں۔
 
 users-applies-to = یہ بلاک کن پر لاگو ہے
 users-all = سب
@@ -330,3 +332,8 @@ location-name = جگہ کا نام
 location-name-placeholder = مثال کے طور پر: گھر
 area-named = «{ $name }» میں
 action-close = بند کریں
+
+lock-location-detail-named = جب تک یہ کمپیوٹر اس جگہ پر ہے، اور جب بھی عِقال یہ نہ جان سکے کہ وہ کہاں ہے، بلاک مقفل رہتا ہے۔
+time-source-network = نیٹ ورک کا وقت
+time-source-system = ہم وقت شدہ سسٹم کا وقت
+time-source-counted = آخری قابلِ اعتماد وقت سے گنا گیا (آف لائن)

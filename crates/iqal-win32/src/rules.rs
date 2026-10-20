@@ -26,7 +26,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     LBS_OWNERDRAWFIXED, WS_EX_CLIENTEDGE, WS_TABSTOP, WS_VSCROLL,
 };
 
-use crate::panel::{self, Item, Panel, Width, button_width};
+use crate::panel::{self, Item, Panel, button_width};
 use crate::ui;
 use crate::win::{self, scale};
 
@@ -227,16 +227,19 @@ pub fn editor(
     }
 
     page.set_hidden(problem, true);
-    let mut buttons: Vec<(HWND, Width)> = vec![(add_button, button_width(&t("action-add")))];
-    buttons.extend(extra.iter().map(|&b| (b, button_width(&win::text(b)))));
+    let mut left = vec![
+        Item::Full { hwnd: add_heading, height: 22 },
+        Item::Full { hwnd: input, height: BOX_HEIGHT },
+        Item::Text(problem),
+        Item::Row { cells: vec![(add_button, button_width(&t("action-add")))], height: panel::ROW },
+    ];
+    // More ways to add on a row of their own: next to Add they would not fit.
+    if !extra.is_empty() {
+        left.push(Item::Row { cells: extra.iter().map(|&b| (b, button_width(&win::text(b)))).collect(), height: panel::ROW });
+    }
+    left.push(Item::Text(hint));
     let items = vec![Item::Columns {
-        left: vec![
-            Item::Full { hwnd: add_heading, height: 22 },
-            Item::Full { hwnd: input, height: BOX_HEIGHT },
-            Item::Text(problem),
-            Item::Row { cells: buttons, height: panel::ROW },
-            Item::Text(hint),
-        ],
+        left,
         right: vec![
             Item::Full { hwnd: list_heading, height: 22 },
             Item::Full { hwnd: search, height: panel::ROW },

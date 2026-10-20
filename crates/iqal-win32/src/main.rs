@@ -5,6 +5,8 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(windows)]
+mod apppicker;
+#[cfg(windows)]
 mod dialog;
 #[cfg(windows)]
 mod editor;

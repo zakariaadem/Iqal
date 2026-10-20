@@ -18,6 +18,7 @@ windows-sys = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
     "Win32_NetworkManagement_NetManagement",
+    "Win32_System_Com",
     "Win32_System_LibraryLoader",
     "Win32_System_SystemInformation",
     "Win32_UI_Controls",

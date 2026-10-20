@@ -98,7 +98,9 @@ apps-blocked = Aplikasi yang diblokir
 apps-exceptions = Pengecualian (selalu diizinkan)
 apps-allowed = Aplikasi yang diizinkan
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
+apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
 apps-syntax = Nama memblokir program dengan nama itu. Folder yang diakhiri / memblokir semua program di dalamnya. title:Teks menutup jendela yang judulnya memuat teks itu. cmd:Teks memblokir program yang baris perintahnya memuatnya. Salinan yang diganti namanya dikenali dengan aturan hash:.
+apps-syntax-windows = Nama memblokir program dengan nama itu. Folder yang diakhiri \ memblokir semua program di dalamnya. title:Teks menutup jendela yang judulnya memuat teks itu. cmd:Teks memblokir program yang baris perintahnya memuatnya. Salinan yang diganti namanya dikenali dengan aturan hash:.
 
 users-applies-to = Blok ini berlaku untuk siapa
 users-all = Semua orang
@@ -318,3 +320,8 @@ location-name = Nama tempat
 location-name-placeholder = Misalnya: Rumah
 area-named = di “{ $name }”
 action-close = Tutup
+
+lock-location-detail-named = Blokir tetap terkunci selama komputer ini berada di tempat ini, dan juga setiap kali Iqal tidak dapat mengetahui lokasinya.
+time-source-network = waktu jaringan
+time-source-system = waktu sistem yang tersinkron
+time-source-counted = dihitung dari waktu tepercaya terakhir (luring)

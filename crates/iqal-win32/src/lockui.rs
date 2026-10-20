@@ -234,7 +234,7 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
     let place = page.control("EDIT", "", WS_TABSTOP | ES_AUTOHSCROLL as u32, WS_EX_CLIENTEDGE);
     let cue = win::wide(&t("location-name-placeholder"));
     win::send(place, EM_SETCUEBANNER, 1, cue.as_ptr() as isize);
-    let place_note = page.note(&t("lock-location-detail"));
+    let place_note = page.note(&t("lock-location-detail-named"));
     let question = page.heading(&t("location-here-question"));
     let yes = page.control("BUTTON", &t("location-here-yes"), WS_TABSTOP | WS_GROUP | BS_AUTORADIOBUTTON as u32, 0);
     let no = page.control("BUTTON", &t("location-here-no"), WS_TABSTOP | BS_AUTORADIOBUTTON as u32, 0);

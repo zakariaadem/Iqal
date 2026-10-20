@@ -14,6 +14,17 @@ pub fn fmt_minutes(m: u16) -> String {
     format!("{:02}:{:02}", m / 60, m % 60)
 }
 
+/// Where the service's clock comes from, in the app's language (the
+/// service reports it in English).
+pub fn time_source(source: &str) -> String {
+    match source {
+        "network time" => t("time-source-network"),
+        "synchronised system time" => t("time-source-system"),
+        "counted from last trusted time (offline)" => t("time-source-counted"),
+        other => other.to_string(),
+    }
+}
+
 pub fn day_name(d: Day) -> String {
     t(match d {
         Day::Mon => "day-mon",

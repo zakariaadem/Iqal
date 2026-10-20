@@ -203,13 +203,14 @@ pub fn on_draw(control: HWND, f: impl Fn(&DRAWITEMSTRUCT) + 'static) {
 /// Width of a text in the normal font, in device pixels.
 pub fn text_width(text: &str) -> i32 {
     let Some(fonts) = fonts() else { return 0 };
-    let text: Vec<u16> = text.encode_utf16().collect();
+    // Ends in a zero: an empty Vec's pointer is not valid to pass to Windows.
+    let text: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
     let mut size = SIZE { cx: 0, cy: 0 };
     // SAFETY: a screen DC, released again; valid text and out pointer.
     unsafe {
         let hdc: HDC = GetDC(std::ptr::null_mut());
         let old = SelectObject(hdc, fonts.normal);
-        GetTextExtentPoint32W(hdc, text.as_ptr(), text.len() as i32, &mut size);
+        GetTextExtentPoint32W(hdc, text.as_ptr(), text.len() as i32 - 1, &mut size);
         SelectObject(hdc, old);
         ReleaseDC(std::ptr::null_mut(), hdc);
     }
