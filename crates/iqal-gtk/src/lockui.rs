@@ -343,6 +343,8 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
             let mut id = None;
             if !ui.commit(|s| {
                 id = Some(s.id);
+                // Locking turns the block on: a lock keeps it from being turned off.
+                s.enabled = true;
                 s.lock = Some(lock)
             }) {
                 return;
