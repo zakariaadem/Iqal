@@ -172,6 +172,7 @@ unit-minutes = minutos
 unit-metres = metros
 password = Senha
 password-repeat = Repita a senha
+password-show = Mostrar senha
 password-generate = Criar uma senha para outra pessoa guardar
 password-generate-detail = Quando você clicar em Trancar, o Iqal cria uma senha e a mostra uma única vez. Entregue-a a alguém de confiança.
 password-mismatch = As senhas estão vazias ou não coincidem.
@@ -195,7 +196,7 @@ unlock-title = Destrancar
 unlock-type-text = Digite este texto exatamente (não é possível colar):
 unlock-enter-password = Digite a senha da tranca:
 unlocked = Destrancado
-unlocked-detail = O bloqueio pode ser alterado de novo.
+unlocked-detail = O bloqueio está desligado. Pode alterá-lo ou ligá-lo de novo.
 unlock-pending = Desbloqueio iniciado
 
 map-title = Escolher a área

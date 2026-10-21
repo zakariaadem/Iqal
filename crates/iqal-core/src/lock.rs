@@ -53,29 +53,30 @@ fn lock_holds(kind: &LockKind, ctx: &LockContext) -> bool {
 
 /// Removes locks that can never hold again (deadline passed, machine
 /// restarted) and applies due pending unlocks. A lock with an end time works
-/// as a timer for its block: when the time is up, the block is turned off
-/// too. Returns true if anything changed. The daemon calls this
-/// periodically.
+/// as a timer for its block, and an opened lock (password, text) frees it:
+/// either way the block is turned off too. A restart lock only ends.
+/// Returns true if anything changed. The daemon calls this periodically.
 pub fn expire(set: &mut BlockSet, ctx: &LockContext) -> bool {
     if let Some(at) = set.pending_unlock_at
         && ctx.now.unix >= at
     {
         set.lock = None;
         set.pending_unlock_at = None;
+        set.enabled = false;
         return true;
     }
-    let (finished, timer) = match set.lock.as_ref().map(|l| &l.kind) {
+    let (finished, turn_off) = match set.lock.as_ref().map(|l| &l.kind) {
         Some(LockKind::Until { until }) => (ctx.now.unix >= *until, true),
         Some(LockKind::UntilRestart { boot_id }) => (boot_id != ctx.boot_id, false),
         // A password no answer can match (Iqal 0.1.1-0.1.2 could store the
         // blank stand-in sent to non-administrators): the lock could never
-        // be opened, so it is removed.
-        Some(LockKind::Password { hash }) => (!hash.is_usable(), false),
+        // be opened, so it is removed, as if opened.
+        Some(LockKind::Password { hash }) => (!hash.is_usable(), true),
         _ => (false, false),
     };
     if finished {
         set.lock = None;
-        if timer {
+        if turn_off {
             set.enabled = false;
         }
     }
@@ -130,7 +131,9 @@ pub fn try_unlock(
         return Ok(UnlockOutcome::Pending { at });
     }
     if lock.unlock_delay_secs == 0 {
+        // Opened: the block turns off with it.
         set.lock = None;
+        set.enabled = false;
         Ok(UnlockOutcome::Unlocked)
     } else {
         let at = now.unix + lock.unlock_delay_secs as i64;
@@ -464,8 +467,10 @@ mod tests {
         assert_eq!(challenge_for(s.lock.as_ref().unwrap()).unwrap(), Challenge::Password);
         assert!(matches!(try_unlock(&mut s, "wrong", None, &now(0)), Err(CoreError::WrongAnswer)));
         assert!(s.lock.is_some());
+        assert!(s.enabled);
         assert_eq!(try_unlock(&mut s, "correct horse", None, &now(0)).unwrap(), UnlockOutcome::Unlocked);
         assert!(s.lock.is_none());
+        assert!(!s.enabled, "an opened lock turns its block off");
     }
 
     #[test]
@@ -478,7 +483,7 @@ mod tests {
         // One already stored (by an older Iqal) can never be opened: removed.
         assert!(expire(&mut s, &ctx(0)));
         assert!(s.lock.is_none());
-        assert!(s.enabled, "the block itself stays on");
+        assert!(!s.enabled, "removed like an opened lock: the block turns off");
     }
 
     #[test]
@@ -492,8 +497,10 @@ mod tests {
         assert_eq!(try_unlock(&mut s, &text, Some(&text), &now(1000)).unwrap(), UnlockOutcome::Pending { at: 1600 });
         assert!(is_locked(&s, &ctx(1500)), "still locked during the delay");
         assert!(!expire(&mut s, &ctx(1599)));
+        assert!(s.enabled, "on during the delay");
         assert!(expire(&mut s, &ctx(1600)));
         assert!(!is_locked(&s, &ctx(1600)));
+        assert!(!s.enabled, "off once the delayed unlock happens");
     }
 
     #[test]

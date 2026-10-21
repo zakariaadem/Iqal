@@ -527,12 +527,14 @@ pub fn commit(owner: HWND, change: impl FnOnce(&mut BlockSet)) -> bool {
     }
 }
 
-/// The lock of block `id` was opened: takes it out of unsaved changes too.
+/// The lock of block `id` was opened (which turns the block off): takes it
+/// out of unsaved changes too.
 pub fn forget_lock(id: SetId) {
     with_app(|app| {
         if let Some(d) = app.draft.as_mut().filter(|d| d.set.id == id) {
             d.set.lock = None;
             d.set.pending_unlock_at = None;
+            d.set.enabled = false;
         }
     });
 }

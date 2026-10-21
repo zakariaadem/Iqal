@@ -176,6 +176,7 @@ unit-minutes = دقائق
 unit-metres = متر
 password = كلمة المرور
 password-repeat = أعد كتابة كلمة المرور
+password-show = إظهار كلمة المرور
 password-generate = أنشئ كلمة مرور يحتفظ بها شخص آخر
 password-generate-detail = عندما تضغط «قفل»، ينشئ عِقال كلمة مرور ويعرضها مرة واحدة. أعطها لشخص تثق به.
 password-mismatch = كلمتا المرور فارغتان أو غير متطابقتين.
@@ -199,7 +200,7 @@ unlock-title = فتح القفل
 unlock-type-text = اكتب هذا النص كما هو (اللصق غير ممكن):
 unlock-enter-password = أدخل كلمة مرور القفل:
 unlocked = فُتح القفل
-unlocked-detail = يمكن تغيير الكتلة من جديد.
+unlocked-detail = الكتلة متوقفة الآن. يمكنك تغييرها أو تشغيلها من جديد.
 unlock-pending = بدأ فتح القفل
 
 map-title = اختر المنطقة

@@ -172,6 +172,7 @@ unit-minutes = minutes
 unit-metres = metres
 password = Password
 password-repeat = Repeat the password
+password-show = Show password
 password-generate = Make a password for someone else to keep
 password-generate-detail = When you press Lock, Iqal creates a password and shows it once. Give it to someone you trust.
 password-mismatch = The passwords are empty or do not match.
@@ -195,7 +196,7 @@ unlock-title = Unlock
 unlock-type-text = Type this text exactly (pasting is not possible):
 unlock-enter-password = Enter the lock password:
 unlocked = Unlocked
-unlocked-detail = The block can be changed again.
+unlocked-detail = The block is off now. You can change it or turn it on again.
 unlock-pending = Unlock started
 
 map-title = Choose the area

@@ -172,6 +172,7 @@ unit-minutes = minutos
 unit-metres = metros
 password = Contraseña
 password-repeat = Repite la contraseña
+password-show = Mostrar contraseña
 password-generate = Crear una contraseña para que la guarde otra persona
 password-generate-detail = Al pulsar «Bloquear», Iqal crea una contraseña y la muestra una sola vez. Dásela a alguien de confianza.
 password-mismatch = Las contraseñas están vacías o no coinciden.
@@ -195,7 +196,7 @@ unlock-title = Desbloquear
 unlock-type-text = Escribe este texto exactamente (no se puede pegar):
 unlock-enter-password = Introduce la contraseña del bloqueo:
 unlocked = Desbloqueado
-unlocked-detail = El bloque se puede cambiar de nuevo.
+unlocked-detail = El bloque está desactivado. Puede cambiarlo o volver a activarlo.
 unlock-pending = Desbloqueo iniciado
 
 map-title = Elegir la zona

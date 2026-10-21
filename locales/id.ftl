@@ -169,6 +169,7 @@ unit-minutes = menit
 unit-metres = meter
 password = Kata sandi
 password-repeat = Ulangi kata sandi
+password-show = Tampilkan kata sandi
 password-generate = Buat kata sandi untuk disimpan orang lain
 password-generate-detail = Saat Anda menekan Kunci, Iqal membuat kata sandi dan menampilkannya sekali. Berikan kepada orang yang Anda percayai.
 password-mismatch = Kata sandi kosong atau tidak cocok.
@@ -192,7 +193,7 @@ unlock-title = Buka kunci
 unlock-type-text = Ketik teks ini persis (tidak bisa ditempel):
 unlock-enter-password = Masukkan kata sandi kunci:
 unlocked = Kunci terbuka
-unlocked-detail = Blok bisa diubah lagi.
+unlocked-detail = Blok sekarang mati. Anda bisa mengubahnya atau menyalakannya lagi.
 unlock-pending = Pembukaan kunci dimulai
 
 map-title = Pilih area

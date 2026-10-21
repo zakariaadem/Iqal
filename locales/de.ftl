@@ -172,6 +172,7 @@ unit-minutes = Minuten
 unit-metres = Meter
 password = Passwort
 password-repeat = Passwort wiederholen
+password-show = Passwort anzeigen
 password-generate = Ein Passwort für jemand anderen erstellen
 password-generate-detail = Wenn Sie auf „Abschließen“ drücken, erstellt Iqal ein Passwort und zeigt es einmal an. Geben Sie es jemandem, dem Sie vertrauen.
 password-mismatch = Die Passwörter sind leer oder stimmen nicht überein.
@@ -195,7 +196,7 @@ unlock-title = Entsperren
 unlock-type-text = Tippen Sie diesen Text genau ab (Einfügen ist nicht möglich):
 unlock-enter-password = Passwort des Schlosses eingeben:
 unlocked = Entsperrt
-unlocked-detail = Die Sperre kann wieder geändert werden.
+unlocked-detail = Die Sperre ist jetzt aus. Sie können sie ändern oder wieder einschalten.
 unlock-pending = Entsperren gestartet
 
 map-title = Bereich wählen

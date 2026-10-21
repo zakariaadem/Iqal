@@ -9,7 +9,7 @@ use iqal_core::{GeoArea, Lock, LockKind, PasswordHash, SetId};
 use iqal_i18n::{t, ta};
 use iqal_ipc::{ChallengeInfo, Request, Response, UnlockInfo};
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, SYSTEMTIME, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{CreateFontW, DeleteObject, FW_NORMAL};
+use windows_sys::Win32::Graphics::Gdi::{CreateFontW, DeleteObject, FW_NORMAL, InvalidateRect};
 use windows_sys::Win32::UI::Controls::{BST_CHECKED, DTM_GETSYSTEMTIME, DTS_SHORTDATEFORMAT};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{EnableWindow, SetFocus};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
@@ -27,6 +27,8 @@ use crate::{dialog, win};
 
 const SS_LABEL: u32 = 0x2000 | 0x0200;
 const EM_SETCUEBANNER: u32 = 0x1501;
+const EM_SETPASSWORDCHAR: u32 = 0x00CC;
+const EM_GETPASSWORDCHAR: u32 = 0x00D2;
 
 const KINDS: [&str; 7] = [
     "lock-kind-duration",
@@ -188,22 +190,25 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
         let cue = win::wide(&t(key));
         win::send(edit, EM_SETCUEBANNER, 1, cue.as_ptr() as isize);
     }
+    let show = show_password_box(page, &[p1, p2]);
     let generate = page.control("BUTTON", &t("password-generate"), WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
     panel::on(generate, move |code| {
         if code == BN_CLICKED {
             // Iqal makes the password: nothing to type.
             let typed = i32::from(!checked(generate));
-            // SAFETY: our edit boxes.
+            // SAFETY: our edit boxes and check box.
             unsafe {
                 EnableWindow(p1, typed);
                 EnableWindow(p2, typed);
+                EnableWindow(show, typed);
             }
         }
     });
     let generate_note = page.note(&t("password-generate-detail"));
-    sections[2].extend([p1, p2, generate, generate_note]);
+    sections[2].extend([p1, p2, show, generate, generate_note]);
     items.push(Item::Full { hwnd: p1, height: panel::ROW });
     items.push(Item::Full { hwnd: p2, height: panel::ROW });
+    items.push(Item::Full { hwnd: show, height: 26 });
     items.push(Item::Full { hwnd: generate, height: 26 });
     items.push(Item::Text(generate_note));
 
@@ -413,6 +418,25 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
     });
 }
 
+/// A "Show password" check box for password boxes: shows what was typed
+/// instead of dots while it is ticked.
+fn show_password_box(page: Panel, boxes: &[HWND]) -> HWND {
+    let show = page.control("BUTTON", &t("password-show"), WS_TABSTOP | BS_AUTOCHECKBOX as u32, 0);
+    // The dot each box shows, to put back (Windows' own, not a fixed one).
+    let dots: Vec<(HWND, usize)> = boxes.iter().map(|&b| (b, win::send(b, EM_GETPASSWORDCHAR, 0, 0) as usize)).collect();
+    panel::on(show, move |code| {
+        if code == BN_CLICKED {
+            let visible = checked(show);
+            for &(b, dot) in &dots {
+                win::send(b, EM_SETPASSWORDCHAR, if visible { 0 } else { dot }, 0);
+                // SAFETY: our edit box.
+                unsafe { InvalidateRect(b, std::ptr::null(), 1) };
+            }
+        }
+    });
+    show
+}
+
 /// Asks the service how the lock opens early, and asks for the answer.
 pub fn start_unlock(id: SetId) {
     let owner = ui::main_window();
@@ -463,6 +487,9 @@ fn answer_dialog(id: SetId, text: Option<String>) {
             }
         };
         items.push(Item::Full { hwnd: entry, height: panel::ROW });
+        if !is_text {
+            items.push(Item::Full { hwnd: show_password_box(page, &[entry]), height: 26 });
+        }
         let spacer = page.control("STATIC", "", 0, 0);
         let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
         let ok = page.control("BUTTON", &t("action-unlock"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);

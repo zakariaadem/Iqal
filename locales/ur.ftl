@@ -172,6 +172,7 @@ unit-minutes = منٹ
 unit-metres = میٹر
 password = پاس ورڈ
 password-repeat = پاس ورڈ دوبارہ لکھیں
+password-show = پاس ورڈ دکھائیں
 password-generate = کسی اور کے پاس رکھنے کے لیے پاس ورڈ بنائیں
 password-generate-detail = جب آپ «تالا لگائیں» دبائیں گے تو عِقال ایک پاس ورڈ بنائے گا اور اسے ایک بار دکھائے گا۔ اسے کسی قابلِ اعتماد شخص کو دے دیں۔
 password-mismatch = پاس ورڈ خالی ہیں یا آپس میں نہیں ملتے۔
@@ -195,7 +196,7 @@ unlock-title = تالا کھولیں
 unlock-type-text = یہ متن بالکل اسی طرح لکھیں (چسپاں کرنا ممکن نہیں):
 unlock-enter-password = تالے کا پاس ورڈ درج کریں:
 unlocked = تالا کھل گیا
-unlocked-detail = بلاک کو دوبارہ بدلا جا سکتا ہے۔
+unlocked-detail = بلاک اب بند ہے۔ آپ اسے بدل سکتے ہیں یا دوبارہ آن کر سکتے ہیں۔
 unlock-pending = تالا کھلنا شروع ہو گیا
 
 map-title = علاقہ منتخب کریں

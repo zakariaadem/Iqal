@@ -174,6 +174,7 @@ unit-minutes = минут
 unit-metres = метров
 password = Пароль
 password-repeat = Повторите пароль
+password-show = Показать пароль
 password-generate = Создать пароль, который будет хранить другой человек
 password-generate-detail = Когда вы нажмёте «Запереть», Iqal создаст пароль и покажет его один раз. Отдайте его тому, кому доверяете.
 password-mismatch = Пароли пусты или не совпадают.
@@ -197,7 +198,7 @@ unlock-title = Разблокировать
 unlock-type-text = Введите этот текст точно (вставка невозможна):
 unlock-enter-password = Введите пароль замка:
 unlocked = Разблокировано
-unlocked-detail = Блок снова можно изменять.
+unlocked-detail = Блок выключен. Его можно изменить или снова включить.
 unlock-pending = Разблокировка начата
 
 map-title = Выбор области

@@ -172,6 +172,7 @@ unit-minutes = minutes
 unit-metres = mètres
 password = Mot de passe
 password-repeat = Répétez le mot de passe
+password-show = Afficher le mot de passe
 password-generate = Créer un mot de passe que quelqu’un d’autre gardera
 password-generate-detail = Quand vous appuyez sur « Verrouiller », Iqal crée un mot de passe et l’affiche une seule fois. Donnez-le à quelqu’un de confiance.
 password-mismatch = Les mots de passe sont vides ou ne correspondent pas.
@@ -195,7 +196,7 @@ unlock-title = Déverrouiller
 unlock-type-text = Tapez ce texte exactement (le collage est impossible) :
 unlock-enter-password = Saisissez le mot de passe du verrou :
 unlocked = Déverrouillé
-unlocked-detail = Le bloc peut de nouveau être modifié.
+unlocked-detail = Le bloc est désactivé. Vous pouvez le modifier ou le réactiver.
 unlock-pending = Déverrouillage lancé
 
 map-title = Choisir la zone

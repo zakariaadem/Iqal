@@ -172,6 +172,7 @@ unit-minutes = dakika
 unit-metres = metre
 password = Parola
 password-repeat = Parolayı tekrarlayın
+password-show = Parolayı göster
 password-generate = Başka birinin saklayacağı bir parola oluştur
 password-generate-detail = Kilitle'ye bastığınızda Iqal bir parola oluşturur ve bir kez gösterir. Güvendiğiniz birine verin.
 password-mismatch = Parolalar boş ya da eşleşmiyor.
@@ -195,7 +196,7 @@ unlock-title = Kilidi aç
 unlock-type-text = Bu metni aynen yazın (yapıştırma mümkün değil):
 unlock-enter-password = Kilit parolasını girin:
 unlocked = Kilit açıldı
-unlocked-detail = Engel yeniden değiştirilebilir.
+unlocked-detail = Engel artık kapalı. Değiştirebilir veya yeniden açabilirsiniz.
 unlock-pending = Kilit açma başladı
 
 map-title = Alanı seçin

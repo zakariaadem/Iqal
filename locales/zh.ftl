@@ -169,6 +169,7 @@ unit-minutes = 分钟
 unit-metres = 米
 password = 密码
 password-repeat = 再次输入密码
+password-show = 显示密码
 password-generate = 生成一个由别人保管的密码
 password-generate-detail = 当你按下“上锁”时，Iqal 会生成一个密码并只显示一次。请把它交给你信任的人。
 password-mismatch = 密码为空或两次不一致。
@@ -192,7 +193,7 @@ unlock-title = 解锁
 unlock-type-text = 请准确输入这段文字（无法粘贴）：
 unlock-enter-password = 输入锁的密码：
 unlocked = 已解锁
-unlocked-detail = 现在可以再次更改此拦截组。
+unlocked-detail = 拦截组现已关闭。你可以更改它或重新开启。
 unlock-pending = 已开始解锁
 
 map-title = 选择区域
