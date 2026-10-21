@@ -47,6 +47,7 @@ use crate::menu;
 use crate::editor::{self, Editor};
 use crate::panel;
 use crate::theme;
+use crate::timing;
 use crate::win::{self, Fonts, scale};
 
 const CLASS: &str = "IqalMainWindow";
@@ -350,6 +351,7 @@ pub fn rebuild_later() {
 
 /// Replaces the editor with one for the selected block (as drafted).
 fn rebuild_editor() {
+    let timer = timing::start();
     let Some((hwnd, old, area, show)) = with_app(|app| {
         let show = app.error.is_none() && app.sets.iter().any(|s| Some(s.set.id) == app.selected);
         (app.hwnd, app.editor.take(), editor_rect(app), show)
@@ -367,6 +369,21 @@ fn rebuild_editor() {
         }
         if let Some(old) = old {
             DestroyWindow(old.root.hwnd);
+        }
+    }
+    if timer.is_some() {
+        // Measured until painted: the first time, since the program started.
+        if let Some(new) = &new {
+            // SAFETY: our panel.
+            unsafe { windows_sys::Win32::Graphics::Gdi::UpdateWindow(new.root.hwnd) };
+        }
+        static FIRST: std::sync::Once = std::sync::Once::new();
+        let mut first = false;
+        FIRST.call_once(|| first = true);
+        if first {
+            timing::record("open", timing::program_start());
+        } else {
+            timing::record("tab", timer);
         }
     }
     let placeholder = new.is_none();

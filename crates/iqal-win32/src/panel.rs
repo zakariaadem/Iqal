@@ -458,6 +458,7 @@ fn place(
 /// whole, no control is redrawn); only the strip that comes into view is
 /// drawn.
 fn scroll(panel: HWND, to: i32) {
+    let timer = crate::timing::start();
     let page = win::client_rect(panel).bottom;
     let Some((before, after)) = with_state(panel, |s| {
         let before = s.offset;
@@ -493,6 +494,7 @@ fn scroll(panel: HWND, to: i32) {
         SetScrollInfo(panel, SB_VERT, &info, 1);
         UpdateWindow(panel);
     }
+    crate::timing::record("scroll", timer);
 }
 
 fn current_offset(panel: HWND) -> i32 {

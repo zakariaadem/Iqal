@@ -80,6 +80,7 @@ impl Closer {
 /// Shows a dialog of `size` (pixels at 96 DPI, client area) over `owner`
 /// and returns when it is closed. `build` fills its panel.
 pub fn run(owner: HWND, title: &str, size: (i32, i32), build: impl FnOnce(Panel, Closer)) {
+    let timer = crate::timing::start();
     register_class();
     let class = win::wide(CLASS);
     let title = win::wide(title);
@@ -125,6 +126,10 @@ pub fn run(owner: HWND, title: &str, size: (i32, i32), build: impl FnOnce(Panel,
     unsafe {
         EnableWindow(owner, 0);
         ShowWindow(hwnd, SW_SHOW);
+        if timer.is_some() {
+            windows_sys::Win32::Graphics::Gdi::UpdateWindow(hwnd);
+            crate::timing::record("dialog", timer);
+        }
         let mut msg: MSG = std::mem::zeroed();
         // `closed` also catches a close handled while another dialog (a
         // message shown on top) was running its own loop.
