@@ -22,7 +22,7 @@ use iqal_i18n::{t, ta};
 use iqal_ipc::{ListSummary, Request, Response, SetInfo, Status};
 use windows_sys::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS,
+    BeginPaint, COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOWTEXT, DT_END_ELLIPSIS,
     DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE, DT_WORDBREAK, DrawTextW, EndPaint, FillRect,
     HDC, HFONT, InvalidateRect, PAINTSTRUCT, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
@@ -37,7 +37,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     LB_SETITEMHEIGHT, LBN_SELCHANGE, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY, LBS_OWNERDRAWFIXED, LoadCursorW, MINMAXINFO,
     MSG, PostMessageW, PostQuitMessage, RegisterClassExW, SW_RESTORE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE,
     SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, HWND_TOP, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
-    WM_COMMAND, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_ERASEBKGND, WM_SETTINGCHANGE, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
+    WM_COMMAND, WM_CTLCOLORBTN, WM_NOTIFY, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DPICHANGED, WM_DRAWITEM, WM_ERASEBKGND, WM_SETTINGCHANGE, WM_GETMINMAXINFO, WM_KEYDOWN, WM_PAINT, WM_SIZE, WM_TIMER,
     BN_CLICKED, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CLIENTEDGE, WS_EX_LAYOUTRTL, WS_OVERLAPPEDWINDOW, WS_TABSTOP,
     WS_VISIBLE, WS_VSCROLL,
 };
@@ -211,6 +211,8 @@ fn build(hwnd: HWND) {
     let status = win::child(hwnd, "msctls_statusbar32", "", WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, ID_STATUS);
     let new_button = win::child(hwnd, "BUTTON", &t("action-new-block"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, ID_NEW);
     let menu_button = win::child(hwnd, "BUTTON", &t("menu"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, ID_MENU);
+    theme::style_button(new_button, Some(theme::Icon::Add), theme::Look::Main);
+    theme::style_button(menu_button, Some(theme::Icon::Menu), theme::Look::Plain);
     for control in [list, status, new_button, menu_button] {
         fonts.apply(control);
     }
@@ -667,7 +669,7 @@ fn layout(hwnd: HWND) {
     let row = scale(panel::ROW, dpi);
     let width = scale(LIST_WIDTH, dpi);
     // "New block" and "Menu" share the row above the list.
-    let menu_width = scale(panel::text_width(&t("menu")) * 96 / dpi.max(1) as i32 + 32, dpi);
+    let menu_width = scale(theme::button_width(&t("menu"), true), dpi);
     // SAFETY: our child windows.
     unsafe {
         SetWindowPos(new_button, std::ptr::null_mut(), m, m, width - menu_width - m / 2, row, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -770,7 +772,7 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
         let (back, fore, dim) = if selected {
             (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_HIGHLIGHTTEXT)
         } else {
-            (COLOR_WINDOW, COLOR_WINDOWTEXT, COLOR_GRAYTEXT)
+            (theme::LIST, COLOR_WINDOWTEXT, COLOR_GRAYTEXT)
         };
         let hdc = item.hDC;
         let pad = scale(8, app.dpi);
@@ -899,6 +901,19 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 theme::init();
                 if theme::is_dark() != was {
                     theme::apply_everywhere();
+                }
+            }
+            // SAFETY: default handling.
+            unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+        }
+        WM_NOTIFY => {
+            // SAFETY: for WM_NOTIFY, lparam points to an NMHDR.
+            let header = unsafe { &*(lparam as *const windows_sys::Win32::UI::Controls::NMHDR) };
+            if header.code == windows_sys::Win32::UI::Controls::NM_CUSTOMDRAW {
+                // SAFETY: for NM_CUSTOMDRAW from a button, lparam points to an NMCUSTOMDRAW.
+                let draw = unsafe { &*(lparam as *const windows_sys::Win32::UI::Controls::NMCUSTOMDRAW) };
+                if let Some(result) = theme::custom_draw(draw) {
+                    return result;
                 }
             }
             // SAFETY: default handling.

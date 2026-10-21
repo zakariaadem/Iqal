@@ -33,10 +33,10 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SetWindowPos, WS_CLIPSIBLINGS, WS_EX_CLIENTEDGE, WS_GROUP, WS_TABSTOP, WS_VSCROLL,
 };
 
-use crate::panel::{self, Item, Panel, Width, button_width};
+use crate::panel::{self, Item, Panel, Width, width_of};
 use crate::{lockui, rules};
 use crate::ui::{self, View};
-use crate::{dialog, win};
+use crate::{dialog, theme, win};
 
 /// Static texts centred vertically (single line), without & shortcuts.
 const SS_LABEL: u32 = 0x2000 | 0x0200;
@@ -107,7 +107,9 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
     // The save bar, shown while there are unsaved changes.
     let unsaved = root.control("STATIC", &t("unsaved-changes"), SS_LABEL, 0);
     let discard = root.control("BUTTON", &t("action-discard"), WS_TABSTOP, 0);
+    theme::style_button(discard, Some(theme::Icon::Discard), theme::Look::Plain);
     let save = root.control("BUTTON", &t("action-save"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+    theme::style_button(save, Some(theme::Icon::Save), theme::Look::Main);
     panel::on(discard, |code| {
         if code == BN_CLICKED {
             ui::discard();
@@ -121,8 +123,8 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
     items.push(Item::Row {
         cells: vec![
             (unsaved, Width::Flex),
-            (discard, button_width(&t("action-discard"))),
-            (save, button_width(&t("action-save"))),
+            (discard, width_of(discard)),
+            (save, width_of(save)),
         ],
         height: panel::ROW,
     });
@@ -164,6 +166,7 @@ fn header(root: Panel, view: &View) -> Vec<Item> {
     // Lock, or unlock while locked (the same as on the Lock tab).
     let lock_text = t(if view.info.locked { "action-unlock" } else { "action-lock" });
     let lock = root.control("BUTTON", &lock_text, WS_TABSTOP, 0);
+    theme::style_button(lock, Some(if view.info.locked { theme::Icon::Unlock } else { theme::Icon::Lock }), theme::Look::Main);
     let (locked, id) = (view.info.locked, view.set.id);
     panel::on(lock, move |code| {
         if code == BN_CLICKED {
@@ -175,12 +178,14 @@ fn header(root: Panel, view: &View) -> Vec<Item> {
         }
     });
     let export = root.control("BUTTON", &t("action-export-block"), WS_TABSTOP, 0);
+    theme::style_button(export, Some(theme::Icon::Export), theme::Look::Plain);
     panel::on(export, move |code| {
         if code == BN_CLICKED {
             crate::menu::export(Some(vec![id]));
         }
     });
     let delete = root.control("BUTTON", &t("action-delete-block"), WS_TABSTOP, 0);
+    theme::style_button(delete, Some(theme::Icon::Delete), theme::Look::Quiet);
     // SAFETY: our button.
     unsafe { EnableWindow(delete, i32::from(!view.info.locked)) };
     panel::on(delete, |code| {
@@ -194,9 +199,9 @@ fn header(root: Panel, view: &View) -> Vec<Item> {
         cells: vec![
             (name, Width::Flex),
             (enabled, Width::Dip(switch_width)),
-            (lock, button_width(&lock_text)),
-            (export, button_width(&t("action-export-block"))),
-            (delete, button_width(&t("action-delete-block"))),
+            (lock, width_of(lock)),
+            (export, width_of(export)),
+            (delete, width_of(delete)),
         ],
         height: panel::ROW,
     }]
@@ -208,10 +213,9 @@ pub fn min_width() -> i32 {
     const NAME: i32 = 140;
     const MARGINS: i32 = 2 * 16;
     const GAP: i32 = 8;
-    let width = |w: Width| if let Width::Dip(d) = w { d } else { 0 };
     let switch = ["block-switch-on", "block-switch-off"].map(|k| crate::theme::switch_width(&t(k))).into_iter().max().unwrap_or(0);
-    let lock = ["action-lock", "action-unlock"].map(|k| width(button_width(&t(k)))).into_iter().max().unwrap_or(0);
-    let buttons = width(button_width(&t("action-export-block"))) + width(button_width(&t("action-delete-block")));
+    let lock = ["action-lock", "action-unlock"].map(|k| crate::theme::button_width(&t(k), true)).into_iter().max().unwrap_or(0);
+    let buttons = crate::theme::button_width(&t("action-export-block"), true) + crate::theme::button_width(&t("action-delete-block"), true);
     MARGINS + NAME + switch + lock + buttons + 4 * GAP
 }
 
@@ -272,6 +276,7 @@ fn websites(page: Panel, view: &View) {
             .map(|l| (t(&format!("list-{}", l.id)), ui::list_rules(l)))
             .collect();
         let import = page.control("BUTTON", &t("action-import-text"), WS_TABSTOP, 0);
+        theme::style_button(import, Some(theme::Icon::Import), theme::Look::Plain);
         let blocked = rules::editor(page, ListKey::WebBlock, &t("add-websites"), &t("web-blocked"), &examples, &chosen, &[import]);
         let add = blocked.add.clone();
         panel::on(import, move |code| {
@@ -334,8 +339,11 @@ fn apps(page: Panel, view: &View) {
     };
     for &(key, add_title, title) in lists {
         let installed = page.control("BUTTON", &t("action-add-installed-app"), WS_TABSTOP, 0);
+        theme::style_button(installed, Some(theme::Icon::Apps), theme::Look::Plain);
         let file = page.control("BUTTON", &t("action-add-program-file"), WS_TABSTOP, 0);
+        theme::style_button(file, Some(theme::Icon::File), theme::Look::Plain);
         let window = page.control("BUTTON", &t("action-add-window-title"), WS_TABSTOP, 0);
+        theme::style_button(window, Some(theme::Icon::Window), theme::Look::Plain);
         let editor = rules::editor(page, key, &t(add_title), &t(title), &examples, &[], &[installed, file, window]);
         {
             let add = editor.add.clone();
@@ -469,6 +477,7 @@ fn times(page: Panel, view: &View) {
                 win::send(list, LB_ADDSTRING, 0, text.as_ptr() as isize);
             }
             let remove = page.control("BUTTON", &t("action-remove"), WS_TABSTOP, 0);
+            theme::style_button(remove, Some(theme::Icon::Remove), theme::Look::Plain);
             let weekly_len = schedule.weekly.len();
             panel::on(remove, move |code| {
                 if code != BN_CLICKED {
@@ -486,7 +495,7 @@ fn times(page: Panel, view: &View) {
                 });
             });
             items.push(Item::Full { hwnd: list, height: (lines.len() as i32 * 22 + 8).min(160) });
-            items.push(Item::Row { cells: vec![(remove, button_width(&t("action-remove")))], height: panel::ROW });
+            items.push(Item::Row { cells: vec![(remove, width_of(remove))], height: panel::ROW });
         }
 
         // A one-off period: "2026-10-20 08:00 2026-10-22 18:00".
@@ -494,6 +503,7 @@ fn times(page: Panel, view: &View) {
         let cue = win::wide(&t("schedule-date-placeholder"));
         win::send(period, EM_SETCUEBANNER, 1, cue.as_ptr() as isize);
         let add_period = page.control("BUTTON", &t("action-add"), WS_TABSTOP, 0);
+        theme::style_button(add_period, Some(theme::Icon::Add), theme::Look::Plain);
         panel::on(add_period, move |code| {
             if code != BN_CLICKED {
                 return;
@@ -514,7 +524,7 @@ fn times(page: Panel, view: &View) {
             }
         });
         items.push(Item::Row {
-            cells: vec![(period, Width::Flex), (add_period, button_width(&t("action-add")))],
+            cells: vec![(period, Width::Flex), (add_period, width_of(add_period))],
             height: panel::ROW,
         });
 
@@ -524,6 +534,7 @@ fn times(page: Panel, view: &View) {
         let (picker, picked) = weekly_picker(page);
         items.extend(picker);
         let add_times = page.control("BUTTON", &t("action-add-times"), WS_TABSTOP, 0);
+        theme::style_button(add_times, Some(theme::Icon::Add), theme::Look::Plain);
         panel::on(add_times, move |code| {
             if code != BN_CLICKED {
                 return;
@@ -533,7 +544,7 @@ fn times(page: Panel, view: &View) {
                 None => dialog::message(ui::main_window(), dialog::Icon::Warning, &t("schedule-no-days"), ""),
             }
         });
-        items.push(Item::Row { cells: vec![(add_times, button_width(&t("action-add-times")))], height: panel::ROW });
+        items.push(Item::Row { cells: vec![(add_times, width_of(add_times))], height: panel::ROW });
     }
     // The daily allowance.
     items.push(Item::Space(16));

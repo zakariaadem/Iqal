@@ -236,10 +236,11 @@ pub fn text_width(text: &str) -> i32 {
     size.cx
 }
 
-/// A button width that fits its text, in pixels at 96 DPI.
-pub fn button_width(text: &str) -> Width {
-    Width::Dip(text_width(text) * 96 / dpi().max(1) as i32 + 32)
+/// The width a button needs for its text and icon, for a row.
+pub fn width_of(button: HWND) -> Width {
+    Width::Dip(theme::button_width(&win::text(button), theme::has_icon(button)))
 }
+
 
 fn with_state<R>(panel: HWND, f: impl FnOnce(&mut PanelState) -> R) -> Option<R> {
     PANELS.with(|p| p.borrow_mut().get_mut(&(panel as isize)).map(f))
@@ -310,14 +311,26 @@ fn layout(panel: HWND) {
     // Controls already in place are left alone, so nothing is redrawn
     // without need.
     let mut resized = HashSet::new();
+    // Outlines drawn by this panel around moved controls: where they were.
+    let mut old_outlines = Vec::new();
     let moves: Vec<Move> = moves
         .into_iter()
-        .filter(|&(hwnd, x, y, w, h)| match place_of(panel, hwnd) {
-            Some((px, py, pw, ph)) if (pw, ph) == (w.max(0), h.max(0)) => (px, py) != (x, y),
-            _ => {
-                resized.insert(hwnd as isize);
-                true
+        .filter(|&(hwnd, x, y, w, h)| {
+            let place = place_of(panel, hwnd);
+            let moved = match place {
+                Some((px, py, pw, ph)) if (pw, ph) == (w.max(0), h.max(0)) => (px, py) != (x, y),
+                _ => {
+                    resized.insert(hwnd as isize);
+                    true
+                }
+            };
+            if moved && theme::outlined(hwnd) {
+                if let Some((px, py, pw, ph)) = place {
+                    old_outlines.push(RECT { left: px - 1, top: py - 1, right: px + pw + 1, bottom: py + ph + 1 });
+                }
+                old_outlines.push(RECT { left: x - 1, top: y - 1, right: x + w.max(0) + 1, bottom: y + h.max(0) + 1 });
             }
+            moved
         })
         .collect();
     // SAFETY: our child controls; the handle is given back by every call.
@@ -337,6 +350,11 @@ fn layout(panel: HWND) {
         // fits; texts must be wrapped anew, so resized controls are redrawn.
         for &(hwnd, ..) in moves.iter().filter(|m| resized.contains(&(m.0 as isize))) {
             InvalidateRect(hwnd, std::ptr::null(), 1);
+        }
+        // The panel draws the outlines (with its background): the old line
+        // goes, the new one comes.
+        for r in &old_outlines {
+            InvalidateRect(panel, r, 1);
         }
     }
     if scrolls {

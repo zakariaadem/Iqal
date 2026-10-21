@@ -15,7 +15,7 @@ use iqal_app::draft::ListKey;
 use iqal_i18n::{t, ta};
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
-    COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
+    COLOR_GRAYTEXT, COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
     DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, InvalidateRect,
     SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
@@ -26,7 +26,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     LBS_OWNERDRAWFIXED, WS_EX_CLIENTEDGE, WS_TABSTOP, WS_VSCROLL,
 };
 
-use crate::panel::{self, Item, Panel, button_width};
+use crate::panel::{self, Item, Panel, width_of};
 use crate::ui;
 use crate::win::{self, scale};
 
@@ -106,6 +106,7 @@ pub fn editor(
     let hint = page.note(&ta("list-empty-hint", &[("examples", examples.to_string().into())]));
     let problem = page.control("STATIC", "", 0x2000, 0);
     let add_button = page.control("BUTTON", &t("action-add"), WS_TABSTOP, 0);
+    crate::theme::style_button(add_button, Some(crate::theme::Icon::Add), crate::theme::Look::Plain);
 
     // Right: the list.
     let list_heading = page.heading(list_title);
@@ -121,6 +122,7 @@ pub fn editor(
     win::send(list, LB_SETITEMHEIGHT, 0, scale(LINE_HEIGHT, panel::dpi()) as isize);
     win::send(list, LB_SETCOUNT, state.borrow().shown.len(), 0);
     let remove = page.control("BUTTON", &t("action-remove"), WS_TABSTOP, 0);
+    crate::theme::style_button(remove, Some(crate::theme::Icon::Remove), crate::theme::Look::Plain);
 
     // Shows the current rows again.
     let reshow = {
@@ -240,12 +242,12 @@ pub fn editor(
         Item::Full { hwnd: add_heading, height: 22 },
         Item::Full { hwnd: input, height: BOX_HEIGHT },
         Item::Text(problem),
-        Item::Row { cells: vec![(add_button, button_width(&t("action-add")))], height: panel::ROW },
+        Item::Row { cells: vec![(add_button, width_of(add_button))], height: panel::ROW },
     ];
     // More ways to add on a row of their own: next to Add they would not fit.
     // Two to a row, so they fit a narrow column.
     for pair in extra.chunks(2) {
-        left.push(Item::Row { cells: pair.iter().map(|&b| (b, button_width(&win::text(b)))).collect(), height: panel::ROW });
+        left.push(Item::Row { cells: pair.iter().map(|&b| (b, width_of(b))).collect(), height: panel::ROW });
     }
     left.push(Item::Text(hint));
     let items = vec![Item::Columns {
@@ -254,7 +256,7 @@ pub fn editor(
             Item::Full { hwnd: list_heading, height: 22 },
             Item::Full { hwnd: search, height: panel::ROW },
             Item::Full { hwnd: list, height: BOX_HEIGHT - panel::ROW - 8 },
-            Item::Row { cells: vec![(remove, button_width(&t("action-remove")))], height: panel::ROW },
+            Item::Row { cells: vec![(remove, width_of(remove))], height: panel::ROW },
         ],
     }];
     RuleEditor { items, add }
@@ -274,8 +276,8 @@ fn draw(state: &State, item: &DRAWITEMSTRUCT) {
     let selected = item.itemState & ODS_SELECTED != 0;
     let (back, fore) = match (selected, from_list) {
         (true, _) => (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT),
-        (false, true) => (COLOR_WINDOW, COLOR_GRAYTEXT),
-        (false, false) => (COLOR_WINDOW, COLOR_WINDOWTEXT),
+        (false, true) => (crate::theme::LIST, COLOR_GRAYTEXT),
+        (false, false) => (crate::theme::LIST, COLOR_WINDOWTEXT),
     };
     let Some(fonts) = panel::fonts() else { return };
     let pad = scale(6, panel::dpi());

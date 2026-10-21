@@ -7,7 +7,7 @@ use iqal_i18n::{LANGUAGES, t, ta};
 use iqal_ipc::{BlockEvent, EventKind, Request, Response};
 use windows_sys::Win32::Foundation::{HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
-    COLOR_GRAYTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE,
+    COLOR_GRAYTEXT, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX, DT_RTLREADING, DT_SINGLELINE,
     DrawTextW, FillRect, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::UI::Controls::DRAWITEMSTRUCT;
@@ -21,7 +21,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 
 use crate::editor::open_file;
 use crate::modal::{self, Closer};
-use crate::panel::{self, Item, Panel, Width, button_width};
+use crate::panel::{self, Item, Panel, Width, width_of};
 use crate::win::{self, scale};
 use crate::{dialog, ui};
 
@@ -72,7 +72,7 @@ pub fn new_block() {
             Item::Full { hwnd: name, height: panel::ROW },
             Item::Space(8),
             Item::Row {
-                cells: vec![(spacer, Width::Flex), (cancel, button_width(&t("action-cancel"))), (create, button_width(&t("action-create")))],
+                cells: vec![(spacer, Width::Flex), (cancel, width_of(cancel)), (create, width_of(create))],
                 height: panel::ROW,
             },
         ]);
@@ -106,6 +106,7 @@ fn buttons(page: Panel, main: &str) -> (HWND, HWND, HWND) {
     let spacer = page.control("STATIC", "", 0, 0);
     let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
     let ok = page.control("BUTTON", &t(main), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+    crate::theme::style_button(ok, None, crate::theme::Look::Main);
     (spacer, cancel, ok)
 }
 
@@ -191,7 +192,7 @@ fn activity() {
         let spacer = page.control("STATIC", "", 0, 0);
         let close = page.control("BUTTON", &t("action-close"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
         close_on(close, &closer);
-        items.push(Item::Row { cells: vec![(spacer, Width::Flex), (close, button_width(&t("action-close")))], height: panel::ROW });
+        items.push(Item::Row { cells: vec![(spacer, Width::Flex), (close, width_of(close))], height: panel::ROW });
         page.set_items(items);
     });
 }
@@ -218,7 +219,7 @@ fn draw_event(events: &[BlockEvent], item: &DRAWITEMSTRUCT) {
     let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
     // SAFETY: drawing into the list's DC during WM_DRAWITEM.
     unsafe {
-        FillRect(item.hDC, &item.rcItem, crate::theme::brush(COLOR_WINDOW as i32));
+        FillRect(item.hDC, &item.rcItem, crate::theme::brush(crate::theme::LIST));
         SetBkMode(item.hDC, TRANSPARENT as i32);
         SelectObject(item.hDC, fonts.normal);
         for (i, (text, colour)) in lines.iter().enumerate() {
@@ -309,7 +310,7 @@ fn settings() {
         let close = page.control("BUTTON", &t("action-close"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
         close_on(close, &closer);
         items.push(Item::Space(8));
-        items.push(Item::Row { cells: vec![(spacer, Width::Flex), (close, button_width(&t("action-close")))], height: panel::ROW });
+        items.push(Item::Row { cells: vec![(spacer, Width::Flex), (close, width_of(close))], height: panel::ROW });
         page.set_items(items);
     });
 }

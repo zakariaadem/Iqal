@@ -18,7 +18,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::modal;
-use crate::panel::{self, Item, Width, button_width};
+use crate::panel::{self, Item, Width, width_of};
 use crate::win::{self, wide};
 
 /// Static control showing an icon.
@@ -136,6 +136,9 @@ fn show_own(owner: HWND, icon: Option<Icon>, title: &str, detail: &str, buttons:
         for (i, (id, text)) in buttons.iter().enumerate() {
             let default = if i + 1 == buttons.len() { BS_DEFPUSHBUTTON as u32 } else { 0 };
             let button = page.control("BUTTON", text, WS_TABSTOP | default, 0);
+            if i + 1 == buttons.len() {
+                crate::theme::style_button(button, None, crate::theme::Look::Main);
+            }
             let (id, pressed, closer) = (*id, pressed.clone(), closer.clone());
             panel::on(button, move |code| {
                 if code == BN_CLICKED {
@@ -143,7 +146,7 @@ fn show_own(owner: HWND, icon: Option<Icon>, title: &str, detail: &str, buttons:
                     closer.close();
                 }
             });
-            row.push((button, button_width(text)));
+            row.push((button, width_of(button)));
             if i + 1 == buttons.len() {
                 // SAFETY: our button.
                 unsafe { SetFocus(button) };

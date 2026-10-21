@@ -12,7 +12,7 @@ use iqal_i18n::t;
 use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 use windows_sys::Win32::Graphics::Gdi::{
-    COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
+    COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
     DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, InvalidateRect,
     SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
@@ -33,7 +33,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 use windows_sys::core::{GUID, HRESULT};
 
 use crate::{dialog, modal};
-use crate::panel::{self, Item, Width, button_width};
+use crate::panel::{self, Item, Width, width_of};
 use crate::win::{self, scale};
 
 const LB_SETCOUNT: u32 = 0x01A7;
@@ -331,6 +331,7 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
         win::send(list, LB_SETCOUNT, state.borrow().shown.len(), 0);
         let spacer = page.control("STATIC", "", 0, 0);
         let add = page.control("BUTTON", &t("action-add"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+        crate::theme::style_button(add, Some(crate::theme::Icon::Add), crate::theme::Look::Main);
         let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
 
         {
@@ -399,8 +400,8 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
             Item::Row {
                 cells: vec![
                     (spacer, Width::Flex),
-                    (add, button_width(&t("action-add"))),
-                    (cancel, button_width(&t("action-cancel"))),
+                    (add, width_of(add)),
+                    (cancel, width_of(cancel)),
                 ],
                 height: panel::ROW,
             },
@@ -460,6 +461,7 @@ pub fn pick_title(owner: HWND, on_pick: impl Fn(String) + 'static) {
         }
         let spacer = page.control("STATIC", "", 0, 0);
         let add = page.control("BUTTON", &t("action-add"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+        crate::theme::style_button(add, Some(crate::theme::Icon::Add), crate::theme::Look::Main);
         let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
 
         // Choosing a window puts its title in the box, to be shortened to
@@ -505,7 +507,7 @@ pub fn pick_title(owner: HWND, on_pick: impl Fn(String) + 'static) {
             Item::Full { hwnd: open_heading, height: 22 },
             Item::Full { hwnd: list, height: 300 },
             Item::Row {
-                cells: vec![(spacer, Width::Flex), (add, button_width(&t("action-add"))), (cancel, button_width(&t("action-cancel")))],
+                cells: vec![(spacer, Width::Flex), (add, width_of(add)), (cancel, width_of(cancel))],
                 height: panel::ROW,
             },
         ]);
@@ -532,7 +534,7 @@ fn draw(state: &mut State, item: &DRAWITEMSTRUCT) {
         info.hIcon
     });
     let selected = item.itemState & ODS_SELECTED != 0;
-    let (back, fore) = if selected { (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT) } else { (COLOR_WINDOW, COLOR_WINDOWTEXT) };
+    let (back, fore) = if selected { (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT) } else { (crate::theme::LIST, COLOR_WINDOWTEXT) };
     let dpi = panel::dpi();
     let (pad, size) = (scale(6, dpi), scale(ICON_SIZE, dpi));
     let top = item.rcItem.top + (item.rcItem.bottom - item.rcItem.top - size) / 2;

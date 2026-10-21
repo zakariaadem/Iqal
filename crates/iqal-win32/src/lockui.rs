@@ -21,7 +21,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 
 use crate::editor::{picked_minutes, time_picker, weekly_picker};
 use crate::modal::{self, Closer};
-use crate::panel::{self, Item, Panel, Width, button_width};
+use crate::panel::{self, Item, Panel, Width, width_of};
 use crate::ui::{self, View};
 use crate::{dialog, win};
 
@@ -66,7 +66,7 @@ pub fn page(page: Panel, view: &View) {
                         ui::refresh(true);
                     }
                 });
-                items.push(Item::Row { cells: vec![(cancel, button_width(&t("action-cancel-unlock")))], height: panel::ROW });
+                items.push(Item::Row { cells: vec![(cancel, width_of(cancel))], height: panel::ROW });
             }
             if let LockKind::Location { .. } = lock.kind {
                 if info.place_known {
@@ -82,17 +82,18 @@ pub fn page(page: Panel, view: &View) {
                             ui::refresh(true);
                         }
                     });
-                    items.push(Item::Row { cells: vec![(learn, button_width(&t("action-learn-location")))], height: panel::ROW });
+                    items.push(Item::Row { cells: vec![(learn, width_of(learn))], height: panel::ROW });
                 }
             }
             if info.locked {
                 let unlock = page.control("BUTTON", &t("action-unlock"), WS_TABSTOP, 0);
+                crate::theme::style_button(unlock, Some(crate::theme::Icon::Unlock), crate::theme::Look::Main);
                 panel::on(unlock, move |code| {
                     if code == BN_CLICKED {
                         start_unlock(id);
                     }
                 });
-                items.push(Item::Row { cells: vec![(unlock, button_width(&t("action-unlock")))], height: panel::ROW });
+                items.push(Item::Row { cells: vec![(unlock, width_of(unlock))], height: panel::ROW });
             } else {
                 let remove = page.control("BUTTON", &t("action-remove-lock"), WS_TABSTOP, 0);
                 panel::on(remove, |code| {
@@ -100,20 +101,21 @@ pub fn page(page: Panel, view: &View) {
                         ui::commit(ui::main_window(), |s| s.lock = None);
                     }
                 });
-                items.push(Item::Row { cells: vec![(remove, button_width(&t("action-remove-lock")))], height: panel::ROW });
+                items.push(Item::Row { cells: vec![(remove, width_of(remove))], height: panel::ROW });
             }
         }
     }
     if !info.locked {
         let text = t(if set.lock.is_some() { "action-change-lock" } else { "action-lock" });
         let lock = page.control("BUTTON", &text, WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+        crate::theme::style_button(lock, Some(crate::theme::Icon::Lock), crate::theme::Look::Main);
         panel::on(lock, |code| {
             if code == BN_CLICKED {
                 lock_dialog();
             }
         });
         items.push(Item::Space(8));
-        items.push(Item::Row { cells: vec![(lock, button_width(&text))], height: panel::ROW });
+        items.push(Item::Row { cells: vec![(lock, width_of(lock))], height: panel::ROW });
     }
     page.set_items(items);
 }
@@ -265,9 +267,10 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
     let spacer = page.control("STATIC", "", 0, 0);
     let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
     let ok = page.control("BUTTON", &t("action-lock"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+    crate::theme::style_button(ok, Some(crate::theme::Icon::Lock), crate::theme::Look::Main);
     items.push(Item::Space(8));
     items.push(Item::Row {
-        cells: vec![(spacer, Width::Flex), (cancel, button_width(&t("action-cancel"))), (ok, button_width(&t("action-lock")))],
+        cells: vec![(spacer, Width::Flex), (cancel, width_of(cancel)), (ok, width_of(ok))],
         height: panel::ROW,
     });
     page.set_items(items);
@@ -493,9 +496,10 @@ fn answer_dialog(id: SetId, text: Option<String>) {
         let spacer = page.control("STATIC", "", 0, 0);
         let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
         let ok = page.control("BUTTON", &t("action-unlock"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+        crate::theme::style_button(ok, Some(crate::theme::Icon::Unlock), crate::theme::Look::Main);
         items.push(Item::Space(8));
         items.push(Item::Row {
-            cells: vec![(spacer, Width::Flex), (cancel, button_width(&t("action-cancel"))), (ok, button_width(&t("action-unlock")))],
+            cells: vec![(spacer, Width::Flex), (cancel, width_of(cancel)), (ok, width_of(ok))],
             height: panel::ROW,
         });
         page.set_items(items);

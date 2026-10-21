@@ -24,7 +24,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::modal;
-use crate::panel::{self, Item, button_width};
+use crate::panel::{self, Item, width_of};
 use crate::win::{self, scale};
 use crate::{dialog, ui};
 
@@ -84,7 +84,7 @@ pub fn open() {
         for (i, (days, key)) in PERIODS.iter().enumerate() {
             let group = if i == 0 { WS_GROUP } else { 0 };
             let b = page.control("BUTTON", &t(key), WS_TABSTOP | group | (BS_AUTORADIOBUTTON | BS_PUSHLIKE) as u32, 0);
-            cells.push((b, button_width(&t(key))));
+            cells.push((b, width_of(b)));
             buttons.push((b, *days));
         }
         let class = win::wide(CLASS);
