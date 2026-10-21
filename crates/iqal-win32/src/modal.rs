@@ -9,7 +9,7 @@ use windows_sys::Win32::Graphics::Gdi::HDC;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, GetWindowRect,
-    IDC_ARROW, IsDialogMessageW, IsWindow, LoadCursorW, MSG, PostMessageW, RegisterClassExW, SW_SHOW,
+    IDC_ARROW, IsDialogMessageW, IsWindow, LoadCursorW, MSG, PostMessageW, RegisterClassExW, SW_HIDE, SW_SHOW,
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetForegroundWindow, SetWindowPos, ShowWindow, TranslateMessage, WM_APP, WM_CLOSE,
     WM_ERASEBKGND, WM_KEYDOWN, WM_SIZE, WNDCLASSEXW, WS_CAPTION, WS_CLIPCHILDREN, WS_EX_DLGMODALFRAME, WS_EX_LAYOUTRTL, WS_POPUP,
     WS_SYSMENU,
@@ -23,6 +23,15 @@ const CLASS: &str = "IqalDialog";
 /// Ends the dialog's message loop.
 const WM_DONE: u32 = WM_APP + 2;
 const VK_ESCAPE: usize = 0x1B;
+
+thread_local! {
+    /// Dialogs asked to close whose loop has not ended yet.
+    static CLOSED: std::cell::RefCell<std::collections::HashSet<isize>> = std::cell::RefCell::new(std::collections::HashSet::new());
+}
+
+fn closed(hwnd: HWND) -> bool {
+    CLOSED.with(|c| c.borrow().contains(&(hwnd as isize)))
+}
 
 /// Closes the dialog it was made for.
 #[derive(Clone)]
@@ -117,7 +126,9 @@ pub fn run(owner: HWND, title: &str, size: (i32, i32), build: impl FnOnce(Panel,
         EnableWindow(owner, 0);
         ShowWindow(hwnd, SW_SHOW);
         let mut msg: MSG = std::mem::zeroed();
-        while !done.get() && IsWindow(hwnd) != 0 && GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+        // `closed` also catches a close handled while another dialog (a
+        // message shown on top) was running its own loop.
+        while !done.get() && !closed(hwnd) && IsWindow(hwnd) != 0 && GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
             if msg.hwnd == hwnd && msg.message == WM_DONE {
                 done.set(true);
                 break;
@@ -133,6 +144,7 @@ pub fn run(owner: HWND, title: &str, size: (i32, i32), build: impl FnOnce(Panel,
             }
         }
         EnableWindow(owner, 1);
+        CLOSED.with(|c| c.borrow_mut().remove(&(hwnd as isize)));
         if IsWindow(hwnd) != 0 {
             DestroyWindow(hwnd);
         }
@@ -187,9 +199,15 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         WM_ERASEBKGND => theme::erase(hwnd, wparam as HDC),
         WM_CLOSE => {
-            // Ends the dialog's loop; the window is destroyed after it.
+            // Ends the dialog's loop; the window is destroyed after it. It
+            // disappears at once, even if a message on top keeps its loop
+            // waiting a little longer.
+            CLOSED.with(|c| c.borrow_mut().insert(hwnd as isize));
             // SAFETY: our window.
-            unsafe { PostMessageW(hwnd, WM_DONE, 0, 0) };
+            unsafe {
+                ShowWindow(hwnd, SW_HIDE);
+                PostMessageW(hwnd, WM_DONE, 0, 0);
+            }
             0
         }
         // SAFETY: default handling for everything else.

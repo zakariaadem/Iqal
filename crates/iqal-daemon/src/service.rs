@@ -485,6 +485,7 @@ impl Service {
                     *boot_id = self.boot_id.clone();
                 }
                 let mut inner = self.lock_inner();
+                unredact(&mut set, &inner.config);
                 inner.challenges.remove(&set.id);
                 self.commit(&mut inner, |c| c.upsert_set(set, &ctx))?;
                 Ok(Response::Done)
@@ -649,6 +650,24 @@ fn redact(set: &BlockSet) -> BlockSet {
         *hash = PasswordHash { salt: String::new(), hash: String::new(), m_kib: 0, t: 0, p: 0 };
     }
     s
+}
+
+/// A block sent back by a non-administrator carries the blank password of
+/// `redact`: it means the lock as it is stored. If the lock was opened in
+/// the meantime there is none to keep (a new password lock always comes
+/// with a real hash).
+fn unredact(set: &mut BlockSet, config: &Config) {
+    let Some(Lock { kind: LockKind::Password { hash }, .. }) = &mut set.lock else { return };
+    if !hash.hash.is_empty() {
+        return;
+    }
+    match find(config, set.id).ok().and_then(|s| s.lock.as_ref()) {
+        Some(Lock { kind: LockKind::Password { hash: stored }, .. }) => *hash = stored.clone(),
+        _ => {
+            set.lock = None;
+            set.pending_unlock_at = None;
+        }
+    }
 }
 
 fn core_error(e: CoreError) -> Response {
@@ -836,12 +855,30 @@ mod tests {
         let (svc, dir) = service("editor");
         let editor = Caller { user: "bob".into(), admin: false, editor: true };
         let mut set = BlockSet::new("x");
-        let hash = PasswordHash { salt: "s".into(), hash: "h".into(), m_kib: 8, t: 1, p: 1 };
+        set.enabled = false;
+        let hash = PasswordHash::new("right").unwrap();
         set.lock = Some(Lock { kind: LockKind::Password { hash }, unlock_delay_secs: 0 });
+        let id = set.id;
         assert!(matches!(svc.handle(&editor, Request::UpsertSet { set: Box::new(set) }), Response::Done));
         let Response::Sets { sets } = svc.handle(&editor, Request::ListSets) else { panic!("no sets") };
         let Some(Lock { kind: LockKind::Password { hash }, .. }) = &sets[0].set.lock else { panic!("no lock") };
         assert!(hash.hash.is_empty(), "the stored password must not reach non-administrators");
+
+        // Turning the locked block on sends the blank password back: that
+        // is the lock as it is, not a weaker one.
+        let mut shown = sets[0].set.clone();
+        shown.enabled = true;
+        let r = svc.handle(&editor, Request::UpsertSet { set: Box::new(shown.clone()) });
+        assert!(matches!(r, Response::Done), "{r:?}");
+        // ...and the real password still opens it.
+        let r = svc.handle(&editor, Request::UnlockAnswer { id, answer: "right".into() });
+        assert!(matches!(r, Response::Unlock { outcome: UnlockInfo::Unlocked }), "{r:?}");
+
+        // Saved again after the unlock (unsaved changes kept the lock): the
+        // blank password must not lock the block for good.
+        assert!(matches!(svc.handle(&editor, Request::UpsertSet { set: Box::new(shown) }), Response::Done));
+        let Response::Sets { sets } = svc.handle(&editor, Request::ListSets) else { panic!("no sets") };
+        assert!(sets[0].set.lock.is_none(), "{:?}", sets[0].set.lock);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

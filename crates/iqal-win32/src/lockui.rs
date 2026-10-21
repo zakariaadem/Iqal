@@ -389,8 +389,10 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
             return;
         }
         let mut id = None;
+        // Locking turns the block on: a lock keeps it from being turned off.
         if !ui::commit(owner, |s| {
             id = Some(s.id);
+            s.enabled = true;
             s.lock = Some(lock);
         }) {
             return;
@@ -491,7 +493,12 @@ fn answer_dialog(id: SetId, text: Option<String>) {
                     closer.close();
                     let main = ui::main_window();
                     match outcome {
-                        UnlockInfo::Unlocked => dialog::message(main, dialog::Icon::Info, &t("unlocked"), &t("unlocked-detail")),
+                        UnlockInfo::Unlocked => {
+                            // Unsaved changes still hold the old lock; saving
+                            // them must not put it back.
+                            ui::forget_lock(id);
+                            dialog::message(main, dialog::Icon::Info, &t("unlocked"), &t("unlocked-detail"))
+                        }
                         UnlockInfo::Pending { at } => dialog::message(
                             main,
                             dialog::Icon::Info,

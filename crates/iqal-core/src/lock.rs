@@ -67,6 +67,10 @@ pub fn expire(set: &mut BlockSet, ctx: &LockContext) -> bool {
     let (finished, timer) = match set.lock.as_ref().map(|l| &l.kind) {
         Some(LockKind::Until { until }) => (ctx.now.unix >= *until, true),
         Some(LockKind::UntilRestart { boot_id }) => (boot_id != ctx.boot_id, false),
+        // A password no answer can match (Iqal 0.1.1-0.1.2 could store the
+        // blank stand-in sent to non-administrators): the lock could never
+        // be opened, so it is removed.
+        Some(LockKind::Password { hash }) => (!hash.is_usable(), false),
         _ => (false, false),
     };
     if finished {
@@ -156,6 +160,15 @@ impl PasswordHash {
         random_bytes(&mut salt)?;
         let hash = argon2id(password.as_bytes(), &salt, Self::M_KIB, Self::T, Self::P)?;
         Ok(Self { salt: to_hex(&salt), hash: to_hex(&hash), m_kib: Self::M_KIB, t: Self::T, p: Self::P })
+    }
+
+    /// Whether some password can match this: a real salt and hash, and
+    /// parameters Argon2 accepts. The blank stand-in that non-administrators
+    /// are shown is not.
+    pub fn is_usable(&self) -> bool {
+        from_hex(&self.salt).is_some_and(|s| s.len() >= 8)
+            && from_hex(&self.hash).is_some_and(|h| h.len() == 32)
+            && Params::new(self.m_kib, self.t, self.p, Some(32)).is_ok()
     }
 
     pub fn verify(&self, password: &str) -> bool {
@@ -258,6 +271,8 @@ pub(crate) fn validate_set(set: &BlockSet) -> Result<(), CoreError> {
         match &lock.kind {
             LockKind::Schedule { schedule } => schedule.validate()?,
             LockKind::Location { area } => area.validate()?,
+            // A lock that could never be opened is refused.
+            LockKind::Password { hash } if !hash.is_usable() => return Err(CoreError::Hash),
             _ => {}
         }
     }
@@ -451,6 +466,19 @@ mod tests {
         assert!(s.lock.is_some());
         assert_eq!(try_unlock(&mut s, "correct horse", None, &now(0)).unwrap(), UnlockOutcome::Unlocked);
         assert!(s.lock.is_none());
+    }
+
+    #[test]
+    fn unusable_passwords_are_refused_and_removed() {
+        let blank = PasswordHash { salt: String::new(), hash: String::new(), m_kib: 0, t: 0, p: 0 };
+        assert!(!blank.is_usable());
+        assert!(PasswordHash::new("x").unwrap().is_usable());
+        let mut s = locked_set(LockKind::Password { hash: blank });
+        assert!(matches!(validate_set(&s), Err(CoreError::Hash)));
+        // One already stored (by an older Iqal) can never be opened: removed.
+        assert!(expire(&mut s, &ctx(0)));
+        assert!(s.lock.is_none());
+        assert!(s.enabled, "the block itself stays on");
     }
 
     #[test]
