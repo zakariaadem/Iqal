@@ -243,8 +243,9 @@ pub fn editor(
         Item::Row { cells: vec![(add_button, button_width(&t("action-add")))], height: panel::ROW },
     ];
     // More ways to add on a row of their own: next to Add they would not fit.
-    if !extra.is_empty() {
-        left.push(Item::Row { cells: extra.iter().map(|&b| (b, button_width(&win::text(b)))).collect(), height: panel::ROW });
+    // Two to a row, so they fit a narrow column.
+    for pair in extra.chunks(2) {
+        left.push(Item::Row { cells: pair.iter().map(|&b| (b, button_width(&win::text(b)))).collect(), height: panel::ROW });
     }
     left.push(Item::Text(hint));
     let items = vec![Item::Columns {

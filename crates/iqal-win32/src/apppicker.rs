@@ -9,13 +9,15 @@ use std::path::Path;
 use std::rc::Rc;
 
 use iqal_i18n::t;
-use windows_sys::Win32::Foundation::{HWND, RECT};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows_sys::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 use windows_sys::Win32::Graphics::Gdi::{
     COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOW, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
     DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, InvalidateRect,
     SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoTaskMemFree, CoUninitialize};
+use windows_sys::Win32::System::Threading::GetCurrentProcessId;
 use windows_sys::Win32::UI::Controls::{DRAWITEMSTRUCT, ODS_SELECTED};
 use windows_sys::Win32::UI::Shell::Common::ITEMIDLIST;
 use windows_sys::Win32::UI::Shell::{
@@ -23,13 +25,14 @@ use windows_sys::Win32::UI::Shell::{
     SHGetFileInfoW, SHGetIDListFromObject,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    BN_CLICKED, BS_DEFPUSHBUTTON, DI_NOMIRROR, DI_NORMAL, DestroyIcon, DrawIconEx, EN_CHANGE, ES_AUTOHSCROLL, HICON, LB_GETSELCOUNT,
-    LB_GETSELITEMS, LB_SETITEMHEIGHT, LBN_DBLCLK, LBS_EXTENDEDSEL, LBS_NODATA, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY,
-    LBS_OWNERDRAWFIXED, WS_EX_CLIENTEDGE, WS_TABSTOP, WS_VSCROLL,
+    BN_CLICKED, BS_DEFPUSHBUTTON, DI_NOMIRROR, DI_NORMAL, DestroyIcon, DrawIconEx, EN_CHANGE, ES_AUTOHSCROLL, EnumWindows, GW_OWNER,
+    GWL_EXSTYLE, GetWindow, GetWindowLongW, GetWindowThreadProcessId, HICON, IsWindowVisible, LB_ADDSTRING, LB_GETCURSEL, LB_GETSELCOUNT,
+    LB_GETSELITEMS, LB_SETITEMHEIGHT, LBN_DBLCLK, LBN_SELCHANGE, LBS_EXTENDEDSEL, LBS_NODATA, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY,
+    LBS_OWNERDRAWFIXED, WS_EX_CLIENTEDGE, WS_EX_TOOLWINDOW, WS_TABSTOP, WS_VSCROLL,
 };
 use windows_sys::core::{GUID, HRESULT};
 
-use crate::modal;
+use crate::{dialog, modal};
 use crate::panel::{self, Item, Width, button_width};
 use crate::win::{self, scale};
 
@@ -404,6 +407,110 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
         ]);
         // SAFETY: our search box.
         unsafe { windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus(search) };
+    });
+}
+
+/// The titles of the windows open now on this desktop, as the taskbar
+/// shows them (not hidden, tool or Iqal's own windows), each once.
+fn open_window_titles() -> Vec<String> {
+    unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> i32 {
+        // SAFETY: `data` is the Vec passed below, alive during EnumWindows.
+        let titles = unsafe { &mut *(data as *mut Vec<String>) };
+        // SAFETY: plain queries about a window; out values are ours.
+        unsafe {
+            let mut cloaked = 0u32;
+            DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED as u32, (&raw mut cloaked).cast(), 4);
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            if IsWindowVisible(hwnd) == 0
+                || cloaked != 0
+                || !GetWindow(hwnd, GW_OWNER).is_null()
+                || GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOOLWINDOW != 0
+                || pid == GetCurrentProcessId()
+            {
+                return 1;
+            }
+        }
+        let title = win::text(hwnd).trim().to_string();
+        if !title.is_empty() && title != "Program Manager" && !titles.contains(&title) {
+            titles.push(title);
+        }
+        1
+    }
+    let mut titles: Vec<String> = Vec::new();
+    // SAFETY: the callback only reads windows and adds to `titles`.
+    unsafe { EnumWindows(Some(each), (&raw mut titles) as LPARAM) };
+    titles
+}
+
+/// Asks for words of a window title (typed, or taken from a window open
+/// now); `on_pick` gets the rule that closes such windows.
+pub fn pick_title(owner: HWND, on_pick: impl Fn(String) + 'static) {
+    let titles = Rc::new(open_window_titles());
+    modal::run(owner, &t("action-add-window-title"), (520, 560), move |page, closer| {
+        let intro = page.note(&t("window-title-intro"));
+        let words = page.control("EDIT", "", WS_TABSTOP | ES_AUTOHSCROLL as u32, WS_EX_CLIENTEDGE);
+        let cue = win::wide(&t("window-title-words"));
+        win::send(words, EM_SETCUEBANNER, 1, cue.as_ptr() as isize);
+        let open_heading = page.heading(&t("window-title-open"));
+        let list = page.control("LISTBOX", "", WS_TABSTOP | WS_VSCROLL | (LBS_NOTIFY | LBS_NOINTEGRALHEIGHT) as u32, WS_EX_CLIENTEDGE);
+        for title in titles.iter() {
+            let text = win::wide(title);
+            win::send(list, LB_ADDSTRING, 0, text.as_ptr() as isize);
+        }
+        let spacer = page.control("STATIC", "", 0, 0);
+        let add = page.control("BUTTON", &t("action-add"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+        let cancel = page.control("BUTTON", &t("action-cancel"), WS_TABSTOP, 0);
+
+        // Choosing a window puts its title in the box, to be shortened to
+        // the words that matter.
+        {
+            let titles = titles.clone();
+            panel::on(list, move |code| {
+                if code == LBN_SELCHANGE
+                    && let Some(title) = usize::try_from(win::send(list, LB_GETCURSEL, 0, 0)).ok().and_then(|i| titles.get(i))
+                {
+                    win::set_text(words, title);
+                }
+            });
+        }
+        let on_pick = Rc::new(on_pick);
+        {
+            let closer = closer.clone();
+            panel::on(add, move |code| {
+                if code != BN_CLICKED {
+                    return;
+                }
+                let text = win::text(words).trim().to_string();
+                if text.is_empty() {
+                    dialog::message(closer.hwnd(), dialog::Icon::Warning, &t("window-title-empty"), "");
+                    return;
+                }
+                closer.close();
+                on_pick(format!("title:{text}"));
+            });
+        }
+        {
+            let closer = closer.clone();
+            panel::on(cancel, move |code| {
+                if code == BN_CLICKED {
+                    closer.close();
+                }
+            });
+        }
+        page.set_items(vec![
+            Item::Text(intro),
+            Item::Full { hwnd: words, height: panel::ROW },
+            Item::Space(8),
+            Item::Full { hwnd: open_heading, height: 22 },
+            Item::Full { hwnd: list, height: 300 },
+            Item::Row {
+                cells: vec![(spacer, Width::Flex), (add, button_width(&t("action-add"))), (cancel, button_width(&t("action-cancel")))],
+                height: panel::ROW,
+            },
+        ]);
+        // SAFETY: our text box.
+        unsafe { windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus(words) };
     });
 }
 

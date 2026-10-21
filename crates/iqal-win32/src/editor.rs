@@ -335,7 +335,19 @@ fn apps(page: Panel, view: &View) {
     for &(key, add_title, title) in lists {
         let installed = page.control("BUTTON", &t("action-add-installed-app"), WS_TABSTOP, 0);
         let file = page.control("BUTTON", &t("action-add-program-file"), WS_TABSTOP, 0);
-        let editor = rules::editor(page, key, &t(add_title), &t(title), &examples, &[], &[installed, file]);
+        let window = page.control("BUTTON", &t("action-add-window-title"), WS_TABSTOP, 0);
+        let editor = rules::editor(page, key, &t(add_title), &t(title), &examples, &[], &[installed, file, window]);
+        {
+            let add = editor.add.clone();
+            panel::on(window, move |code| {
+                if code == BN_CLICKED {
+                    let add = add.clone();
+                    crate::apppicker::pick_title(ui::main_window(), move |rule| {
+                        add(vec![rule]);
+                    });
+                }
+            });
+        }
         {
             let add = editor.add.clone();
             panel::on(installed, move |code| {
