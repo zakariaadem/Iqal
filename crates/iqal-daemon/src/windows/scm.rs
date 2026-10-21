@@ -19,8 +19,8 @@ use windows_sys::Win32::System::Services::{
 };
 
 pub const SERVICE_NAME: &str = "Iqal";
-const DISPLAY_NAME: &str = "Iqal";
-const DESCRIPTION: &str = "Blocks the websites and apps chosen in Iqal, and keeps locked blocks in force.";
+const DISPLAY_NAME: &str = "Iqal Blocker";
+const DESCRIPTION: &str = "Blocks the websites and apps chosen in Iqal Blocker, and keeps locked blocks in force.";
 
 /// Windows' answer when a program that is not a service asks to run as one.
 const ERROR_FAILED_SERVICE_CONTROLLER_CONNECT: i32 = 1063;
@@ -224,7 +224,7 @@ pub fn install() -> Result<(), String> {
         let icon = exe.with_file_name("iqal.png");
         std::fs::write(&icon, ICON).map_err(|e| format!("writing {}: {e}", icon.display()))?;
         let icon = icon.display().to_string();
-        super::reg::set(APP_ID_KEY, &[("DisplayName", super::reg::Value::Str("Iqal")), ("IconUri", super::reg::Value::Str(&icon))])
+        super::reg::set(APP_ID_KEY, &[("DisplayName", super::reg::Value::Str("Iqal Blocker")), ("IconUri", super::reg::Value::Str(&icon))])
             .map_err(|e| format!("naming the notifications: {e}"))?;
     }
     Ok(())

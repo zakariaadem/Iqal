@@ -1,6 +1,6 @@
 # Iqal — اردو
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = ویب سائٹ اور ایپ بلاکر
 menu = مینو
 menu-import = بلاک درآمد کریں…
@@ -351,22 +351,22 @@ time-source-system = ہم وقت شدہ سسٹم کا وقت
 time-source-counted = آخری قابلِ اعتماد وقت سے گنا گیا (آف لائن)
 tray-open = عِقال کھولیں
 
-setup-window-title = عِقال کی تنصیب
-setup-install-title = کیا عِقال { $version } انسٹال کریں؟
+setup-window-title = Iqal Blocker کی تنصیب
+setup-install-title = کیا Iqal Blocker { $version } انسٹال کریں؟
 setup-install-detail = عِقال { $folder } میں انسٹال ہوگا۔ یہ پس منظر میں ونڈوز سروس کے طور پر چلتا ہے اور آپ کی چنی ہوئی ویب سائٹس اور ایپس کو بلاک کرتا ہے۔
-setup-update-title = کیا عِقال کو { $version } پر اپ ڈیٹ کریں؟
+setup-update-title = کیا Iqal Blocker کو { $version } پر اپ ڈیٹ کریں؟
 setup-update-detail = آپ کے بلاک محفوظ رہتے ہیں۔
 action-install = انسٹال کریں
 action-update = اپ ڈیٹ کریں
-setup-installed = عِقال انسٹال ہو گیا
-setup-installed-detail = اپنا پہلا بلاک بنانے کے لیے اسٹارٹ مینو سے عِقال کھولیں۔
+setup-installed = Iqal Blocker انسٹال ہو گیا
+setup-installed-detail = اپنا پہلا بلاک بنانے کے لیے اسٹارٹ مینو سے Iqal Blocker کھولیں۔
 setup-failed = عِقال انسٹال نہیں ہو سکا
 setup-locked = عِقال ابھی اپ ڈیٹ نہیں ہو سکتا
 setup-locked-detail = ایک بلاک مقفل ہے۔ اس کا تالا ختم ہونے پر عِقال اپ ڈیٹ ہو سکتا ہے۔
-uninstall-title = کیا عِقال ہٹا دیں؟
+uninstall-title = کیا Iqal Blocker ہٹا دیں؟
 uninstall-detail = سروس، اس کی براؤزر ترتیبات اور پروگرام ہٹا دیے جاتے ہیں۔ آپ کے بلاک { $folder } میں رہتے ہیں، اگر آپ عِقال دوبارہ انسٹال کریں۔
 uninstall-action = ہٹائیں
-uninstall-done = عِقال ہٹا دیا گیا
+uninstall-done = Iqal Blocker ہٹا دیا گیا
 uninstall-failed = عِقال ہٹایا نہیں جا سکا
 uninstall-locked = عِقال ابھی ہٹایا نہیں جا سکتا
 uninstall-locked-detail = ایک بلاک مقفل ہے۔ سب تالے ختم ہونے پر عِقال ہٹایا جا سکتا ہے۔

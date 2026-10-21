@@ -1,6 +1,6 @@
 # Iqal — Français
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Bloqueur de sites web et d’applications
 menu = Menu
 menu-import = Importer des blocs…
@@ -354,22 +354,22 @@ time-source-system = heure système synchronisée
 time-source-counted = comptée depuis la dernière heure fiable (hors ligne)
 tray-open = Ouvrir Iqal
 
-setup-window-title = Installation d’Iqal
-setup-install-title = Installer Iqal { $version } ?
+setup-window-title = Installation d’Iqal Blocker
+setup-install-title = Installer Iqal Blocker { $version } ?
 setup-install-detail = Iqal sera installé dans { $folder }. Il fonctionne en arrière-plan comme service Windows et bloque les sites et les applications que vous choisissez.
-setup-update-title = Mettre Iqal à jour vers { $version } ?
+setup-update-title = Mettre Iqal Blocker à jour vers { $version } ?
 setup-update-detail = Vos blocs sont conservés.
 action-install = Installer
 action-update = Mettre à jour
-setup-installed = Iqal est installé
-setup-installed-detail = Ouvrez Iqal depuis le menu Démarrer pour créer votre premier bloc.
+setup-installed = Iqal Blocker est installé
+setup-installed-detail = Ouvrez Iqal Blocker depuis le menu Démarrer pour créer votre premier bloc.
 setup-failed = Iqal n’a pas pu être installé
 setup-locked = Iqal ne peut pas être mis à jour maintenant
 setup-locked-detail = Un bloc est verrouillé. Iqal pourra être mis à jour quand son verrou aura pris fin.
-uninstall-title = Supprimer Iqal ?
+uninstall-title = Supprimer Iqal Blocker ?
 uninstall-detail = Le service, ses réglages des navigateurs et les programmes sont supprimés. Vos blocs restent dans { $folder }, au cas où vous réinstalleriez Iqal.
 uninstall-action = Supprimer
-uninstall-done = Iqal a été supprimé
+uninstall-done = Iqal Blocker a été supprimé
 uninstall-failed = Iqal n’a pas pu être supprimé
 uninstall-locked = Iqal ne peut pas être supprimé maintenant
 uninstall-locked-detail = Un bloc est verrouillé. Iqal pourra être supprimé quand tous les verrous auront pris fin.

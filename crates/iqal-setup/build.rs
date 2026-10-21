@@ -42,7 +42,7 @@ fn files(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 fn main() {
-    iqal_winres::embed("Iqal setup", "iqal-setup.exe");
+    iqal_winres::embed("Iqal Blocker setup", "iqal-setup.exe");
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
 
     println!("cargo:rerun-if-env-changed=IQAL_SETUP_PAYLOAD");

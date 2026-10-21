@@ -1,6 +1,6 @@
 # Iqal — Bahasa Indonesia
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Pemblokir situs web dan aplikasi
 menu = Menu
 menu-import = Impor blok…
@@ -339,22 +339,22 @@ time-source-system = waktu sistem yang tersinkron
 time-source-counted = dihitung dari waktu tepercaya terakhir (luring)
 tray-open = Buka Iqal
 
-setup-window-title = Pemasangan Iqal
-setup-install-title = Pasang Iqal { $version }?
+setup-window-title = Pemasangan Iqal Blocker
+setup-install-title = Pasang Iqal Blocker { $version }?
 setup-install-detail = Iqal akan dipasang di { $folder }. Iqal berjalan di latar belakang sebagai layanan Windows dan memblokir situs web dan aplikasi yang Anda pilih.
-setup-update-title = Perbarui Iqal ke { $version }?
+setup-update-title = Perbarui Iqal Blocker ke { $version }?
 setup-update-detail = Blok Anda tetap disimpan.
 action-install = Pasang
 action-update = Perbarui
-setup-installed = Iqal sudah terpasang
-setup-installed-detail = Buka Iqal dari menu Start untuk membuat blok pertama Anda.
+setup-installed = Iqal Blocker sudah terpasang
+setup-installed-detail = Buka Iqal Blocker dari menu Start untuk membuat blok pertama Anda.
 setup-failed = Iqal tidak dapat dipasang
 setup-locked = Iqal tidak dapat diperbarui sekarang
 setup-locked-detail = Ada blok yang terkunci. Iqal dapat diperbarui setelah kuncinya berakhir.
-uninstall-title = Hapus Iqal?
+uninstall-title = Hapus Iqal Blocker?
 uninstall-detail = Layanan, pengaturan peramban, dan programnya dihapus. Blok Anda tetap ada di { $folder }, jika Anda memasang Iqal lagi.
 uninstall-action = Hapus
-uninstall-done = Iqal telah dihapus
+uninstall-done = Iqal Blocker telah dihapus
 uninstall-failed = Iqal tidak dapat dihapus
 uninstall-locked = Iqal tidak dapat dihapus sekarang
 uninstall-locked-detail = Ada blok yang terkunci. Iqal dapat dihapus setelah semua kunci berakhir.

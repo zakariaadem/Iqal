@@ -23,7 +23,7 @@ impl Desktop {
             "/org/freedesktop/Notifications",
             Some("org.freedesktop.Notifications"),
             "Notify",
-            &("Iqal", 0u32, "iqal", summary, body, actions, hints, 6000i32),
+            &("Iqal Blocker", 0u32, "iqal", summary, body, actions, hints, 6000i32),
         )?;
         Ok(())
     }

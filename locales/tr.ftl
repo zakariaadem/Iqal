@@ -1,6 +1,6 @@
 # Iqal — Türkçe
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Web sitesi ve uygulama engelleyici
 menu = Menü
 menu-import = Engelleri içe aktar…
@@ -345,22 +345,22 @@ time-source-system = eşitlenmiş sistem saati
 time-source-counted = son güvenilir saatten sayılan (çevrimdışı)
 tray-open = Iqal’ı aç
 
-setup-window-title = Iqal kurulumu
-setup-install-title = Iqal { $version } kurulsun mu?
+setup-window-title = Iqal Blocker kurulumu
+setup-install-title = Iqal Blocker { $version } kurulsun mu?
 setup-install-detail = Iqal { $folder } klasörüne kurulacak. Arka planda bir Windows hizmeti olarak çalışır ve seçtiğiniz web sitelerini ve uygulamaları engeller.
-setup-update-title = Iqal { $version } sürümüne güncellensin mi?
+setup-update-title = Iqal Blocker { $version } sürümüne güncellensin mi?
 setup-update-detail = Engelleriniz korunur.
 action-install = Kur
 action-update = Güncelle
-setup-installed = Iqal kuruldu
-setup-installed-detail = İlk engelinizi oluşturmak için Iqal’ı Başlat menüsünden açın.
+setup-installed = Iqal Blocker kuruldu
+setup-installed-detail = İlk engelinizi oluşturmak için Iqal Blocker’ı Başlat menüsünden açın.
 setup-failed = Iqal kurulamadı
 setup-locked = Iqal şu anda güncellenemez
 setup-locked-detail = Bir engel kilitli. Kilidi bittiğinde Iqal güncellenebilir.
-uninstall-title = Iqal kaldırılsın mı?
+uninstall-title = Iqal Blocker kaldırılsın mı?
 uninstall-detail = Hizmet, tarayıcı ayarları ve programlar kaldırılır. Iqal’ı yeniden kurarsanız diye engelleriniz { $folder } içinde kalır.
 uninstall-action = Kaldır
-uninstall-done = Iqal kaldırıldı
+uninstall-done = Iqal Blocker kaldırıldı
 uninstall-failed = Iqal kaldırılamadı
 uninstall-locked = Iqal şu anda kaldırılamaz
 uninstall-locked-detail = Bir engel kilitli. Tüm kilitler bittiğinde Iqal kaldırılabilir.

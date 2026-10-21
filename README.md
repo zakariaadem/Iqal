@@ -1,4 +1,4 @@
-# Iqal
+# Iqal Blocker
 
 A native, open-source website and app blocker for Linux Mint and Windows 11.
 

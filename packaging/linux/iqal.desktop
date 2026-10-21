@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Iqal
-Name[ar]=عِقال
+Name=Iqal Blocker
+Name[ar]=عِقال للحجب
 Comment=Block websites and apps
 Comment[ar]=حجب المواقع والتطبيقات
 Exec=@BINDIR@/iqal

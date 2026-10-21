@@ -1,6 +1,6 @@
 # Iqal — Português
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Bloqueador de sites e aplicativos
 menu = Menu
 menu-import = Importar bloqueios…
@@ -354,22 +354,22 @@ time-source-system = hora do sistema sincronizada
 time-source-counted = contada a partir da última hora confiável (offline)
 tray-open = Abrir o Iqal
 
-setup-window-title = Instalação do Iqal
-setup-install-title = Instalar o Iqal { $version }?
+setup-window-title = Instalação do Iqal Blocker
+setup-install-title = Instalar o Iqal Blocker { $version }?
 setup-install-detail = O Iqal será instalado em { $folder }. Ele funciona em segundo plano como um serviço do Windows e bloqueia os sites e aplicativos que você escolher.
-setup-update-title = Atualizar o Iqal para { $version }?
+setup-update-title = Atualizar o Iqal Blocker para { $version }?
 setup-update-detail = Seus bloqueios são mantidos.
 action-install = Instalar
 action-update = Atualizar
-setup-installed = O Iqal está instalado
-setup-installed-detail = Abra o Iqal pelo menu Iniciar para criar seu primeiro bloqueio.
+setup-installed = O Iqal Blocker está instalado
+setup-installed-detail = Abra o Iqal Blocker pelo menu Iniciar para criar seu primeiro bloqueio.
 setup-failed = Não foi possível instalar o Iqal
 setup-locked = O Iqal não pode ser atualizado agora
 setup-locked-detail = Um bloqueio está trancado. O Iqal poderá ser atualizado quando a tranca terminar.
-uninstall-title = Remover o Iqal?
+uninstall-title = Remover o Iqal Blocker?
 uninstall-detail = O serviço, suas configurações dos navegadores e os programas são removidos. Seus bloqueios ficam em { $folder }, caso você instale o Iqal de novo.
 uninstall-action = Remover
-uninstall-done = O Iqal foi removido
+uninstall-done = O Iqal Blocker foi removido
 uninstall-failed = Não foi possível remover o Iqal
 uninstall-locked = O Iqal não pode ser removido agora
 uninstall-locked-detail = Um bloqueio está trancado. O Iqal poderá ser removido quando todas as trancas terminarem.

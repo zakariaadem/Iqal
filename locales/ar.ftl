@@ -1,6 +1,6 @@
 # عِقال — العربية
 
-app-name = عِقال
+app-name = عِقال للحجب
 app-description = حاجب المواقع والتطبيقات
 menu = القائمة
 menu-import = استيراد كتل…
@@ -374,22 +374,22 @@ time-source-system = وقت النظام المتزامن
 time-source-counted = محسوب من آخر وقت موثوق (دون اتصال)
 tray-open = افتح عِقال
 
-setup-window-title = تثبيت عِقال
-setup-install-title = هل تريد تثبيت عِقال { $version }؟
+setup-window-title = تثبيت عِقال للحجب
+setup-install-title = هل تريد تثبيت عِقال للحجب { $version }؟
 setup-install-detail = سيُثبَّت عِقال في { $folder }. يعمل في الخلفية كخدمة في ويندوز ويحجب المواقع والتطبيقات التي تختارها.
-setup-update-title = هل تريد تحديث عِقال إلى { $version }؟
+setup-update-title = هل تريد تحديث عِقال للحجب إلى { $version }؟
 setup-update-detail = تبقى كتلك محفوظة.
 action-install = تثبيت
 action-update = تحديث
-setup-installed = تم تثبيت عِقال
-setup-installed-detail = افتح عِقال من قائمة ابدأ لإنشاء أول كتلة.
+setup-installed = تم تثبيت عِقال للحجب
+setup-installed-detail = افتح عِقال للحجب من قائمة ابدأ لإنشاء أول كتلة.
 setup-failed = تعذّر تثبيت عِقال
 setup-locked = لا يمكن تحديث عِقال الآن
 setup-locked-detail = هناك كتلة مقفلة. يمكن تحديث عِقال عندما ينتهي قفلها.
-uninstall-title = هل تريد إزالة عِقال؟
+uninstall-title = هل تريد إزالة عِقال للحجب؟
 uninstall-detail = ستُزال الخدمة وإعدادات المتصفحات والبرامج. تبقى كتلك في { $folder } في حال ثبّت عِقال مرة أخرى.
 uninstall-action = إزالة
-uninstall-done = تمت إزالة عِقال
+uninstall-done = تمت إزالة عِقال للحجب
 uninstall-failed = تعذّرت إزالة عِقال
 uninstall-locked = لا يمكن إزالة عِقال الآن
 uninstall-locked-detail = هناك كتلة مقفلة. يمكن إزالة عِقال عندما تنتهي كل الأقفال.

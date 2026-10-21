@@ -29,7 +29,7 @@ const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?
 "#;
 
 fn main() {
-    iqal_winres::embed("Iqal", "iqal-win32.exe");
+    iqal_winres::embed("Iqal Blocker", "iqal-win32.exe");
     if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("msvc") {
         return;
     }

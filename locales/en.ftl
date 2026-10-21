@@ -1,6 +1,6 @@
 # Iqal — English
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Website and app blocker
 menu = Menu
 menu-import = Import blocks…
@@ -354,22 +354,22 @@ time-source-system = synchronised system time
 time-source-counted = counted from the last trusted time (offline)
 tray-open = Open Iqal
 
-setup-window-title = Iqal setup
-setup-install-title = Install Iqal { $version }?
+setup-window-title = Iqal Blocker setup
+setup-install-title = Install Iqal Blocker { $version }?
 setup-install-detail = Iqal will be installed in { $folder }. It runs in the background as a Windows service and blocks the websites and apps you choose.
-setup-update-title = Update Iqal to { $version }?
+setup-update-title = Update Iqal Blocker to { $version }?
 setup-update-detail = Your blocks are kept.
 action-install = Install
 action-update = Update
-setup-installed = Iqal is installed
-setup-installed-detail = Open Iqal from the Start menu to make your first block.
+setup-installed = Iqal Blocker is installed
+setup-installed-detail = Open Iqal Blocker from the Start menu to make your first block.
 setup-failed = Iqal could not be installed
 setup-locked = Iqal cannot be updated now
 setup-locked-detail = A block is locked. Iqal can be updated when its lock has ended.
-uninstall-title = Remove Iqal?
+uninstall-title = Remove Iqal Blocker?
 uninstall-detail = The service, its browser settings and the programs are removed. Your blocks stay in { $folder }, in case you install Iqal again.
 uninstall-action = Remove
-uninstall-done = Iqal was removed
+uninstall-done = Iqal Blocker was removed
 uninstall-failed = Iqal could not be removed
 uninstall-locked = Iqal cannot be removed now
 uninstall-locked-detail = A block is locked. Iqal can be removed when all locks have ended.

@@ -1,6 +1,6 @@
 # Iqal — Русский
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Блокировщик сайтов и приложений
 menu = Меню
 menu-import = Импортировать блоки…
@@ -364,22 +364,22 @@ time-source-system = синхронизированное системное в�
 time-source-counted = отсчитано от последнего надёжного времени (без сети)
 tray-open = Открыть Iqal
 
-setup-window-title = Установка Iqal
-setup-install-title = Установить Iqal { $version }?
+setup-window-title = Установка Iqal Blocker
+setup-install-title = Установить Iqal Blocker { $version }?
 setup-install-detail = Iqal будет установлен в { $folder }. Он работает в фоне как служба Windows и блокирует выбранные вами сайты и приложения.
-setup-update-title = Обновить Iqal до { $version }?
+setup-update-title = Обновить Iqal Blocker до { $version }?
 setup-update-detail = Ваши блоки сохранятся.
 action-install = Установить
 action-update = Обновить
-setup-installed = Iqal установлен
-setup-installed-detail = Откройте Iqal из меню «Пуск», чтобы создать первый блок.
+setup-installed = Iqal Blocker установлен
+setup-installed-detail = Откройте Iqal Blocker из меню «Пуск», чтобы создать первый блок.
 setup-failed = Не удалось установить Iqal
 setup-locked = Сейчас Iqal нельзя обновить
 setup-locked-detail = Один из блоков заперт. Iqal можно будет обновить, когда его замок закончится.
-uninstall-title = Удалить Iqal?
+uninstall-title = Удалить Iqal Blocker?
 uninstall-detail = Служба, её настройки браузеров и программы будут удалены. Ваши блоки останутся в { $folder } на случай, если вы снова установите Iqal.
 uninstall-action = Удалить
-uninstall-done = Iqal удалён
+uninstall-done = Iqal Blocker удалён
 uninstall-failed = Не удалось удалить Iqal
 uninstall-locked = Сейчас Iqal нельзя удалить
 uninstall-locked-detail = Один из блоков заперт. Iqal можно будет удалить, когда закончатся все замки.

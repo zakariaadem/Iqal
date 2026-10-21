@@ -155,7 +155,7 @@ fn version_info(description: &str, version: &str, file_name: &str) -> Vec<u8> {
             string("InternalName", file_name),
             string("LegalCopyright", "GPL-3.0-or-later"),
             string("OriginalFilename", file_name),
-            string("ProductName", "Iqal"),
+            string("ProductName", "Iqal Blocker"),
             string("ProductVersion", version),
         ],
     );

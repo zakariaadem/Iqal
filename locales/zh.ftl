@@ -1,6 +1,6 @@
 # Iqal — 简体中文
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = 网站和应用拦截器
 menu = 菜单
 menu-import = 导入拦截组…
@@ -339,22 +339,22 @@ time-source-system = 已同步的系统时间
 time-source-counted = 从上次可信时间起计算（离线）
 tray-open = 打开 Iqal
 
-setup-window-title = Iqal 安装
-setup-install-title = 安装 Iqal { $version }？
+setup-window-title = Iqal Blocker 安装
+setup-install-title = 安装 Iqal Blocker { $version }？
 setup-install-detail = Iqal 将安装到 { $folder }。它作为 Windows 服务在后台运行，拦截你选择的网站和应用。
-setup-update-title = 将 Iqal 更新到 { $version }？
+setup-update-title = 将 Iqal Blocker 更新到 { $version }？
 setup-update-detail = 你的拦截组会保留。
 action-install = 安装
 action-update = 更新
-setup-installed = Iqal 已安装
-setup-installed-detail = 从“开始”菜单打开 Iqal，创建你的第一个拦截组。
+setup-installed = Iqal Blocker 已安装
+setup-installed-detail = 从“开始”菜单打开 Iqal Blocker，创建你的第一个拦截组。
 setup-failed = 无法安装 Iqal
 setup-locked = 现在无法更新 Iqal
 setup-locked-detail = 有拦截组已上锁。锁结束后即可更新 Iqal。
-uninstall-title = 移除 Iqal？
+uninstall-title = 移除 Iqal Blocker？
 uninstall-detail = 服务、它的浏览器设置和程序将被移除。你的拦截组会保留在 { $folder } 中，以便再次安装 Iqal。
 uninstall-action = 移除
-uninstall-done = Iqal 已移除
+uninstall-done = Iqal Blocker 已移除
 uninstall-failed = 无法移除 Iqal
 uninstall-locked = 现在无法移除 Iqal
 uninstall-locked-detail = 有拦截组已上锁。所有锁结束后即可移除 Iqal。

@@ -73,7 +73,13 @@ pub fn data_folder() -> PathBuf {
     known_folder(&FOLDERID_ProgramData).join("Iqal")
 }
 
+/// The Start menu entry; its file name is the name the Start menu shows.
 fn shortcut_path() -> PathBuf {
+    known_folder(&FOLDERID_CommonPrograms).join("Iqal Blocker.lnk")
+}
+
+/// The entry of versions before the name became "Iqal Blocker" (0.1.5).
+fn old_shortcut_path() -> PathBuf {
     known_folder(&FOLDERID_CommonPrograms).join("Iqal.lnk")
 }
 
@@ -187,7 +193,8 @@ pub fn install(folder: &Path, files: &[(&str, &[u8])]) -> Result<(), Failure> {
     }
     // The service: registered, started, and starting the notifications.
     run(&folder.join("iqal-daemon.exe"), &["--install"])?;
-    shortcut(&shortcut_path(), &folder.join("iqal-win32.exe"), "Iqal")?;
+    let _ = std::fs::remove_file(old_shortcut_path());
+    shortcut(&shortcut_path(), &folder.join("iqal-win32.exe"), "Iqal Blocker")?;
     register_app(folder, &setup)?;
     Ok(())
 }
@@ -214,6 +221,7 @@ pub fn uninstall(folder: &Path) -> Result<(), Failure> {
     let _ = stop_service();
     end_programs();
     let _ = std::fs::remove_file(shortcut_path());
+    let _ = std::fs::remove_file(old_shortcut_path());
     delete_key(APPS_KEY);
     Ok(())
 }
@@ -321,7 +329,7 @@ fn register_app(folder: &Path, setup: &Path) -> Result<(), String> {
     set_values(
         APPS_KEY,
         &[
-            ("DisplayName", RegValue::Str("Iqal")),
+            ("DisplayName", RegValue::Str("Iqal Blocker")),
             ("DisplayVersion", RegValue::Str(env!("CARGO_PKG_VERSION"))),
             ("Publisher", RegValue::Str("Iqal")),
             ("DisplayIcon", RegValue::Str(&icon)),

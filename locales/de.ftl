@@ -1,6 +1,6 @@
 # Iqal — Deutsch
 
-app-name = Iqal
+app-name = Iqal Blocker
 app-description = Sperre für Websites und Apps
 menu = Menü
 menu-import = Sperren importieren…
@@ -354,22 +354,22 @@ time-source-system = synchronisierte Systemzeit
 time-source-counted = gezählt ab der letzten vertrauenswürdigen Zeit (offline)
 tray-open = Iqal öffnen
 
-setup-window-title = Iqal-Installation
-setup-install-title = Iqal { $version } installieren?
+setup-window-title = Installation von Iqal Blocker
+setup-install-title = Iqal Blocker { $version } installieren?
 setup-install-detail = Iqal wird in { $folder } installiert. Es läuft im Hintergrund als Windows-Dienst und sperrt die Websites und Apps, die du auswählst.
-setup-update-title = Iqal auf { $version } aktualisieren?
+setup-update-title = Iqal Blocker auf { $version } aktualisieren?
 setup-update-detail = Deine Sperren bleiben erhalten.
 action-install = Installieren
 action-update = Aktualisieren
-setup-installed = Iqal ist installiert
-setup-installed-detail = Öffne Iqal über das Startmenü, um deine erste Sperre anzulegen.
+setup-installed = Iqal Blocker ist installiert
+setup-installed-detail = Öffne Iqal Blocker über das Startmenü, um deine erste Sperre anzulegen.
 setup-failed = Iqal konnte nicht installiert werden
 setup-locked = Iqal kann jetzt nicht aktualisiert werden
 setup-locked-detail = Eine Sperre ist abgeschlossen. Iqal kann aktualisiert werden, wenn ihr Schloss endet.
-uninstall-title = Iqal entfernen?
+uninstall-title = Iqal Blocker entfernen?
 uninstall-detail = Der Dienst, seine Browser-Einstellungen und die Programme werden entfernt. Deine Sperren bleiben in { $folder }, falls du Iqal wieder installierst.
 uninstall-action = Entfernen
-uninstall-done = Iqal wurde entfernt
+uninstall-done = Iqal Blocker wurde entfernt
 uninstall-failed = Iqal konnte nicht entfernt werden
 uninstall-locked = Iqal kann jetzt nicht entfernt werden
 uninstall-locked-detail = Eine Sperre ist abgeschlossen. Iqal kann entfernt werden, wenn alle Schlösser geendet haben.
