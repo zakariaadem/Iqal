@@ -329,15 +329,15 @@ fn status_text(app: &App) -> String {
     parts.join("   ·   ")
 }
 
-/// On, off or waiting for its times (whether it is locked shows as a label
-/// of its own).
-fn state_text(info: &SetInfo) -> String {
+/// On, off or waiting for its times, as an icon and a text key (whether it
+/// is locked shows as a label of its own).
+fn state(info: &SetInfo) -> (theme::Icon, &'static str) {
     if !info.set.enabled {
-        t("state-off")
+        (theme::Icon::Power, "state-off")
     } else if info.active {
-        t("state-active")
+        (theme::Icon::Check, "state-active")
     } else {
-        t("state-scheduled")
+        (theme::Icon::Clock, "state-scheduled")
     }
 }
 
@@ -770,10 +770,10 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
         let Some(info) = app.sets.get(item.itemID as usize) else { return };
         let unsaved = Some(info.set.id) == app.selected && app.draft.as_ref().is_some_and(Draft::dirty);
         let selected = item.itemState & ODS_SELECTED != 0;
-        let (back, fore, dim) = if selected {
-            (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_HIGHLIGHTTEXT)
+        let (back, fore) = if selected {
+            (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT)
         } else {
-            (theme::LIST, COLOR_WINDOWTEXT, COLOR_GRAYTEXT)
+            (theme::LIST, COLOR_WINDOWTEXT)
         };
         let hdc = item.hDC;
         let pad = scale(8, app.dpi);
@@ -793,39 +793,23 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
         r.top += pad / 2;
         let half = (r.bottom - r.top) / 2;
         let mut top = RECT { bottom: r.top + half, ..r };
-        if info.locked {
-            // A gold "Locked" label at the end of the name's line.
-            let text: Vec<u16> = t("state-locked").encode_utf16().collect();
-            let back = color(back as i32);
-            let left = theme::badge(hdc, &app.fonts, top.right, (top.top + top.bottom) / 2, back, theme::Icon::Lock, &text, app.dpi);
-            top.right = left - pad;
-        }
         // SAFETY: as above.
         unsafe { SetTextColor(hdc, color(fore as i32)) };
         let name = if unsaved { format!("{} •", info.set.name) } else { info.set.name.clone() };
         draw_text(hdc, app.fonts.bold, &name, &mut top, DT_SINGLELINE | DT_END_ELLIPSIS);
-        let mut bottom = RECT { top: r.top + half, ..r };
-        // SAFETY: as above.
-        unsafe { SetTextColor(hdc, color(dim as i32)) };
-        let line = format!("{} · {}", state_text(info), summary(info));
-        draw_text(hdc, app.fonts.normal, &line, &mut bottom, DT_SINGLELINE | DT_END_ELLIPSIS);
+        // Below: gold labels, side by side: on, off or waiting, and locked.
+        let middle = r.top + half + half / 2;
+        let back = color(back as i32);
+        let label = |left: i32, icon, key: &str| {
+            let text: Vec<u16> = t(key).encode_utf16().collect();
+            theme::badge(hdc, &app.fonts, left, middle, back, icon, &text, app.dpi)
+        };
+        let (icon, key) = state(info);
+        let end = label(r.left, icon, key);
+        if info.locked {
+            label(end + scale(6, app.dpi), theme::Icon::Lock, "state-locked");
+        }
     });
-}
-
-/// How many rules are in use (an allow list does not use the blocked ones).
-pub fn summary(info: &SetInfo) -> String {
-    let s = &info.set;
-    let used = |mode, block: usize, allow: usize| match mode {
-        iqal_core::ListMode::Block => block + allow,
-        iqal_core::ListMode::AllowOnly => allow,
-    } as i64;
-    ta(
-        "block-summary",
-        &[
-            ("web", used(s.web.mode, s.web.block.len(), s.web.allow.len()).into()),
-            ("apps", used(s.apps.mode, s.apps.block.len(), s.apps.allow.len()).into()),
-        ],
-    )
 }
 
 /// Another block was chosen in the list: switch to it, after dealing with
