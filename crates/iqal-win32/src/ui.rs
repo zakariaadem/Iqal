@@ -329,15 +329,16 @@ fn status_text(app: &App) -> String {
     parts.join("   ·   ")
 }
 
-pub fn state_text(info: &SetInfo) -> String {
-    let state = if !info.set.enabled {
+/// On, off or waiting for its times (whether it is locked shows as a label
+/// of its own).
+fn state_text(info: &SetInfo) -> String {
+    if !info.set.enabled {
         t("state-off")
     } else if info.active {
         t("state-active")
     } else {
         t("state-scheduled")
-    };
-    if info.locked { format!("{state} · {}", t("state-locked")) } else { state }
+    }
 }
 
 /// Asks for the editor to be rebuilt once the current event is over.
@@ -780,15 +781,28 @@ fn draw_row(item: &DRAWITEMSTRUCT) {
         // SAFETY: drawing into the list's DC during WM_DRAWITEM.
         unsafe {
             FillRect(hdc, &r, theme::brush(back as i32));
+            if selected {
+                // The chosen block: a stripe on its edge.
+                let stripe = RECT { right: r.left + scale(4, app.dpi), ..r };
+                FillRect(hdc, &stripe, theme::brush(theme::STRIPE));
+            }
             SetBkMode(hdc, TRANSPARENT as i32);
-            SetTextColor(hdc, color(fore as i32));
         }
         r.left += pad;
         r.right -= pad;
         r.top += pad / 2;
         let half = (r.bottom - r.top) / 2;
-        let name = if unsaved { format!("{} •", info.set.name) } else { info.set.name.clone() };
         let mut top = RECT { bottom: r.top + half, ..r };
+        if info.locked {
+            // A gold "Locked" label at the end of the name's line.
+            let text: Vec<u16> = t("state-locked").encode_utf16().collect();
+            let back = color(back as i32);
+            let left = theme::badge(hdc, &app.fonts, top.right, (top.top + top.bottom) / 2, back, theme::Icon::Lock, &text, app.dpi);
+            top.right = left - pad;
+        }
+        // SAFETY: as above.
+        unsafe { SetTextColor(hdc, color(fore as i32)) };
+        let name = if unsaved { format!("{} •", info.set.name) } else { info.set.name.clone() };
         draw_text(hdc, app.fonts.bold, &name, &mut top, DT_SINGLELINE | DT_END_ELLIPSIS);
         let mut bottom = RECT { top: r.top + half, ..r };
         // SAFETY: as above.

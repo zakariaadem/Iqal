@@ -579,6 +579,7 @@ fn handler(control: HWND) -> Option<Handler> {
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_COMMAND if lparam != 0 => {
+            theme::notified(hwnd, lparam as HWND, win::hiword(wparam) as u32);
             if let Some(f) = handler(lparam as HWND) {
                 f(win::hiword(wparam) as u32);
             }

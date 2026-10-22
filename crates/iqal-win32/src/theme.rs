@@ -1,7 +1,7 @@
 //! Iqal's look: ivory and deep red in light mode, charcoal with ivory in
 //! dark mode. Iqal draws its buttons, check boxes, radio buttons, switches,
-//! tabs and status bar itself (rounded, with small icons from Windows' icon
-//! font), answers the other controls' colour questions (WM_CTLCOLOR*), and
+//! drop-down lists, tabs and status bar itself (rounded, with small icons
+//! from Windows' icon font), answers the other controls' colour questions (WM_CTLCOLOR*), and
 //! in dark mode gives them Windows' dark control themes where those exist
 //! (scroll bars, text boxes, drop-down lists).
 //!
@@ -25,14 +25,15 @@ use windows_sys::Win32::Graphics::Gdi::{
     DeleteObject, DrawFocusRect, DrawTextW, Ellipse, EndPaint, FillRect, FrameRect, GdiFlush, GetSysColor, GetSysColorBrush,
     GetTextExtentPoint32W, HALFTONE, HBITMAP, HBRUSH, HDC, HFONT, PAINTSTRUCT, PS_SOLID, Polyline, RDW_ALLCHILDREN,
     RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RedrawWindow, RoundRect, SRCCOPY, SelectObject, SetBkMode, SetBrushOrgEx,
-    SetStretchBltMode, SetTextColor, StretchBlt, TRANSPARENT, GetClipBox, MapWindowPoints,
+    SetStretchBltMode, SetTextColor, StretchBlt, TRANSPARENT, GetClipBox, MapWindowPoints, DT_CENTER, InvalidateRect, CreateBitmap,
 };
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetFocus, IsWindowEnabled, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
 use windows_sys::Win32::UI::Controls::{
     BST_CHECKED, CDDS_PREPAINT, CDIS_DISABLED, CDIS_FOCUS, CDIS_HOT, CDIS_SELECTED, CDIS_SHOWKEYBOARDCUES, CDRF_DODEFAULT,
     CDRF_SKIPDEFAULT, NMCUSTOMDRAW, SetWindowTheme, TCIF_TEXT, TCITEMW, TCM_GETCURSEL, TCM_GETITEMCOUNT, TCM_GETITEMRECT,
-    TCM_GETITEMW,
+    TCM_GETITEMW, TCM_SETIMAGELIST, WM_MOUSELEAVE, HIMAGELIST, ILC_COLOR32, ImageList_Add, ImageList_Create,
 };
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -41,7 +42,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetWindowLongW,
     GetWindowRect, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_ERASEBKGND, WM_GETFONT,
     GW_CHILD, GW_HWNDNEXT, GetWindow, IsWindowVisible,
-    WM_NCDESTROY, WM_PAINT,
+    WM_NCDESTROY, WM_PAINT, CB_GETCURSEL, CB_GETDROPPEDSTATE, CB_GETLBTEXT, CB_GETLBTEXTLEN, WM_ENABLE, WM_KILLFOCUS,
+    WM_MOUSEMOVE, WM_SETFOCUS,
 };
 
 use crate::win;
@@ -161,6 +163,12 @@ pub struct Palette {
     pub button_hot: COLORREF,
     pub button_down: COLORREF,
     pub link: COLORREF,
+    /// The stripe on the edge of the chosen block in the block list.
+    pub stripe: COLORREF,
+    /// The "Locked" label: sand with gold.
+    pub badge: COLORREF,
+    pub badge_text: COLORREF,
+    pub badge_line: COLORREF,
 }
 
 const LIGHT_COLOURS: Palette = Palette {
@@ -180,6 +188,10 @@ const LIGHT_COLOURS: Palette = Palette {
     button_hot: rgb(0xF1, 0xE6, 0xD6),
     button_down: rgb(0xE6, 0xD6, 0xC0),
     link: rgb(0x6B, 0x1F, 0x2A),
+    stripe: rgb(0x6B, 0x1F, 0x2A),
+    badge: rgb(0xEF, 0xE3, 0xCC),
+    badge_text: rgb(0x6B, 0x4E, 0x1F),
+    badge_line: rgb(0xC9, 0xA2, 0x4A),
 };
 
 const DARK_COLOURS: Palette = Palette {
@@ -199,6 +211,10 @@ const DARK_COLOURS: Palette = Palette {
     button_hot: rgb(0x2E, 0x2E, 0x2E),
     button_down: rgb(0x38, 0x38, 0x38),
     link: rgb(0xE8, 0xB4, 0xBA),
+    stripe: rgb(0xB8, 0x4A, 0x5A),
+    badge: rgb(0x3B, 0x30, 0x20),
+    badge_text: rgb(0xE8, 0xC9, 0x8A),
+    badge_line: rgb(0x8A, 0x6D, 0x2E),
 };
 
 pub fn palette() -> &'static Palette {
@@ -209,6 +225,10 @@ pub fn palette() -> &'static Palette {
 pub const LIST: i32 = -2;
 /// Outlines (not a system colour).
 const LINE: i32 = -3;
+/// The accent (not a system colour).
+const ACCENT: i32 = -4;
+/// The chosen block's stripe (not a system colour).
+pub const STRIPE: i32 = -5;
 
 /// A system colour's counterpart in Iqal's colours.
 pub fn color(index: i32) -> COLORREF {
@@ -217,6 +237,8 @@ pub fn color(index: i32) -> COLORREF {
         FIELD => p.field,
         LIST => p.list,
         LINE => p.line,
+        ACCENT => p.accent,
+        STRIPE => p.stripe,
         i if i == COLOR_WINDOW || i == COLOR_BTNFACE => p.page,
         i if i == COLOR_WINDOWTEXT => p.text,
         i if i == COLOR_HIGHLIGHTTEXT => p.chosen_text,
@@ -252,7 +274,8 @@ pub fn erase(hwnd: HWND, hdc: HDC) -> LRESULT {
 
 thread_local! {
     /// Text boxes and lists whose outline their window draws (see `outline`).
-    static OUTLINED: RefCell<std::collections::HashSet<isize>> = RefCell::new(std::collections::HashSet::new());
+    /// (Text boxes: true.)
+    static OUTLINED: RefCell<HashMap<isize, bool>> = RefCell::new(HashMap::new());
 }
 
 /// Text boxes and lists get a thin outline in Iqal's colour instead of
@@ -267,12 +290,30 @@ pub fn outline(hwnd: HWND, edit: bool) {
         let m = win::scale(6, win::dpi(hwnd)) as usize;
         win::send(hwnd, EM_SETMARGINS, (EC_LEFTMARGIN | EC_RIGHTMARGIN) as usize, (m | m << 16) as isize);
     }
-    OUTLINED.with(|o| o.borrow_mut().insert(hwnd as isize));
+    OUTLINED.with(|o| o.borrow_mut().insert(hwnd as isize, edit));
 }
 
 /// Whether this control's outline is drawn by its window.
 pub fn outlined(hwnd: HWND) -> bool {
-    OUTLINED.with(|o| o.borrow().contains(&(hwnd as isize)))
+    OUTLINED.with(|o| o.borrow().contains_key(&(hwnd as isize)))
+}
+
+/// Whether this is a text box whose outline its window draws.
+fn outlined_edit(hwnd: HWND) -> bool {
+    OUTLINED.with(|o| o.borrow().get(&(hwnd as isize)).copied()) == Some(true)
+}
+
+/// Where a control's outline goes in its window: one pixel around it.
+fn outline_rect(parent: HWND, child: HWND) -> RECT {
+    let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+    // SAFETY: our windows; the rectangle is an out value.
+    unsafe {
+        GetWindowRect(child, &mut r);
+        MapWindowPoints(std::ptr::null_mut(), parent, (&raw mut r).cast(), 2);
+    }
+    // In right-to-left windows the mapped corners come out swapped.
+    let (left, right) = (r.left.min(r.right), r.left.max(r.right));
+    RECT { left: left - 1, top: r.top - 1, right: right + 1, bottom: r.bottom + 1 }
 }
 
 /// Draws the outlines of the window's outlined children that are in the
@@ -283,20 +324,25 @@ fn draw_outlines(parent: HWND, hdc: HDC) {
     }
     let mut clip = RECT { left: 0, top: 0, right: 0, bottom: 0 };
     // SAFETY: walking our window's children; rectangles are out values; the
-    // brush is kept.
+    // brushes are kept.
     unsafe {
         GetClipBox(hdc, &mut clip);
+        let focus = GetFocus();
         let mut child = GetWindow(parent, GW_CHILD);
         while !child.is_null() {
             if outlined(child) && IsWindowVisible(child) != 0 {
-                let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
-                GetWindowRect(child, &mut r);
-                MapWindowPoints(std::ptr::null_mut(), parent, (&raw mut r).cast(), 2);
-                // In right-to-left windows the mapped corners come out swapped.
-                let (left, right) = (r.left.min(r.right), r.left.max(r.right));
-                let frame = RECT { left: left - 1, top: r.top - 1, right: right + 1, bottom: r.bottom + 1 };
-                if frame.left < clip.right && frame.right > clip.left && frame.top < clip.bottom && frame.bottom > clip.top {
-                    FrameRect(hdc, &frame, brush(LINE));
+                let frame = outline_rect(parent, child);
+                // The text box being typed in: in the accent, with a
+                // thicker line below (as Windows 11 marks it).
+                let focused = child == focus && outlined_edit(child);
+                let bottom = frame.bottom + i32::from(focused);
+                if frame.left < clip.right && frame.right > clip.left && frame.top < clip.bottom && bottom > clip.top {
+                    if focused {
+                        FrameRect(hdc, &frame, brush(ACCENT));
+                        FillRect(hdc, &RECT { top: frame.bottom, bottom, ..frame }, brush(ACCENT));
+                    } else {
+                        FrameRect(hdc, &frame, brush(LINE));
+                    }
                 }
             }
             child = GetWindow(child, GW_HWNDNEXT);
@@ -335,6 +381,7 @@ pub fn control(hwnd: HWND) {
         "msctls_statusbar32" => Some(Part::Status),
         "sysdatetimepick32" => Some(Part::Picker),
         "msctls_updown32" => Some(Part::Arrows),
+        "combobox" => Some(Part::Dropdown),
         _ => None,
     };
     if let Some(part) = part {
@@ -455,6 +502,10 @@ pub enum Icon {
     Apps = 0xE71D,
     File = 0xE8A5,
     Window = 0xE8A7,
+    Globe = 0xE774,
+    People = 0xE716,
+    Clock = 0xE823,
+    ChevronDown = 0xE70D,
 }
 
 /// How a button stands out.
@@ -472,6 +523,10 @@ thread_local! {
     static SWITCHES: RefCell<std::collections::HashSet<isize>> = RefCell::new(std::collections::HashSet::new());
     /// Buttons with an icon or another look than plain.
     static BUTTONS: RefCell<HashMap<isize, (Option<Icon>, Look)>> = RefCell::new(HashMap::new());
+    /// Rows of tabs with an icon on each tab.
+    static TAB_ICONS: RefCell<HashMap<isize, &'static [Icon]>> = RefCell::new(HashMap::new());
+    /// The drop-down list under the mouse.
+    static HOT_DROPDOWN: Cell<isize> = const { Cell::new(0) };
 }
 
 /// Shows this check box as an on/off switch.
@@ -493,6 +548,11 @@ pub fn forget(hwnd: HWND) {
     OUTLINED.with(|o| o.borrow_mut().remove(&(hwnd as isize)));
     SWITCHES.with(|s| s.borrow_mut().remove(&(hwnd as isize)));
     BUTTONS.with(|b| b.borrow_mut().remove(&(hwnd as isize)));
+    TAB_ICONS.with(|t| t.borrow_mut().remove(&(hwnd as isize)));
+    DROPDOWNS.with(|d| d.borrow_mut().remove(&(hwnd as isize)));
+    if HOT_DROPDOWN.with(Cell::get) == hwnd as isize {
+        HOT_DROPDOWN.with(|h| h.set(0));
+    }
 }
 
 /// Draws buttons, check boxes, radio buttons and switches in Iqal's look.
@@ -545,7 +605,7 @@ fn paint_push(hwnd: HWND, hdc: HDC, rc: RECT, on: bool, state: u32) {
         ),
     };
     let radius = win::scale(RADIUS, dpi);
-    rounded_box(hdc, rc, p.page, fill, edge, radius);
+    rounded_box(hdc, rc, p.page, fill, edge, radius, true);
     // The icon and the text, centred together.
     let Some(fonts) = crate::panel::fonts() else { return };
     let mut buf = [0u16; 256];
@@ -590,7 +650,7 @@ fn paint_push(hwnd: HWND, hdc: HDC, rc: RECT, on: bool, state: u32) {
 /// smooth corners come from one small drawn square (kept, see
 /// `cached_shape`), the rest are plain fills. So a button of a new size
 /// costs no new drawing.
-fn rounded_box(hdc: HDC, rc: RECT, back: COLORREF, fill: COLORREF, edge: COLORREF, radius: i32) {
+fn rounded_box(hdc: HDC, rc: RECT, back: COLORREF, fill: COLORREF, edge: COLORREF, radius: i32, keep: bool) {
     let (w, h) = (rc.right - rc.left, rc.bottom - rc.top);
     if w <= 0 || h <= 0 {
         return;
@@ -602,33 +662,16 @@ fn rounded_box(hdc: HDC, rc: RECT, back: COLORREF, fill: COLORREF, edge: COLORRE
         // SAFETY: drawing into the memory DC `cached_bitmap` gives.
         shape(dc, fill, edge, k, |dc| unsafe { RoundRect(dc, 0, 0, side * k, side * k, 2 * r * k, 2 * r * k) });
     });
+    if !keep {
+        // Drawn now and then (drop-down lists, labels): put together in
+        // place, no picture of its own to keep.
+        box_parts(hdc, rc, r, side, corners, fill, edge);
+        return;
+    }
     // The whole box is kept too: the same buttons are drawn again and again
     // (scrolling, the mouse passing over them), and then it is one copy.
     let whole = kept_bitmap(hdc, w, h, back, (2, fill, edge, r as u32), |out| {
-        // SAFETY: drawing into the memory DC `kept_bitmap` gives; another
-        // memory DC made and freed here.
-        unsafe {
-            let mem = CreateCompatibleDC(out);
-            let old = SelectObject(mem, corners);
-            // The four corners.
-            for (x, y) in [(0, 0), (w - r, 0), (0, h - r), (w - r, h - r)] {
-                let (sx, sy) = (if x == 0 { 0 } else { side - r }, if y == 0 { 0 } else { side - r });
-                BitBlt(out, x, y, r, r, mem, sx, sy, SRCCOPY);
-            }
-            SelectObject(mem, old);
-            DeleteDC(mem);
-            // The middle, then the straight parts of the outline.
-            let fill_brush = CreateSolidBrush(fill);
-            let edge_brush = CreateSolidBrush(edge);
-            FillRect(out, &RECT { left: r, top: 0, right: w - r, bottom: h }, fill_brush);
-            FillRect(out, &RECT { left: 0, top: r, right: w, bottom: h - r }, fill_brush);
-            FillRect(out, &RECT { left: r, top: 0, right: w - r, bottom: 1 }, edge_brush);
-            FillRect(out, &RECT { left: r, top: h - 1, right: w - r, bottom: h }, edge_brush);
-            FillRect(out, &RECT { left: 0, top: r, right: 1, bottom: h - r }, edge_brush);
-            FillRect(out, &RECT { left: w - 1, top: r, right: w, bottom: h - r }, edge_brush);
-            DeleteObject(fill_brush);
-            DeleteObject(edge_brush);
-        }
+        box_parts(out, RECT { left: 0, top: 0, right: w, bottom: h }, r, side, corners, fill, edge);
     });
     // SAFETY: a memory DC made and freed here; the picture stays kept.
     unsafe {
@@ -637,6 +680,69 @@ fn rounded_box(hdc: HDC, rc: RECT, back: COLORREF, fill: COLORREF, edge: COLORRE
         BitBlt(hdc, rc.left, rc.top, w, h, mem, 0, 0, SRCCOPY);
         SelectObject(mem, old);
         DeleteDC(mem);
+    }
+}
+
+/// A rounded box into `rc` of `out`: its four corners from `corners` (a
+/// drawn square, see `rounded_box`), the rest plain fills.
+fn box_parts(out: HDC, rc: RECT, r: i32, side: i32, corners: HBITMAP, fill: COLORREF, edge: COLORREF) {
+    let (x0, y0, w, h) = (rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top);
+    let at = |left: i32, top: i32, right: i32, bottom: i32| RECT { left: x0 + left, top: y0 + top, right: x0 + right, bottom: y0 + bottom };
+    // SAFETY: drawing into `out`; a memory DC and brushes made and freed here.
+    unsafe {
+        let mem = CreateCompatibleDC(out);
+        let old = SelectObject(mem, corners);
+        // The four corners.
+        for (x, y) in [(0, 0), (w - r, 0), (0, h - r), (w - r, h - r)] {
+            let (sx, sy) = (if x == 0 { 0 } else { side - r }, if y == 0 { 0 } else { side - r });
+            BitBlt(out, x0 + x, y0 + y, r, r, mem, sx, sy, SRCCOPY);
+        }
+        SelectObject(mem, old);
+        DeleteDC(mem);
+        // The middle, then the straight parts of the outline.
+        let fill_brush = CreateSolidBrush(fill);
+        let edge_brush = CreateSolidBrush(edge);
+        FillRect(out, &at(r, 0, w - r, h), fill_brush);
+        FillRect(out, &at(0, r, w, h - r), fill_brush);
+        FillRect(out, &at(r, 0, w - r, 1), edge_brush);
+        FillRect(out, &at(r, h - 1, w - r, h), edge_brush);
+        FillRect(out, &at(0, r, 1, h - r), edge_brush);
+        FillRect(out, &at(w - 1, r, w, h - r), edge_brush);
+        DeleteObject(fill_brush);
+        DeleteObject(edge_brush);
+    }
+}
+
+/// A small label with round ends (the gold "Locked" label in the block
+/// list): an icon and a text, ending at `right` and centred on `middle`,
+/// on the background `back`. Returns where it starts.
+pub fn badge(hdc: HDC, fonts: &win::Fonts, right: i32, middle: i32, back: COLORREF, icon: Icon, text: &[u16], dpi: u32) -> i32 {
+    let p = palette();
+    let s = |v: i32| win::scale(v, dpi);
+    let glyph = [icon as u16];
+    let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
+    // SAFETY: drawing into the DC we were given with our fonts; the extents
+    // are out values.
+    unsafe {
+        let mut size = SIZE { cx: 0, cy: 0 };
+        let mut icon_size = SIZE { cx: 0, cy: 0 };
+        let old = SelectObject(hdc, fonts.normal);
+        GetTextExtentPoint32W(hdc, text.as_ptr(), text.len() as i32, &mut size);
+        SelectObject(hdc, fonts.icons);
+        GetTextExtentPoint32W(hdc, glyph.as_ptr(), 1, &mut icon_size);
+        let (pad, gap, h) = (s(8), s(4), s(22));
+        let top = middle - h / 2;
+        let rc = RECT { left: right - (pad + icon_size.cx + gap + size.cx + pad), top, right, bottom: top + h };
+        rounded_box(hdc, rc, back, p.badge, p.badge_line, h / 2, false);
+        SetBkMode(hdc, TRANSPARENT as i32);
+        SetTextColor(hdc, p.badge_text);
+        let mut r = RECT { left: rc.left + pad, right: rc.left + pad + icon_size.cx, ..rc };
+        DrawTextW(hdc, glyph.as_ptr(), 1, &mut r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+        SelectObject(hdc, fonts.normal);
+        let mut r = RECT { left: r.right + gap, right: rc.right - pad + s(2), ..rc };
+        DrawTextW(hdc, text.as_ptr(), text.len() as i32, &mut r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | rtl);
+        SelectObject(hdc, old);
+        rc.left
     }
 }
 
@@ -893,9 +999,71 @@ enum Part {
     Status,
     Picker,
     Arrows,
+    Dropdown,
+}
+
+thread_local! {
+    /// Drop-down lists, which Iqal draws (while closed).
+    static DROPDOWNS: RefCell<std::collections::HashSet<isize>> = RefCell::new(std::collections::HashSet::new());
+}
+
+/// A control told its window something (WM_COMMAND `code`) that changes
+/// how Iqal draws it: a text box got or lost the keyboard, or a drop-down
+/// list opened, closed or shows another choice.
+pub fn notified(parent: HWND, child: HWND, code: u32) {
+    const EN_SETFOCUS: u32 = 0x100;
+    const EN_KILLFOCUS: u32 = 0x200;
+    const CBN_SELCHANGE: u32 = 1;
+    const CBN_DROPDOWN: u32 = 7;
+    const CBN_CLOSEUP: u32 = 8;
+    match code {
+        EN_SETFOCUS | EN_KILLFOCUS if outlined_edit(child) => {
+            let frame = outline_rect(parent, child);
+            // With the thicker line below.
+            let ring = RECT { bottom: frame.bottom + 1, ..frame };
+            // SAFETY: our window; only the outline is redrawn.
+            unsafe { InvalidateRect(parent, &ring, 1) };
+        }
+        CBN_SELCHANGE | CBN_DROPDOWN | CBN_CLOSEUP if DROPDOWNS.with(|d| d.borrow().contains(&(child as isize))) => {
+            // SAFETY: our control.
+            unsafe { InvalidateRect(child, std::ptr::null(), 0) };
+        }
+        _ => {}
+    }
+}
+
+/// Gives each tab of a row of tabs an icon (before the tabs are added; each
+/// is added with picture 0). Windows makes room on a tab for a picture from
+/// the tabs' picture list: it is given a blank one as wide as an icon (one
+/// pixel tall: only its width counts), and the icon is drawn in that room
+/// (see `paint_tabs`).
+pub fn tab_icons(hwnd: HWND, icons: &'static [Icon]) {
+    thread_local! {
+        /// The blank picture list, made once (per DPI).
+        static BLANK: Cell<(u32, HIMAGELIST)> = const { Cell::new((0, 0)) };
+    }
+    TAB_ICONS.with(|t| t.borrow_mut().insert(hwnd as isize, icons));
+    let dpi = win::dpi(hwnd);
+    let (known, mut list) = BLANK.with(Cell::get);
+    if known != dpi {
+        let side = win::scale(ICON_ROOM - 6, dpi);
+        // SAFETY: a picture list with one blank picture, kept for the
+        // program's life (one more only if the scaling changes).
+        unsafe {
+            list = ImageList_Create(side, 1, ILC_COLOR32, 1, 0);
+            let blank = CreateBitmap(side, 1, 1, 32, std::ptr::null());
+            ImageList_Add(list, blank, std::ptr::null_mut());
+            DeleteObject(blank);
+        }
+        BLANK.with(|b| b.set((dpi, list)));
+    }
+    win::send(hwnd, TCM_SETIMAGELIST, 0, list);
 }
 
 fn subclass(hwnd: HWND, part: Part) {
+    if part == Part::Dropdown {
+        DROPDOWNS.with(|d| d.borrow_mut().insert(hwnd as isize));
+    }
     // SAFETY: our control; the procedure stays valid for the program's life.
     // Subclassing again with the same id only replaces the data.
     unsafe { SetWindowSubclass(hwnd, Some(subclass_proc), 1, part as usize) };
@@ -906,9 +1074,52 @@ unsafe extern "system" fn subclass_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lp
         1 => Part::Tabs,
         2 => Part::Status,
         3 => Part::Picker,
-        _ => Part::Arrows,
+        4 => Part::Arrows,
+        _ => Part::Dropdown,
     };
     match (part, msg) {
+        (Part::Dropdown, WM_ERASEBKGND) => return 1,
+        (Part::Dropdown, WM_PAINT) => {
+            // SAFETY: a PAINTSTRUCT for BeginPaint to fill.
+            let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
+            // SAFETY: our control, inside WM_PAINT.
+            let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
+            paint_dropdown(hwnd, hdc);
+            // SAFETY: matches BeginPaint.
+            unsafe { EndPaint(hwnd, &ps) };
+            return 0;
+        }
+        (Part::Dropdown, WM_MOUSEMOVE) if HOT_DROPDOWN.with(Cell::get) != hwnd as isize => {
+            // Lighter under the mouse, until it leaves.
+            let before = HOT_DROPDOWN.with(|h| h.replace(hwnd as isize));
+            let mut track = TRACKMOUSEEVENT {
+                cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
+                dwFlags: TME_LEAVE,
+                hwndTrack: hwnd,
+                dwHoverTime: 0,
+            };
+            // SAFETY: our controls; a filled-in TRACKMOUSEEVENT.
+            unsafe {
+                if before != 0 {
+                    InvalidateRect(before as HWND, std::ptr::null(), 0);
+                }
+                TrackMouseEvent(&mut track);
+                InvalidateRect(hwnd, std::ptr::null(), 0);
+            }
+        }
+        (Part::Dropdown, WM_MOUSELEAVE) if HOT_DROPDOWN.with(Cell::get) == hwnd as isize => {
+            HOT_DROPDOWN.with(|h| h.set(0));
+            // SAFETY: our control.
+            unsafe { InvalidateRect(hwnd, std::ptr::null(), 0) };
+        }
+        (Part::Dropdown, WM_SETFOCUS | WM_KILLFOCUS | WM_ENABLE) => {
+            // SAFETY: default handling, then drawn again (outline colour).
+            unsafe {
+                let result = DefSubclassProc(hwnd, msg, wparam, lparam);
+                InvalidateRect(hwnd, std::ptr::null(), 0);
+                return result;
+            }
+        }
         (Part::Picker | Part::Arrows, WM_ERASEBKGND) if is_dark() => return 1,
         (Part::Picker | Part::Arrows, WM_PAINT) if is_dark() => {
             if part == Part::Picker {
@@ -994,8 +1205,56 @@ fn paint_darkened(hwnd: HWND) {
     unsafe { EndPaint(hwnd, &ps) };
 }
 
-/// Tabs as Windows 11 draws them: text, the chosen one bold with an accent
-/// line under it.
+/// A closed drop-down list, like a plain button: rounded, the choice and a
+/// small arrow, lighter under the mouse, outlined in the accent while it
+/// has the keyboard.
+fn paint_dropdown(hwnd: HWND, hdc: HDC) {
+    let rc = win::client_rect(hwnd);
+    let dpi = win::dpi(hwnd);
+    let s = |v: i32| win::scale(v, dpi);
+    let p = palette();
+    // SAFETY: plain questions about our control.
+    let (enabled, focused) = unsafe { (IsWindowEnabled(hwnd) != 0, GetFocus() == hwnd) };
+    let dropped = win::send(hwnd, CB_GETDROPPEDSTATE, 0, 0) != 0;
+    let hot = HOT_DROPDOWN.with(Cell::get) == hwnd as isize;
+    let fill = match () {
+        _ if !enabled => p.page,
+        _ if dropped => p.button_down,
+        _ if hot => p.button_hot,
+        _ => p.button,
+    };
+    let edge = if focused && enabled { p.accent } else { p.line };
+    rounded_box(hdc, rc, p.page, fill, edge, s(RADIUS), false);
+    // The choice, read without allocating.
+    let mut buf = [0u16; 256];
+    let index = win::send(hwnd, CB_GETCURSEL, 0, 0);
+    let fits = index >= 0 && (0..buf.len() as isize).contains(&win::send(hwnd, CB_GETLBTEXTLEN, index as usize, 0));
+    let n = if fits { win::send(hwnd, CB_GETLBTEXT, index as usize, buf.as_mut_ptr() as isize).max(0) as usize } else { 0 };
+    let text = &buf[..n];
+    let font = win::send(hwnd, WM_GETFONT, 0, 0) as HFONT;
+    let (pad, arrow) = (s(10), s(16));
+    let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
+    // SAFETY: drawing into the control's DC with its font and ours.
+    unsafe {
+        SetBkMode(hdc, TRANSPARENT as i32);
+        SetTextColor(hdc, if enabled { p.text } else { p.grey });
+        let old = SelectObject(hdc, font);
+        let mut r = RECT { left: rc.left + pad, right: rc.right - pad - arrow - s(4), ..rc };
+        let ellipsis = if text_fits(hdc, text, r.right - r.left) { 0 } else { DT_END_ELLIPSIS };
+        DrawTextW(hdc, text.as_ptr(), text.len() as i32, &mut r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | ellipsis | rtl);
+        if let Some(fonts) = crate::panel::fonts() {
+            SelectObject(hdc, fonts.icons);
+            SetTextColor(hdc, p.grey);
+            let glyph = [Icon::ChevronDown as u16];
+            let mut r = RECT { left: rc.right - pad - arrow, right: rc.right - pad, ..rc };
+            DrawTextW(hdc, glyph.as_ptr(), 1, &mut r, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
+        }
+        SelectObject(hdc, old);
+    }
+}
+
+/// Tabs as Windows 11 draws them: an icon and text, the chosen one bold
+/// with an accent line under it.
 fn paint_tabs(hwnd: HWND, hdc: HDC) {
     let client = win::client_rect(hwnd);
     let dpi = win::dpi(hwnd);
@@ -1003,6 +1262,8 @@ fn paint_tabs(hwnd: HWND, hdc: HDC) {
     let fonts = crate::panel::fonts();
     let chosen = win::send(hwnd, TCM_GETCURSEL, 0, 0);
     let count = win::send(hwnd, TCM_GETITEMCOUNT, 0, 0);
+    let icons = TAB_ICONS.with(|t| t.borrow().get(&(hwnd as isize)).copied()).unwrap_or(&[]);
+    let gap = win::scale(6, dpi);
     // SAFETY: drawing into the tab control's DC; texts and rectangles are
     // valid for each message.
     unsafe {
@@ -1039,7 +1300,26 @@ fn paint_tabs(hwnd: HWND, hdc: HDC) {
             SetBkMode(hdc, TRANSPARENT as i32);
             SetTextColor(hdc, if selected { accent() } else { palette().grey });
             let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
-            DrawTextW(hdc, buf.as_ptr(), len as i32, &mut r, DT_SINGLELINE | DT_VCENTER | windows_sys::Win32::Graphics::Gdi::DT_CENTER | DT_NOPREFIX | rtl);
+            match (icons.get(i as usize), &fonts) {
+                (Some(&icon), Some(f)) => {
+                    // The icon and the text, centred together.
+                    let glyph = [icon as u16];
+                    let mut size = SIZE { cx: 0, cy: 0 };
+                    let mut icon_size = SIZE { cx: 0, cy: 0 };
+                    GetTextExtentPoint32W(hdc, buf.as_ptr(), len as i32, &mut size);
+                    SelectObject(hdc, f.icons);
+                    GetTextExtentPoint32W(hdc, glyph.as_ptr(), 1, &mut icon_size);
+                    let x = r.left + ((r.right - r.left) - (icon_size.cx + gap + size.cx)).max(0) / 2;
+                    let mut at = RECT { left: x, right: x + icon_size.cx, ..r };
+                    DrawTextW(hdc, glyph.as_ptr(), 1, &mut at, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+                    SelectObject(hdc, use_font);
+                    let mut at = RECT { left: at.right + gap, right: r.right.max(at.right + gap + size.cx), ..r };
+                    DrawTextW(hdc, buf.as_ptr(), len as i32, &mut at, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | rtl);
+                }
+                _ => {
+                    DrawTextW(hdc, buf.as_ptr(), len as i32, &mut r, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX | rtl);
+                }
+            }
             SelectObject(hdc, old);
         }
     }

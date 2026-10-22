@@ -23,7 +23,7 @@ use windows_sys::Win32::UI::Controls::Dialogs::{
 };
 use windows_sys::Win32::System::SystemInformation::GetLocalTime;
 use windows_sys::Win32::UI::Controls::{
-    BST_CHECKED, DTM_GETSYSTEMTIME, DTM_SETFORMATW, DTM_SETSYSTEMTIME, DTS_TIMEFORMAT, DTS_UPDOWN, GDT_VALID, TCIF_TEXT, TCITEMW, TCM_GETCURSEL, TCM_INSERTITEMW, TCM_SETCURSEL, TCN_SELCHANGE,
+    BST_CHECKED, DTM_GETSYSTEMTIME, DTM_SETFORMATW, DTM_SETSYSTEMTIME, DTS_TIMEFORMAT, DTS_UPDOWN, GDT_VALID, TCIF_IMAGE, TCIF_TEXT, TCITEMW, TCM_GETCURSEL, TCM_INSERTITEMW, TCM_SETCURSEL, TCN_SELCHANGE,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -77,11 +77,15 @@ pub fn build(main: HWND, area: RECT) -> Option<Editor> {
     }
 
     let tabs = root.control("SysTabControl32", "", WS_TABSTOP | WS_CLIPSIBLINGS, 0);
+    use theme::Icon;
+    theme::tab_icons(tabs, &[Icon::Globe, Icon::Apps, Icon::People, Icon::Clock, Icon::Lock]);
     for (i, key) in ["tab-websites", "tab-apps", "tab-users", "tab-schedule", "tab-lock"].iter().enumerate() {
         let mut text = win::wide(&t(key));
         // SAFETY: plain data; the text outlives the message.
         let mut item: TCITEMW = unsafe { std::mem::zeroed() };
-        item.mask = TCIF_TEXT;
+        // Picture 0 is blank: it makes room for the icon.
+        item.mask = TCIF_TEXT | TCIF_IMAGE;
+        item.iImage = 0;
         item.pszText = text.as_mut_ptr();
         win::send(tabs, TCM_INSERTITEMW, i, (&raw const item) as isize);
     }
