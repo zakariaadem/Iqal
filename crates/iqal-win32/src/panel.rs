@@ -84,8 +84,8 @@ thread_local! {
     static PANELS: RefCell<HashMap<isize, PanelState>> = RefCell::new(HashMap::new());
     static HANDLERS: RefCell<HashMap<isize, Handler>> = RefCell::new(HashMap::new());
     static DRAWERS: RefCell<HashMap<isize, Drawer>> = RefCell::new(HashMap::new());
-    /// Static texts shown greyed (notes and explanations).
-    static NOTES: RefCell<HashSet<isize>> = RefCell::new(HashSet::new());
+    /// Static texts shown greyed (notes and explanations) or in amber (warnings).
+    static NOTES: RefCell<HashMap<isize, theme::Tone>> = RefCell::new(HashMap::new());
     /// The fonts and DPI of the main window, for new controls.
     static STYLE: RefCell<Option<(Rc<Fonts>, u32)>> = const { RefCell::new(None) };
 }
@@ -153,6 +153,9 @@ impl Panel {
         let hwnd = win::child(self.hwnd, class, text, WS_CHILD | WS_VISIBLE | style, ex_style, 0);
         if let Some(fonts) = fonts() {
             fonts.apply(hwnd);
+            if class.eq_ignore_ascii_case("combobox") {
+                theme::size_dropdown(hwnd, fonts.normal);
+            }
         }
         hwnd
     }
@@ -167,7 +170,7 @@ impl Panel {
     /// A greyed explanation text.
     pub fn note(&self, text: &str) -> HWND {
         let hwnd = self.control("STATIC", text, 0x2000 /* SS_NOPREFIX */, 0);
-        NOTES.with(|n| n.borrow_mut().insert(hwnd as isize));
+        NOTES.with(|n| n.borrow_mut().insert(hwnd as isize, theme::Tone::Grey));
         hwnd
     }
 
@@ -212,6 +215,11 @@ impl Panel {
 /// Runs `f` when the control sends an event (its notification code).
 pub fn on(control: HWND, f: impl Fn(u32) + 'static) {
     HANDLERS.with(|h| h.borrow_mut().insert(control as isize, Rc::new(f)));
+}
+
+/// Shows a text in amber: it warns about something.
+pub fn warning(control: HWND) {
+    NOTES.with(|n| n.borrow_mut().insert(control as isize, theme::Tone::Warning));
 }
 
 /// Draws the items of an owner-drawn control.
@@ -601,16 +609,18 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_DRAWITEM => {
             // SAFETY: for WM_DRAWITEM, lparam points to a DRAWITEMSTRUCT.
             let item = unsafe { &*(lparam as *const DRAWITEMSTRUCT) };
-            if let Some(f) = DRAWERS.with(|d| d.borrow().get(&(item.hwndItem as isize)).cloned()) {
-                f(item);
+            match DRAWERS.with(|d| d.borrow().get(&(item.hwndItem as isize)).cloned()) {
+                Some(f) => f(item),
+                // Drop-down lists' choices.
+                None => theme::draw_dropdown_item(item),
             }
             1
         }
         WM_CTLCOLORSTATIC | WM_CTLCOLORBTN | WM_CTLCOLOREDIT | WM_CTLCOLORLISTBOX => {
             // Texts, check boxes and radio buttons on the window colour;
-            // notes greyed.
-            let grey = NOTES.with(|n| n.borrow().contains(&lparam));
-            match theme::ctl_color(msg, wparam as HDC, grey) {
+            // notes greyed, warnings amber.
+            let tone = NOTES.with(|n| n.borrow().get(&lparam).copied()).unwrap_or(theme::Tone::Normal);
+            match theme::ctl_color(msg, wparam as HDC, tone) {
                 Some(brush) => brush,
                 // SAFETY: default handling.
                 None => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },

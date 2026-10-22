@@ -37,6 +37,9 @@ pub fn child(parent: HWND, class: &str, text: &str, style: WINDOW_STYLE, ex_styl
     let outlined = ex_style & WS_EX_CLIENTEDGE != 0 && (class.eq_ignore_ascii_case("edit") || class.eq_ignore_ascii_case("listbox"));
     let ex_style = if outlined { ex_style & !WS_EX_CLIENTEDGE } else { ex_style };
     let edit = class.eq_ignore_ascii_case("edit");
+    // Drop-down lists' choices are drawn by Iqal (CBS_OWNERDRAWFIXED,
+    // CBS_HASSTRINGS; see theme).
+    let style = if class.eq_ignore_ascii_case("combobox") { style | 0x10 | 0x200 } else { style };
     let (class, text) = (wide(class), wide(text));
     // SAFETY: strings are NUL-terminated; parent is a live window.
     let hwnd = unsafe {

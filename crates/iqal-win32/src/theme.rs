@@ -25,7 +25,7 @@ use windows_sys::Win32::Graphics::Gdi::{
     DeleteObject, DrawFocusRect, DrawTextW, Ellipse, EndPaint, FillRect, FrameRect, GdiFlush, GetSysColor, GetSysColorBrush,
     GetTextExtentPoint32W, HALFTONE, HBITMAP, HBRUSH, HDC, HFONT, PAINTSTRUCT, PS_SOLID, Polyline, RDW_ALLCHILDREN,
     RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RedrawWindow, RoundRect, SRCCOPY, SelectObject, SetBkMode, SetBrushOrgEx,
-    SetStretchBltMode, SetTextColor, StretchBlt, TRANSPARENT, GetClipBox, MapWindowPoints, DT_CENTER, InvalidateRect, CreateBitmap,
+    SetStretchBltMode, SetTextColor, StretchBlt, TRANSPARENT, GetClipBox, MapWindowPoints, DT_CENTER, InvalidateRect, CreateBitmap, GetDC, ReleaseDC, GetTextMetricsW, TEXTMETRICW,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetFocus, IsWindowEnabled, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
@@ -33,7 +33,7 @@ use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, 
 use windows_sys::Win32::UI::Controls::{
     BST_CHECKED, CDDS_PREPAINT, CDIS_DISABLED, CDIS_FOCUS, CDIS_HOT, CDIS_SELECTED, CDIS_SHOWKEYBOARDCUES, CDRF_DODEFAULT,
     CDRF_SKIPDEFAULT, NMCUSTOMDRAW, SetWindowTheme, TCIF_TEXT, TCITEMW, TCM_GETCURSEL, TCM_GETITEMCOUNT, TCM_GETITEMRECT,
-    TCM_GETITEMW, TCM_SETIMAGELIST, WM_MOUSELEAVE, HIMAGELIST, ILC_COLOR32, ImageList_Add, ImageList_Create,
+    TCM_GETITEMW, TCM_SETIMAGELIST, WM_MOUSELEAVE, DRAWITEMSTRUCT, HIMAGELIST, ILC_COLOR32, ImageList_Add, ImageList_Create,
 };
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -43,7 +43,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetWindowRect, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_ERASEBKGND, WM_GETFONT,
     GW_CHILD, GW_HWNDNEXT, GetWindow, IsWindowVisible,
     WM_NCDESTROY, WM_PAINT, CB_GETCURSEL, CB_GETDROPPEDSTATE, CB_GETLBTEXT, CB_GETLBTEXTLEN, WM_ENABLE, WM_KILLFOCUS,
-    WM_MOUSEMOVE, WM_SETFOCUS,
+    WM_MOUSEMOVE, WM_SETFOCUS, CB_SETITEMHEIGHT,
 };
 
 use crate::win;
@@ -169,6 +169,11 @@ pub struct Palette {
     pub badge: COLORREF,
     pub badge_text: COLORREF,
     pub badge_line: COLORREF,
+    /// Warnings (amber) and errors.
+    pub warn: COLORREF,
+    pub error: COLORREF,
+    /// The mark on a message's round icon.
+    pub on_sign: COLORREF,
 }
 
 const LIGHT_COLOURS: Palette = Palette {
@@ -192,6 +197,9 @@ const LIGHT_COLOURS: Palette = Palette {
     badge: rgb(0xEF, 0xE3, 0xCC),
     badge_text: rgb(0x6B, 0x4E, 0x1F),
     badge_line: rgb(0xC9, 0xA2, 0x4A),
+    warn: rgb(0xA8, 0x62, 0x0A),
+    error: rgb(0x6B, 0x1F, 0x2A),
+    on_sign: rgb(0xF6, 0xF1, 0xE7),
 };
 
 const DARK_COLOURS: Palette = Palette {
@@ -215,6 +223,9 @@ const DARK_COLOURS: Palette = Palette {
     badge: rgb(0x3B, 0x30, 0x20),
     badge_text: rgb(0xE8, 0xC9, 0x8A),
     badge_line: rgb(0x8A, 0x6D, 0x2E),
+    warn: rgb(0xE8, 0xA8, 0x4C),
+    error: rgb(0xE0, 0x6C, 0x7A),
+    on_sign: rgb(0x1A, 0x1A, 0x1A),
 };
 
 pub fn palette() -> &'static Palette {
@@ -229,6 +240,8 @@ const LINE: i32 = -3;
 const ACCENT: i32 = -4;
 /// The chosen block's stripe (not a system colour).
 pub const STRIPE: i32 = -5;
+/// Warnings (not a system colour).
+const WARN: i32 = -6;
 
 /// A system colour's counterpart in Iqal's colours.
 pub fn color(index: i32) -> COLORREF {
@@ -239,6 +252,7 @@ pub fn color(index: i32) -> COLORREF {
         LINE => p.line,
         ACCENT => p.accent,
         STRIPE => p.stripe,
+        WARN => p.warn,
         i if i == COLOR_WINDOW || i == COLOR_BTNFACE => p.page,
         i if i == COLOR_WINDOWTEXT => p.text,
         i if i == COLOR_HIGHLIGHTTEXT => p.chosen_text,
@@ -460,11 +474,26 @@ pub fn apply_everywhere() {
     }
 }
 
+/// How a text stands out.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Normal,
+    /// Notes and explanations.
+    Grey,
+    /// Warnings.
+    Warning,
+}
+
 /// Answers a control's colour question (WM_CTLCOLOR*), or `None` to leave
-/// it to Windows. `grey`: the control is a note.
-pub fn ctl_color(msg: u32, hdc: HDC, grey: bool) -> Option<LRESULT> {
+/// it to Windows. `tone`: how a text control's text stands out.
+pub fn ctl_color(msg: u32, hdc: HDC, tone: Tone) -> Option<LRESULT> {
+    let text_index = match tone {
+        Tone::Normal => COLOR_WINDOWTEXT,
+        Tone::Grey => COLOR_GRAYTEXT,
+        Tone::Warning => WARN,
+    };
     let (text, back) = match msg {
-        WM_CTLCOLORSTATIC | WM_CTLCOLORBTN => (if grey { COLOR_GRAYTEXT } else { COLOR_WINDOWTEXT }, COLOR_WINDOW),
+        WM_CTLCOLORSTATIC | WM_CTLCOLORBTN => (text_index, COLOR_WINDOW),
         WM_CTLCOLOREDIT => (COLOR_WINDOWTEXT, FIELD),
         WM_CTLCOLORLISTBOX => (COLOR_WINDOWTEXT, LIST),
         _ => return None,
@@ -1249,6 +1278,92 @@ fn paint_dropdown(hwnd: HWND, hdc: HDC) {
             let mut r = RECT { left: rc.right - pad - arrow, right: rc.right - pad, ..rc };
             DrawTextW(hdc, glyph.as_ptr(), 1, &mut r, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
         }
+        SelectObject(hdc, old);
+    }
+}
+
+/// Makes a drop-down list (made owner-drawn, see `win::child`) as tall as
+/// Windows makes one with this font: Iqal draws its choices in its own
+/// colours, but its size stays the same.
+pub fn size_dropdown(hwnd: HWND, font: HFONT) {
+    // SAFETY: the control's DC, released again; the metrics are an out value.
+    let height = unsafe {
+        let hdc = GetDC(hwnd);
+        let old = SelectObject(hdc, font);
+        let mut tm: TEXTMETRICW = std::mem::zeroed();
+        GetTextMetricsW(hdc, &mut tm);
+        SelectObject(hdc, old);
+        ReleaseDC(hwnd, hdc);
+        tm.tmHeight
+    };
+    // The closed box (-1) and the choices, as Windows sizes them.
+    win::send(hwnd, CB_SETITEMHEIGHT, usize::MAX, (height + 2) as isize);
+    win::send(hwnd, CB_SETITEMHEIGHT, 0, height as isize);
+}
+
+/// A choice in an open drop-down list: the one under the mouse in the
+/// chosen-row colour.
+pub fn draw_dropdown_item(item: &DRAWITEMSTRUCT) {
+    const ODT_COMBOBOX: u32 = 3;
+    const ODS_COMBOBOXEDIT: u32 = 0x1000;
+    // The closed box is drawn in `paint_dropdown`.
+    if item.CtlType != ODT_COMBOBOX || item.itemState & ODS_COMBOBOXEDIT != 0 {
+        return;
+    }
+    let p = palette();
+    let selected = item.itemState & 1 /* ODS_SELECTED */ != 0;
+    let combo = item.hwndItem;
+    let mut buf = [0u16; 256];
+    let index = item.itemID as usize;
+    let fits = item.itemID != u32::MAX && (0..buf.len() as isize).contains(&win::send(combo, CB_GETLBTEXTLEN, index, 0));
+    let n = if fits { win::send(combo, CB_GETLBTEXT, index, buf.as_mut_ptr() as isize).max(0) as usize } else { 0 };
+    let font = win::send(combo, WM_GETFONT, 0, 0) as HFONT;
+    let pad = win::scale(10, win::dpi(combo));
+    let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
+    let mut r = RECT { left: item.rcItem.left + pad, right: item.rcItem.right - pad, ..item.rcItem };
+    // SAFETY: drawing into the list's DC during WM_DRAWITEM; kept brushes.
+    unsafe {
+        FillRect(item.hDC, &item.rcItem, brush(if selected { COLOR_HIGHLIGHT } else { LIST }));
+        SetBkMode(item.hDC, TRANSPARENT as i32);
+        SetTextColor(item.hDC, if selected { p.chosen_text } else { p.text });
+        let old = SelectObject(item.hDC, font);
+        DrawTextW(item.hDC, buf.as_ptr(), n as i32, &mut r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX | DT_END_ELLIPSIS | rtl);
+        SelectObject(item.hDC, old);
+    }
+}
+
+/// What a message is about, for its round icon.
+#[derive(Clone, Copy)]
+pub enum Sign {
+    Info,
+    Warning,
+    Error,
+}
+
+/// A message's round icon in `rc`: a circle (accent, amber or red) with an
+/// "i" or "!" in it.
+pub fn sign(hdc: HDC, rc: RECT, sign: Sign, mark_font: HFONT) {
+    let p = palette();
+    let (fill, mark) = match sign {
+        Sign::Info => (p.accent, 'i'),
+        Sign::Warning => (p.warn, '!'),
+        Sign::Error => (p.error, '!'),
+    };
+    let d = (rc.right - rc.left).min(rc.bottom - rc.top);
+    let (x, y) = (rc.left + (rc.right - rc.left - d) / 2, rc.top + (rc.bottom - rc.top - d) / 2);
+    let circle = RECT { left: x, top: y, right: x + d, bottom: y + d };
+    cached_shape(hdc, circle, p.page, (20, fill, 0, 0), |dc, k| {
+        // SAFETY: drawing into the memory DC `cached_shape` gives.
+        shape(dc, fill, fill, 1, |dc| unsafe { Ellipse(dc, 0, 0, d * k, d * k) });
+    });
+    let text = [mark as u16];
+    let mut r = circle;
+    // SAFETY: drawing into the DC we were given.
+    unsafe {
+        SetBkMode(hdc, TRANSPARENT as i32);
+        SetTextColor(hdc, if matches!(sign, Sign::Info) { p.on_accent } else { p.on_sign });
+        let old = SelectObject(hdc, mark_font);
+        DrawTextW(hdc, text.as_ptr(), 1, &mut r, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
         SelectObject(hdc, old);
     }
 }

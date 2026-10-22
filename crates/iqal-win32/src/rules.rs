@@ -105,6 +105,7 @@ pub fn editor(
     );
     let hint = page.note(&ta("list-empty-hint", &[("examples", examples.to_string().into())]));
     let problem = page.control("STATIC", "", 0x2000, 0);
+    panel::warning(problem);
     let add_button = page.control("BUTTON", &t("action-add"), WS_TABSTOP, 0);
     crate::theme::style_button(add_button, Some(crate::theme::Icon::Add), crate::theme::Look::Plain);
 

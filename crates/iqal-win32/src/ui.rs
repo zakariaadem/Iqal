@@ -899,7 +899,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         WM_ERASEBKGND => theme::erase(hwnd, wparam as HDC),
         WM_CTLCOLORSTATIC | WM_CTLCOLORBTN | WM_CTLCOLOREDIT | WM_CTLCOLORLISTBOX => {
-            match theme::ctl_color(msg, wparam as HDC, false) {
+            match theme::ctl_color(msg, wparam as HDC, theme::Tone::Normal) {
                 Some(brush) => brush,
                 // SAFETY: default handling.
                 None => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
