@@ -92,7 +92,7 @@ web-placeholder = example.com, example.com/page, contains:Wort, search:Wörter
 web-syntax = example.com sperrt die Website mit allen Subdomains. example.com/videos sperrt nur diese Seiten. contains:casino sperrt jede Adresse, die das Wort enthält. search:kostenlose Filme sperrt Suchen, die diese Wörter enthalten.
 web-allowed = Erlaubte Websites
 web-exceptions = Ausnahmen (immer erlaubt)
-web-safesearch = SafeSearch erzwingen (Google, Bing, DuckDuckGo, YouTube)
+web-safesearch = SafeSearch erzwingen (Google, Bing, DuckDuckGo, Yandex)
 
 import-done = Import abgeschlossen
 import-result = { $added } Regeln hinzugefügt, { $skipped } Zeilen übersprungen.
@@ -140,7 +140,7 @@ schedule-date-invalid = Schreiben Sie einen einmaligen Zeitraum so: Startdatum, 
 schedule-add-weekly = Wöchentliche Zeiten hinzufügen
 schedule-no-days = Wählen Sie mindestens einen Tag.
 allowance = Tägliches Zeitkontingent
-allowance-detail = Erlaubt die gesperrten Websites und Apps jeden Tag für eine begrenzte Zeit; danach sind sie gesperrt.
+allowance-detail = Jede gesperrte Website und App darf so viele Minuten am Tag genutzt werden; danach ist sie bis morgen gesperrt.
 allowance-minutes = Minuten pro Tag
 
 area-circle = im Umkreis von { $radius } m um { $lat }, { $lon }
@@ -273,9 +273,9 @@ notify-app-closed-body = { $app } wurde von „{ $block }“ geschlossen.
 notify-window-closed = Fenster geschlossen
 notify-window-closed-body = „{ $title }“ wurde von „{ $block }“ geschlossen.
 notify-allowance-low = Noch 5 Minuten
-notify-allowance-low-body = Die tägliche Zeit für „{ $block }“ ist fast aufgebraucht.
+notify-allowance-low-body = Die tägliche Zeit für { $item } („{ $block }“) ist fast aufgebraucht.
 notify-allowance-used = Die Zeit ist um
-notify-allowance-used-body = Die tägliche Zeit für „{ $block }“ ist aufgebraucht. Bis morgen ist sie gesperrt.
+notify-allowance-used-body = Die tägliche Zeit für { $item } („{ $block }“) ist aufgebraucht. Bis morgen ist es gesperrt.
 
 # Saving
 unsaved-changes = Ungespeicherte Änderungen
@@ -374,3 +374,12 @@ uninstall-failed = Iqal konnte nicht entfernt werden
 uninstall-locked = Iqal kann jetzt nicht entfernt werden
 uninstall-locked-detail = Eine Sperre ist abgeschlossen. Iqal kann entfernt werden, wenn alle Schlösser geendet haben.
 setup-updated = Iqal ist aktualisiert
+web-safesearch-detail = Solange dies an ist, sind andere Suchmaschinen und Seiten, die für Inhalte für Erwachsene bekannt sind, gesperrt (Reddit, X, Instagram, Tumblr, Bluesky, Imgur…).
+allowance-used-today-items = Heute genutzt:
+allowance-used-item = { $item } { $used } von { $total } Min.
+allowance-unused = Heute noch nichts genutzt.
+unsaved-locked-weaker = Diese Sperre ist abgeschlossen, und diese Änderung { $reason }.
+schedule-old = Alter Zeitplan
+schedule-old-detail = Diese Sperre gilt nur zu bestimmten Zeiten, die in einer früheren Version von Iqal festgelegt wurden. Zeiten werden jetzt mit einem Schloss festgelegt („Zu bestimmten Zeiten“).
+schedule-old-remove = Immer gelten lassen
+lock-schedule-detail = In diesen Zeiten ist die Sperre ein und abgeschlossen. Den Rest der Zeit ist sie aus und kann geändert werden.

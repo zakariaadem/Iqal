@@ -590,10 +590,19 @@ fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
             }
         });
         body.append(&setting_row(&t("allowance-minutes"), &minutes));
-        body.append(&label(&ta(
-            "allowance-used-today",
-            &[("used", ((info.used_today_secs / 60) as i64).into()), ("total", ((a.daily_secs / 60) as i64).into())],
-        )));
+        // Time used today, per website and app (the most used five).
+        let total = (a.daily_secs / 60) as i64;
+        let used: Vec<String> = info
+            .used_items
+            .iter()
+            .take(5)
+            .map(|(item, secs)| {
+                ta("allowance-used-item", &[("item", item.clone().into()), ("used", ((secs / 60) as i64).into()), ("total", total.into())])
+            })
+            .collect();
+        let text =
+            if used.is_empty() { t("allowance-unused") } else { format!("{} {}", t("allowance-used-today-items"), used.join("   ·   ")) };
+        body.append(&label(&text));
     }
     scroll.upcast()
 }

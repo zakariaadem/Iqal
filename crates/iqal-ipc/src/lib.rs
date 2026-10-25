@@ -265,6 +265,7 @@ pub struct SetState {
     pub id: SetId,
     pub locked: bool,
     pub active: bool,
+    /// Allowance time used today, all websites and apps together.
     pub used_today_secs: u32,
     /// For a location lock: Iqal can tell whether the machine is at the
     /// place (it knows the Wi-Fi there, or has a precise position).
@@ -278,9 +279,14 @@ pub struct SetInfo {
     pub locked: bool,
     /// In force right now for the calling user.
     pub active: bool,
-    /// Seconds of this set's daily allowance the caller used today.
+    /// Seconds of this set's daily allowance the caller used today, all
+    /// websites and apps together.
     #[serde(default)]
     pub used_today_secs: u32,
+    /// The same per website or app (each has the whole allowance), most
+    /// used first.
+    #[serde(default)]
+    pub used_items: Vec<(String, u32)>,
     /// See [`SetState::place_known`].
     #[serde(default)]
     pub place_known: bool,

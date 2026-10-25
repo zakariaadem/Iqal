@@ -30,7 +30,7 @@ use windows_sys::Win32::UI::Controls::{
     DRAWITEMSTRUCT, ICC_BAR_CLASSES, ICC_DATE_CLASSES, ICC_STANDARD_CLASSES, ICC_TAB_CLASSES, INITCOMMONCONTROLSEX,
     InitCommonControlsEx, ODS_SELECTED, SBARS_SIZEGRIP,
 };
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, SetFocus, VK_CONTROL};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{EnableWindow, GetKeyState, SetFocus, VK_CONTROL};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, FindWindowW, GetMessageW,
     GetWindowRect, IDC_ARROW, IsDialogMessageW, KillTimer, LB_ADDSTRING, LB_GETCURSEL, LB_RESETCONTENT, LB_SETCURSEL,
@@ -185,6 +185,9 @@ pub fn run() {
             // Ctrl+S saves, wherever the focus is.
             if msg.message == WM_KEYDOWN && msg.wParam == b'S' as usize && GetKeyState(VK_CONTROL as i32) < 0 {
                 save();
+                continue;
+            }
+            if crate::panel::before_dispatch(&msg) {
                 continue;
             }
             if IsDialogMessageW(hwnd, &msg) == 0 {
@@ -391,6 +394,10 @@ fn rebuild_editor() {
     }
     let placeholder = new.is_none();
     with_app(|app| app.editor = new);
+    if !placeholder && is_dirty() {
+        // The save bar's text and Save (greyed if the change would weaken a lock).
+        update_dirty();
+    }
     if placeholder {
         // The placeholder is painted when there is no editor.
         // SAFETY: our window.
@@ -472,10 +479,31 @@ fn is_dirty() -> bool {
 /// Shows or hides the save bar and the "unsaved" mark in the list.
 fn update_dirty() {
     let dirty = is_dirty();
+    // A locked block: changes that would weaken it cannot be saved. Save is
+    // greyed and the bar says why (stricter changes save as usual).
+    let weaker = if dirty {
+        with_app(|app| {
+            let info = app.sets.iter().find(|s| Some(s.set.id) == app.selected).filter(|s| s.locked)?;
+            let set = app.draft.as_ref()?.finish().ok()?;
+            iqal_core::lock::weakening_reason(&info.set, &set).map(iqal_app::service::reason_text)
+        })
+        .flatten()
+    } else {
+        None
+    };
     let Some((list, editor)) = with_app(|app| (app.list, app.editor.as_ref().map(Editor::save_bar))) else { return };
     if let Some((panel, cells)) = editor {
-        for cell in cells {
+        for &cell in &cells {
             panel.set_hidden(cell, !dirty);
+        }
+        if let [unsaved, _, save] = cells[..] {
+            let text = match &weaker {
+                Some(reason) => ta("unsaved-locked-weaker", &[("reason", reason.clone().into())]),
+                None => t("unsaved-changes"),
+            };
+            win::set_text(unsaved, &text);
+            // SAFETY: our button.
+            unsafe { EnableWindow(save, i32::from(weaker.is_none())) };
         }
     }
     // SAFETY: our list.
@@ -928,6 +956,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         WM_COMMAND => {
             match (win::loword(wparam), win::hiword(wparam) as u32) {
                 (ID_LIST, LBN_SELCHANGE) => select_from_list(),
+                // Enter in a one-line text box (IDOK, from IsDialogMessage).
+                (1, _) => panel::press_default(hwnd),
                 (ID_NEW, BN_CLICKED) => after_unsaved(menu::new_block),
                 (ID_MENU, BN_CLICKED) => {
                     if let Some(button) = with_app(|app| app.menu_button) {

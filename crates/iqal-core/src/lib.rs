@@ -18,7 +18,7 @@ pub mod text;
 pub mod web;
 
 pub use apps::{AppRule, ProcessInfo};
-pub use engine::{Ctx, Decision, Engine, Hit, ListSource, NoLists, Reason};
+pub use engine::{Ctx, Decision, Engine, Hit, ListSource, Meter, NoLists, Reason, UsageMap};
 pub use geo::{GeoArea, LocationFix};
 pub use lock::{Challenge, LockContext, PasswordHash, UnlockOutcome};
 pub use model::{

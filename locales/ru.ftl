@@ -94,7 +94,7 @@ web-placeholder = example.com, example.com/page, contains:слово, search:с�
 web-syntax = example.com блокирует сайт и все его поддомены. example.com/videos блокирует только эти страницы. contains:casino блокирует любой адрес, содержащий слово. search:бесплатные фильмы блокирует поиск с этими словами.
 web-allowed = Разрешённые сайты
 web-exceptions = Исключения (всегда разрешены)
-web-safesearch = Включать SafeSearch принудительно (Google, Bing, DuckDuckGo, YouTube)
+web-safesearch = Включать SafeSearch принудительно (Google, Bing, DuckDuckGo, Яндекс)
 
 import-done = Импорт завершён
 import-result = Добавлено правил: { $added }, пропущено строк: { $skipped }.
@@ -142,7 +142,7 @@ schedule-date-invalid = Запишите разовый период так: д�
 schedule-add-weekly = Добавить еженедельное время
 schedule-no-days = Выберите хотя бы один день.
 allowance = Дневной лимит времени
-allowance-detail = Разрешает заблокированные сайты и приложения на ограниченное время каждый день; после этого они блокируются.
+allowance-detail = Каждый заблокированный сайт и приложение можно использовать столько минут в день; потом доступ блокируется до завтра.
 allowance-minutes = Минут в день
 
 area-circle = в пределах { $radius } м от { $lat }, { $lon }
@@ -277,9 +277,9 @@ notify-app-closed-body = Блок «{ $block }» закрыл { $app }.
 notify-window-closed = Окно закрыто
 notify-window-closed-body = Блок «{ $block }» закрыл окно «{ $title }».
 notify-allowance-low = Осталось 5 минут
-notify-allowance-low-body = Дневное время для «{ $block }» почти закончилось.
+notify-allowance-low-body = Дневное время для { $item } («{ $block }») почти закончилось.
 notify-allowance-used = Время вышло
-notify-allowance-used-body = Дневное время для «{ $block }» закончилось. Блокировка до завтра.
+notify-allowance-used-body = Дневное время для { $item } («{ $block }») закончилось. Доступ заблокирован до завтра.
 
 # Saving
 unsaved-changes = Несохранённые изменения
@@ -384,3 +384,12 @@ uninstall-failed = Не удалось удалить Iqal
 uninstall-locked = Сейчас Iqal нельзя удалить
 uninstall-locked-detail = Один из блоков заперт. Iqal можно будет удалить, когда закончатся все замки.
 setup-updated = Iqal обновлён
+web-safesearch-detail = Пока это включено, другие поисковики и сайты, известные контентом для взрослых, заблокированы (Reddit, X, Instagram, Tumblr, Bluesky, Imgur…).
+allowance-used-today-items = Использовано сегодня:
+allowance-used-item = { $item } { $used } из { $total } мин
+allowance-unused = Сегодня ещё ничего не использовано.
+unsaved-locked-weaker = Этот блок заперт, а это изменение { $reason }.
+schedule-old = Старое расписание
+schedule-old-detail = Этот блок действует только в определённое время, заданное в прежней версии Iqal. Теперь время задаётся замком («В определённое время»).
+schedule-old-remove = Пусть действует всегда
+lock-schedule-detail = В это время блок включён и заперт. В остальное время он выключен, и его можно менять.

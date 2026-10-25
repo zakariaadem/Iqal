@@ -140,6 +140,10 @@ fn service_main(_args: Vec<OsString>) {
         }
     };
     let _ = handle.set_service_status(status(ServiceState::StartPending, 0, false));
+    // Installed by an older version: put Iqal on Safe Mode's lists now.
+    if let Err(e) = keep_in_safe_mode() {
+        eprintln!("iqal: could not keep Iqal on in Safe Mode: {e}");
+    }
     let result = RUN.get().map_or(Err("nothing to run".into()), |run| run());
     if let Err(e) = result {
         eprintln!("iqal: {e}");
@@ -210,6 +214,7 @@ pub fn install() -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
     service.set_failure_actions_on_non_crash_failures(true).map_err(|e| e.to_string())?;
+    keep_in_safe_mode().map_err(|e| format!("keeping Iqal on in Safe Mode: {e}"))?;
     let running = service.query_status().map(|s| s.current_state == ServiceState::Running).unwrap_or(false);
     if !running {
         service.start::<OsString>(&[]).map_err(|e| format!("starting the service: {e}"))?;
@@ -226,6 +231,22 @@ pub fn install() -> Result<(), String> {
         let icon = icon.display().to_string();
         super::reg::set(APP_ID_KEY, &[("DisplayName", super::reg::Value::Str("Iqal Blocker")), ("IconUri", super::reg::Value::Str(&icon))])
             .map_err(|e| format!("naming the notifications: {e}"))?;
+    }
+    Ok(())
+}
+
+/// In Safe Mode Windows starts only the services on these lists. Iqal is on
+/// them, so it keeps blocking there (and locks keep holding): otherwise
+/// starting in Safe Mode would be a way around it.
+const SAFE_MODE_KEYS: [&str; 2] =
+    [r"SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal\Iqal", r"SYSTEM\CurrentControlSet\Control\SafeBoot\Network\Iqal"];
+
+/// Puts the Iqal service on Safe Mode's lists (see `SAFE_MODE_KEYS`).
+pub fn keep_in_safe_mode() -> std::io::Result<()> {
+    for key in SAFE_MODE_KEYS {
+        if super::reg::get_string(key, "").as_deref() != Some("Service") {
+            super::reg::set(key, &[("", super::reg::Value::Str("Service"))])?;
+        }
     }
     Ok(())
 }
@@ -247,6 +268,9 @@ pub fn uninstall() -> Result<(), String> {
     service.delete().map_err(|e| format!("removing the service: {e}"))?;
     let _ = super::reg::delete_value(RUN_KEY, AGENT_VALUE);
     let _ = super::reg::delete_tree(APP_ID_KEY);
+    for key in SAFE_MODE_KEYS {
+        let _ = super::reg::delete_tree(key);
+    }
     if service.query_status().is_ok_and(|s| s.current_state != ServiceState::Stopped) {
         let _ = service.stop();
     }

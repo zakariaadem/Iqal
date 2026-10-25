@@ -36,13 +36,24 @@ impl ListSource for HashMap<String, Vec<WebRule>> {
     }
 }
 
+/// Seconds of allowance used today, per set and per website or app (see
+/// [`Reason::item`]): each has the whole daily allowance of its set.
+pub type UsageMap = HashMap<SetId, HashMap<String, u32>>;
+
+/// One website or app whose time counts against a set's daily allowance.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Meter {
+    pub set: SetId,
+    pub item: String,
+}
+
 /// Who is asking, and when.
 #[derive(Debug, Clone, Copy)]
 pub struct Ctx<'a> {
     pub now: Now,
     pub user: &'a str,
-    /// Seconds of allowance used today, per set.
-    pub usage: Option<&'a HashMap<SetId, u32>>,
+    /// Allowance used today.
+    pub usage: Option<&'a UsageMap>,
 }
 
 impl<'a> Ctx<'a> {
@@ -68,6 +79,24 @@ pub enum Reason {
     AppHash,
     CmdLine(String),
     WindowTitle(String),
+}
+
+impl Reason {
+    /// The website or app this is about, as its rule says it: the allowance
+    /// is counted for each separately.
+    pub fn item(&self) -> String {
+        match self {
+            Reason::Domain(t) | Reason::Url(t) | Reason::AppName(t) | Reason::AppPath(t) => t.clone(),
+            Reason::UrlContains(t) => format!("contains:{t}"),
+            Reason::SearchTerm(t) => format!("search:{t}"),
+            Reason::CmdLine(t) => format!("cmd:{t}"),
+            Reason::WindowTitle(t) => format!("title:{t}"),
+            // Everything outside an allow list shares one allowance.
+            Reason::NotAllowed => "*".to_string(),
+            Reason::AppHash => "hash".to_string(),
+            Reason::UnsupportedBrowser | Reason::ExtensionMissing => "browser".to_string(),
+        }
+    }
 }
 
 impl std::fmt::Display for Reason {
@@ -98,8 +127,8 @@ pub struct Hit {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Decision {
     pub block: Option<Hit>,
-    /// Sets whose allowance is being consumed by this (allowed) activity.
-    pub metered: Vec<SetId>,
+    /// Allowances being used by this (allowed) activity.
+    pub metered: Vec<Meter>,
 }
 
 impl Decision {
@@ -118,6 +147,8 @@ struct CompiledSet {
     enabled: bool,
     users: UserScope,
     schedule: Option<Schedule>,
+    /// A "during certain times" lock: the block is in force only then.
+    lock_times: Option<Schedule>,
     allowance: Option<Allowance>,
     web_mode: ListMode,
     web_block: WebMatcher,
@@ -196,9 +227,11 @@ impl Engine {
         for set in self.sets.iter().filter(|s| s.is_active(ctx)) {
             let Some(reason) = verdict(set) else { continue };
             if let Some(allowance) = set.allowance {
-                let used = ctx.usage.and_then(|u| u.get(&set.id)).copied().unwrap_or(0);
+                // Each website and app has the whole allowance.
+                let item = reason.item();
+                let used = ctx.usage.and_then(|u| u.get(&set.id)).and_then(|m| m.get(&item)).copied().unwrap_or(0);
                 if used < allowance.daily_secs {
-                    decision.metered.push(set.id);
+                    decision.metered.push(Meter { set: set.id, item });
                     continue;
                 }
             }
@@ -218,7 +251,13 @@ impl CompiledSet {
         // lists are kept for switching back, but not used.
         if set.web.mode == ListMode::Block {
             let list_rules = set.web.lists.iter().filter_map(|id| lists.list(id)).flatten();
-            web_block.build(set.web.block.iter().chain(list_rules));
+            // With SafeSearch: the sites where it cannot be forced, blocked.
+            let unsafe_sites: Vec<WebRule> = if set.web.safe_search {
+                crate::web::SAFE_SEARCH_BLOCKED.iter().filter_map(|d| WebRule::parse(d).ok()).collect()
+            } else {
+                Vec::new()
+            };
+            web_block.build(set.web.block.iter().chain(list_rules).chain(unsafe_sites.iter()));
         }
         web_allow.build(set.web.allow.iter());
         Self {
@@ -226,6 +265,10 @@ impl CompiledSet {
             enabled: set.enabled,
             users: set.users.clone(),
             schedule: set.schedule.clone(),
+            lock_times: match set.lock.as_ref().map(|l| &l.kind) {
+                Some(crate::model::LockKind::Schedule { schedule }) => Some(schedule.clone()),
+                _ => None,
+            },
             allowance: set.allowance,
             web_mode: set.web.mode,
             web_block,
@@ -245,6 +288,7 @@ impl CompiledSet {
         self.enabled
             && self.users.includes(ctx.user)
             && self.schedule.as_ref().is_none_or(|s| s.is_active(&ctx.now))
+            && self.lock_times.as_ref().is_none_or(|s| s.is_active(&ctx.now))
     }
 
     fn web_verdict(&self, view: &UrlView) -> Option<Reason> {
@@ -562,22 +606,40 @@ mod tests {
     #[test]
     fn allowance_meters_then_blocks() {
         let mut s = BlockSet::new("yt budget");
-        s.web.block = rules(&["youtube.com"]);
+        s.web.block = rules(&["youtube.com", "reddit.com"]);
         s.allowance = Some(Allowance { daily_secs: 1800 });
         let id = s.id;
         let e = engine(vec![s]);
+        let used = |secs: u32| -> UsageMap { [(id, [("youtube.com".to_string(), secs)].into())].into() };
 
-        let mut usage = HashMap::new();
-        usage.insert(id, 600);
+        let usage = used(600);
         let c = Ctx { usage: Some(&usage), ..ctx() };
         let d = e.check_url("youtube.com", &c);
         assert!(!d.is_blocked());
-        assert_eq!(d.metered, vec![id]);
+        assert_eq!(d.metered, vec![Meter { set: id, item: "youtube.com".into() }]);
 
-        usage.insert(id, 1800);
+        let usage = used(1800);
         let c = Ctx { usage: Some(&usage), ..ctx() };
         assert!(e.check_url("youtube.com", &c).is_blocked());
         assert!(e.check_url("example.com", &c).metered.is_empty());
+        // Each website has its own time: reddit.com is still allowed.
+        let d = e.check_url("reddit.com", &c);
+        assert!(!d.is_blocked());
+        assert_eq!(d.metered, vec![Meter { set: id, item: "reddit.com".into() }]);
+    }
+
+    #[test]
+    fn times_lock_limits_when_in_force() {
+        use crate::model::{Lock, LockKind};
+        use crate::schedule::{Day, WeeklyRange};
+        let mut s = BlockSet::new("evenings");
+        s.web.block = rules(&["youtube.com"]);
+        // 2026-10-12 is a Monday; ctx() is 10:00.
+        let times = |start: u16, end: u16| Schedule { weekly: vec![WeeklyRange { days: vec![Day::Mon], start, end }], dates: vec![] };
+        s.lock = Some(Lock { kind: LockKind::Schedule { schedule: times(18 * 60, 22 * 60) }, unlock_delay_secs: 0 });
+        assert!(!blocked(&engine(vec![s.clone()]), "youtube.com"), "outside its times the block is off");
+        s.lock = Some(Lock { kind: LockKind::Schedule { schedule: times(9 * 60, 12 * 60) }, unlock_delay_secs: 0 });
+        assert!(blocked(&engine(vec![s]), "youtube.com"), "during its times it blocks");
     }
 
     #[test]
@@ -598,6 +660,10 @@ mod tests {
         let e = engine(vec![s]);
         assert!(e.safe_search(&ctx()));
         assert!(!e.safe_search(&Ctx::new(now(), "admin")));
+        // Sites where SafeSearch cannot be forced are blocked instead.
+        assert!(e.check_host("www.reddit.com", &ctx()).is_blocked());
+        assert!(e.check_host("search.brave.com", &ctx()).is_blocked());
+        assert!(!e.check_host("www.google.com", &ctx()).is_blocked());
     }
 
     fn proc(exe: &str) -> ProcessInfo<'_> {

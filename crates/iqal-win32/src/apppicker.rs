@@ -13,7 +13,7 @@ use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows_sys::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
 use windows_sys::Win32::Graphics::Gdi::{
     COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT, COLOR_WINDOWTEXT, DT_END_ELLIPSIS, DT_NOPREFIX,
-    DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, InvalidateRect,
+    DT_CENTER, DT_RTLREADING, DT_SINGLELINE, DT_VCENTER, DrawTextW, FillRect, InvalidateRect,
     SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
 };
 use windows_sys::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoTaskMemFree, CoUninitialize};
@@ -26,8 +26,8 @@ use windows_sys::Win32::UI::Shell::{
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     BN_CLICKED, BS_DEFPUSHBUTTON, DI_NOMIRROR, DI_NORMAL, DestroyIcon, DrawIconEx, EN_CHANGE, ES_AUTOHSCROLL, EnumWindows, GW_OWNER,
-    GWL_EXSTYLE, GetWindow, GetWindowLongW, GetWindowThreadProcessId, HICON, IsWindowVisible, LB_ADDSTRING, LB_GETCURSEL, LB_GETSELCOUNT,
-    LB_GETSELITEMS, LB_SETITEMHEIGHT, LBN_DBLCLK, LBN_SELCHANGE, LBS_EXTENDEDSEL, LBS_NODATA, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY,
+    GWL_EXSTYLE, GetWindow, GetWindowLongW, GetWindowThreadProcessId, HICON, IsWindowVisible, LB_ADDSTRING, LB_GETCURSEL, LB_GETSEL,
+    LB_SETSEL, LB_SETITEMHEIGHT, LBN_SELCHANGE, LBS_MULTIPLESEL, LBS_NODATA, LBS_NOINTEGRALHEIGHT, LBS_NOTIFY,
     LBS_OWNERDRAWFIXED, WS_EX_CLIENTEDGE, WS_EX_TOOLWINDOW, WS_TABSTOP, WS_VSCROLL,
 };
 use windows_sys::core::{GUID, HRESULT};
@@ -309,6 +309,8 @@ struct State {
     apps: Vec<App>,
     /// The rows shown: indexes into `apps`.
     shown: Vec<usize>,
+    /// The apps ticked (indexes into `apps`), kept while searching.
+    chosen: std::collections::HashSet<usize>,
     icons: Icons,
 }
 
@@ -316,7 +318,7 @@ struct State {
 pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
     let apps = installed_apps();
     let shown = (0..apps.len()).collect();
-    let state = Rc::new(RefCell::new(State { apps, shown, icons: Icons(HashMap::new()) }));
+    let state = Rc::new(RefCell::new(State { apps, shown, chosen: Default::default(), icons: Icons(HashMap::new()) }));
     modal::run(owner, &t("action-add-installed-app"), (480, 580), move |page, closer| {
         let search = page.control("EDIT", "", WS_TABSTOP | ES_AUTOHSCROLL as u32, WS_EX_CLIENTEDGE);
         let cue = win::wide(&t("search"));
@@ -324,7 +326,7 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
         let list = page.control(
             "LISTBOX",
             "",
-            WS_TABSTOP | WS_VSCROLL | (LBS_OWNERDRAWFIXED | LBS_NODATA | LBS_EXTENDEDSEL | LBS_NOINTEGRALHEIGHT | LBS_NOTIFY) as u32,
+            WS_TABSTOP | WS_VSCROLL | (LBS_OWNERDRAWFIXED | LBS_NODATA | LBS_MULTIPLESEL | LBS_NOINTEGRALHEIGHT | LBS_NOTIFY) as u32,
             WS_EX_CLIENTEDGE,
         );
         win::send(list, LB_SETITEMHEIGHT, 0, scale(ROW_HEIGHT, panel::dpi()) as isize);
@@ -345,6 +347,13 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
                         st.shown.len()
                     };
                     win::send(list, LB_SETCOUNT, count, 0);
+                    // The ticked apps stay ticked.
+                    let st = state.borrow();
+                    for (row, app) in st.shown.iter().enumerate() {
+                        if st.chosen.contains(app) {
+                            win::send(list, LB_SETSEL, 1, row as isize);
+                        }
+                    }
                     // SAFETY: our list.
                     unsafe { InvalidateRect(list, std::ptr::null(), 1) };
                 }
@@ -354,12 +363,11 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
         let choose = {
             let (state, closer) = (state.clone(), closer.clone());
             move || {
-                let count = win::send(list, LB_GETSELCOUNT, 0, 0).max(0) as usize;
-                let mut rows = vec![0i32; count];
-                win::send(list, LB_GETSELITEMS, count, rows.as_mut_ptr() as isize);
                 let rules: Vec<String> = {
                     let st = state.borrow();
-                    rows.iter().filter_map(|&r| st.shown.get(r as usize)).map(|&i| st.apps[i].rule.clone()).collect()
+                    let mut chosen: Vec<usize> = st.chosen.iter().copied().collect();
+                    chosen.sort_unstable();
+                    chosen.iter().map(|&i| st.apps[i].rule.clone()).collect()
                 };
                 if rules.is_empty() {
                     return;
@@ -377,11 +385,23 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
                 }
             });
         }
-        panel::on(list, move |code| {
-            if code == LBN_DBLCLK {
-                choose();
-            }
-        });
+        {
+            // A click ticks or unticks an app (several can be chosen).
+            let state = state.clone();
+            panel::on(list, move |code| {
+                if code == LBN_SELCHANGE {
+                    let mut st = state.borrow_mut();
+                    for row in 0..st.shown.len() {
+                        let app = st.shown[row];
+                        if win::send(list, LB_GETSEL, row, 0) > 0 {
+                            st.chosen.insert(app);
+                        } else {
+                            st.chosen.remove(&app);
+                        }
+                    }
+                }
+            });
+        }
         {
             let closer = closer.clone();
             panel::on(cancel, move |code| {
@@ -537,17 +557,28 @@ fn draw(state: &mut State, item: &DRAWITEMSTRUCT) {
     let (back, fore) = if selected { (COLOR_HIGHLIGHT, COLOR_HIGHLIGHTTEXT) } else { (crate::theme::LIST, COLOR_WINDOWTEXT) };
     let dpi = panel::dpi();
     let (pad, size) = (scale(6, dpi), scale(ICON_SIZE, dpi));
+    // A tick box first: ticked apps are added.
+    let tick = scale(20, dpi);
+    let left = item.rcItem.left + pad + tick + pad;
     let top = item.rcItem.top + (item.rcItem.bottom - item.rcItem.top - size) / 2;
-    let mut r = RECT { left: item.rcItem.left + pad * 2 + size, right: item.rcItem.right - pad, ..item.rcItem };
+    let mut r = RECT { left: left + size + pad, right: item.rcItem.right - pad, ..item.rcItem };
     let rtl = if iqal_i18n::is_rtl() { DT_RTLREADING } else { 0 };
     // Ends in a zero: DrawTextW reads through the pointer even for an empty text.
     let text: Vec<u16> = state.apps[index].name.encode_utf16().chain(Some(0)).collect();
     // SAFETY: drawing into the list's DC during WM_DRAWITEM.
     unsafe {
         FillRect(item.hDC, &item.rcItem, crate::theme::brush(back as i32));
+        SetBkMode(item.hDC, TRANSPARENT as i32);
+        let p = crate::theme::palette();
+        SetTextColor(item.hDC, if selected { p.chosen_text } else { p.grey });
+        SelectObject(item.hDC, fonts.icons);
+        // Checkbox (empty) or CheckboxComposite (ticked), from the icon font.
+        let glyph = [if selected { 0xE73Au16 } else { 0xE739 }];
+        let mut at = RECT { left: item.rcItem.left + pad, right: item.rcItem.left + pad + tick, ..item.rcItem };
+        DrawTextW(item.hDC, glyph.as_ptr(), 1, &mut at, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
         // Icons keep their own direction in right-to-left windows.
         if !icon.is_null() {
-            DrawIconEx(item.hDC, item.rcItem.left + pad, top, icon, size, size, 0, std::ptr::null_mut(), DI_NORMAL | DI_NOMIRROR);
+            DrawIconEx(item.hDC, left, top, icon, size, size, 0, std::ptr::null_mut(), DI_NORMAL | DI_NOMIRROR);
         }
         SetBkMode(item.hDC, TRANSPARENT as i32);
         SetTextColor(item.hDC, crate::theme::color(fore as i32));

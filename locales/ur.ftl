@@ -92,7 +92,7 @@ web-placeholder = ⁦example.com⁩ یا ⁦example.com/page⁩ یا ⁦contains
 web-syntax = ⁦example.com⁩ سائٹ اور اس کے تمام ذیلی ڈومین بلاک کرتا ہے۔ ⁦example.com/videos⁩ صرف وہ صفحات بلاک کرتا ہے۔ ⁦contains:casino⁩ ہر وہ پتا بلاک کرتا ہے جس میں یہ لفظ ہو۔ ⁦search:مفت فلمیں⁩ ان الفاظ والی تلاش بلاک کرتا ہے۔
 web-allowed = اجازت یافتہ ویب سائٹس
 web-exceptions = استثنا (ہمیشہ اجازت)
-web-safesearch = SafeSearch لازمی کریں (Google، Bing، DuckDuckGo، YouTube)
+web-safesearch = محفوظ تلاش لازمی کریں (Google، Bing، DuckDuckGo، Yandex)
 
 import-done = درآمد مکمل
 import-result = { $added } اصول شامل ہوئے، { $skipped } سطریں چھوڑ دی گئیں۔
@@ -140,7 +140,7 @@ schedule-date-invalid = ایک بار کی مدت یوں لکھیں: شروع ک
 schedule-add-weekly = ہفتہ وار اوقات شامل کریں
 schedule-no-days = کم از کم ایک دن منتخب کریں۔
 allowance = روزانہ وقت کی اجازت
-allowance-detail = بلاک شدہ ویب سائٹس اور ایپس کو ہر روز محدود وقت کے لیے اجازت دیتا ہے؛ اس کے بعد وہ بلاک ہو جاتی ہیں۔
+allowance-detail = ہر بلاک شدہ ویب سائٹ اور ایپ روزانہ اتنے منٹ استعمال ہو سکتی ہے؛ اس کے بعد کل تک بلاک رہتی ہے۔
 allowance-minutes = روزانہ منٹ
 
 area-circle = { $lat }، { $lon } سے { $radius } میٹر کے اندر
@@ -273,9 +273,9 @@ notify-app-closed-body = «{ $block }» نے { $app } کو بند کر دیا۔
 notify-window-closed = ونڈو بند ہوئی
 notify-window-closed-body = «{ $block }» نے «{ $title }» کو بند کر دیا۔
 notify-allowance-low = 5 منٹ باقی
-notify-allowance-low-body = «{ $block }» کا روزانہ وقت تقریباً ختم ہو گیا ہے۔
+notify-allowance-low-body = { $item } («{ $block }») کا روزانہ وقت تقریباً ختم ہو گیا ہے۔
 notify-allowance-used = وقت ختم
-notify-allowance-used-body = «{ $block }» کا روزانہ وقت ختم ہو گیا۔ یہ کل تک بلاک رہے گا۔
+notify-allowance-used-body = { $item } («{ $block }») کا روزانہ وقت ختم ہو گیا۔ کل تک بلاک رہے گا۔
 
 # Saving
 unsaved-changes = غیر محفوظ تبدیلیاں
@@ -371,3 +371,12 @@ uninstall-failed = عِقال ہٹایا نہیں جا سکا
 uninstall-locked = عِقال ابھی ہٹایا نہیں جا سکتا
 uninstall-locked-detail = ایک بلاک مقفل ہے۔ سب تالے ختم ہونے پر عِقال ہٹایا جا سکتا ہے۔
 setup-updated = عِقال اپ ڈیٹ ہو گیا
+web-safesearch-detail = جب یہ آن ہو تو دوسرے سرچ انجن اور بالغ مواد کے لیے مشہور سائٹیں بلاک رہتی ہیں (Reddit، X، Instagram، Tumblr، Bluesky، Imgur…)۔
+allowance-used-today-items = آج استعمال ہوا:
+allowance-used-item = { $item } { $total } میں سے { $used } منٹ
+allowance-unused = آج ابھی کچھ استعمال نہیں ہوا۔
+unsaved-locked-weaker = یہ بلاک مقفل ہے، اور یہ تبدیلی { $reason }۔
+schedule-old = پرانا اوقات کا شیڈول
+schedule-old-detail = یہ بلاک صرف کچھ اوقات میں لاگو ہوتا ہے، جو Iqal کے پچھلے ورژن میں طے کیے گئے تھے۔ اب اوقات ایک تالے سے طے ہوتے ہیں («مخصوص اوقات میں»)۔
+schedule-old-remove = ہمیشہ لاگو کریں
+lock-schedule-detail = ان اوقات میں بلاک آن اور مقفل رہتا ہے۔ باقی وقت یہ بند رہتا ہے اور اسے بدلا جا سکتا ہے۔

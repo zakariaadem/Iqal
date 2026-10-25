@@ -92,7 +92,7 @@ web-placeholder = example.com, example.com/page, contains:palavra, search:palavr
 web-syntax = example.com bloqueia o site e todos os seus subdomínios. example.com/videos bloqueia só essas páginas. contains:casino bloqueia qualquer endereço que contenha a palavra. search:filmes grátis bloqueia pesquisas que contenham essas palavras.
 web-allowed = Sites permitidos
 web-exceptions = Exceções (sempre permitidas)
-web-safesearch = Forçar SafeSearch (Google, Bing, DuckDuckGo, YouTube)
+web-safesearch = Forçar SafeSearch (Google, Bing, DuckDuckGo, Yandex)
 
 import-done = Importação concluída
 import-result = { $added } regras adicionadas, { $skipped } linhas ignoradas.
@@ -140,7 +140,7 @@ schedule-date-invalid = Escreva um período pontual assim: data de início, hora
 schedule-add-weekly = Adicionar horários semanais
 schedule-no-days = Escolha pelo menos um dia.
 allowance = Tempo permitido por dia
-allowance-detail = Permite os sites e aplicativos bloqueados por um tempo limitado a cada dia; depois disso, ficam bloqueados.
+allowance-detail = Cada site e aplicativo bloqueado pode ser usado por estes minutos por dia; depois fica bloqueado até amanhã.
 allowance-minutes = Minutos por dia
 
 area-circle = a até { $radius } m de { $lat }, { $lon }
@@ -273,9 +273,9 @@ notify-app-closed-body = { $app } foi fechado por “{ $block }”.
 notify-window-closed = Janela fechada
 notify-window-closed-body = “{ $title }” foi fechada por “{ $block }”.
 notify-allowance-low = Faltam 5 minutos
-notify-allowance-low-body = O tempo diário de “{ $block }” está quase esgotado.
+notify-allowance-low-body = O tempo diário de { $item } (“{ $block }”) está quase esgotado.
 notify-allowance-used = O tempo acabou
-notify-allowance-used-body = O tempo diário de “{ $block }” acabou. Fica bloqueado até amanhã.
+notify-allowance-used-body = O tempo diário de { $item } (“{ $block }”) acabou. Fica bloqueado até amanhã.
 
 # Saving
 unsaved-changes = Alterações não salvas
@@ -374,3 +374,12 @@ uninstall-failed = Não foi possível remover o Iqal
 uninstall-locked = O Iqal não pode ser removido agora
 uninstall-locked-detail = Um bloqueio está trancado. O Iqal poderá ser removido quando todas as trancas terminarem.
 setup-updated = O Iqal foi atualizado
+web-safesearch-detail = Enquanto isto estiver ligado, outros buscadores e sites conhecidos por conteúdo adulto ficam bloqueados (Reddit, X, Instagram, Tumblr, Bluesky, Imgur…).
+allowance-used-today-items = Usado hoje:
+allowance-used-item = { $item } { $used } de { $total } min
+allowance-unused = Nada usado hoje ainda.
+unsaved-locked-weaker = Este bloqueio está trancado, e esta alteração { $reason }.
+schedule-old = Horário antigo
+schedule-old-detail = Este bloqueio só vale em certos horários, definidos numa versão anterior do Iqal. Agora os horários são definidos com uma tranca (“Em certos horários”).
+schedule-old-remove = Deixar sempre valendo
+lock-schedule-detail = Nesses horários o bloqueio fica ligado e trancado. No resto do tempo fica desligado e pode ser alterado.

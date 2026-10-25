@@ -96,7 +96,7 @@ web-placeholder = ⁦example.com⁩ أو ⁦example.com/page⁩ أو ⁦contains
 web-syntax = ⁦example.com⁩ يحجب الموقع وكل نطاقاته الفرعية. ⁦example.com/videos⁩ يحجب تلك الصفحات فقط. ⁦contains:casino⁩ يحجب أي عنوان يحتوي الكلمة. ⁦search:أفلام مجانية⁩ يحجب عمليات البحث التي تحتوي هذه الكلمات.
 web-allowed = المواقع المسموحة
 web-exceptions = الاستثناءات (مسموحة دائمًا)
-web-safesearch = فرض البحث الآمن (Google وBing وDuckDuckGo وYouTube)
+web-safesearch = فرض البحث الآمن (Google وBing وDuckDuckGo وYandex)
 
 import-done = انتهى الاستيراد
 import-result = أُضيفت { $added } من القواعد، وتُخطّي { $skipped } من الأسطر.
@@ -144,7 +144,7 @@ schedule-date-invalid = اكتب الفترة الواحدة هكذا: تاري�
 schedule-add-weekly = إضافة أوقات أسبوعية
 schedule-no-days = اختر يومًا واحدًا على الأقل.
 allowance = وقت مسموح يوميًا
-allowance-detail = يسمح بالمواقع والتطبيقات المحجوبة لوقت محدود كل يوم، ثم تُحجب.
+allowance-detail = يُسمح بكل موقع وتطبيق محجوب لهذا العدد من الدقائق يوميًا، ثم يُحجب حتى الغد.
 allowance-minutes = الدقائق في اليوم
 
 area-circle = ضمن { $radius } م من { $lat }، { $lon }
@@ -281,9 +281,9 @@ notify-app-closed-body = أغلقت «{ $block }» تطبيق { $app }.
 notify-window-closed = أُغلقت نافذة
 notify-window-closed-body = أغلقت «{ $block }» النافذة «{ $title }».
 notify-allowance-low = بقيت 5 دقائق
-notify-allowance-low-body = الوقت اليومي لـ«{ $block }» أوشك على الانتهاء.
+notify-allowance-low-body = الوقت اليومي لـ { $item } («{ $block }») أوشك على الانتهاء.
 notify-allowance-used = انتهى الوقت
-notify-allowance-used-body = انتهى الوقت اليومي لـ«{ $block }». ستبقى محجوبة حتى الغد.
+notify-allowance-used-body = انتهى الوقت اليومي لـ { $item } («{ $block }»). سيبقى محجوبًا حتى الغد.
 
 # Saving
 unsaved-changes = تغييرات غير محفوظة
@@ -394,3 +394,12 @@ uninstall-failed = تعذّرت إزالة عِقال
 uninstall-locked = لا يمكن إزالة عِقال الآن
 uninstall-locked-detail = هناك كتلة مقفلة. يمكن إزالة عِقال عندما تنتهي كل الأقفال.
 setup-updated = تم تحديث عِقال
+web-safesearch-detail = عند تفعيله تُحجب محركات البحث الأخرى والمواقع المعروفة بالمحتوى الإباحي (Reddit وX وInstagram وTumblr وBluesky وImgur…).
+allowance-used-today-items = المستخدم اليوم:
+allowance-used-item = { $item } { $used } من { $total } دقيقة
+allowance-unused = لم يُستخدم شيء اليوم بعد.
+unsaved-locked-weaker = هذه الكتلة مقفلة، وهذا التغيير { $reason }.
+schedule-old = جدول أوقات قديم
+schedule-old-detail = هذه الكتلة لا تعمل إلا في أوقات معيّنة حُدّدت في إصدار سابق من عِقال. تُحدَّد الأوقات الآن بقفل («في أوقات معيّنة»).
+schedule-old-remove = اجعلها تعمل دائمًا
+lock-schedule-detail = في هذه الأوقات تكون الكتلة مفعّلة ومقفلة، وفي باقي الوقت تكون متوقفة ويمكن تغييرها.

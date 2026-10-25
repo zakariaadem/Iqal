@@ -19,15 +19,19 @@ use windows_sys::Win32::Graphics::Gdi::{
     DT_CALCRECT, DT_NOPREFIX, DT_WORDBREAK, DrawTextW, GetDC, GetTextExtentPoint32W, HDC, HFONT, InvalidateRect, MapWindowPoints, ReleaseDC,
     SelectObject, UpdateWindow,
 };
-use windows_sys::Win32::UI::Controls::{CDRF_DODEFAULT, DRAWITEMSTRUCT, NM_CUSTOMDRAW, NMCUSTOMDRAW, NMHDR, SetScrollInfo};
+use windows_sys::Win32::UI::Controls::{CDRF_DODEFAULT, DRAWITEMSTRUCT, EM_SETSEL, NM_CUSTOMDRAW, NMCUSTOMDRAW, NMHDR, SetScrollInfo};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     BS_AUTOCHECKBOX, BeginDeferWindowPos, CreateWindowExW, DefWindowProcW, DeferWindowPos, EndDeferWindowPos, GetWindowRect, GetScrollInfo, GetWindowTextLengthW, GetWindowTextW, IDC_ARROW, LoadCursorW,
     RegisterClassExW, SB_LINEDOWN, SB_LINEUP, SB_PAGEDOWN, SB_PAGEUP, SB_THUMBTRACK, SB_VERT, SCROLLINFO, SIF_ALL, SIF_PAGE, SIF_POS,
     SIF_RANGE, SW_ERASE, SW_INVALIDATE, SW_SCROLLCHILDREN, SWP_NOACTIVATE, SWP_NOZORDER, ScrollWindowEx, SetWindowPos, ShowWindow, SW_HIDE, SW_SHOW, WM_COMMAND,
     WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX, WM_CTLCOLORSTATIC, WM_DRAWITEM, WM_ERASEBKGND, WM_GETFONT, WM_MOUSEWHEEL,
     WM_NCDESTROY, WM_NOTIFY, WM_SIZE, WM_VSCROLL, WNDCLASSEXW, WS_CHILD, WS_CLIPCHILDREN, WS_EX_CONTROLPARENT,
-    WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
+    WS_TABSTOP, WS_VISIBLE, WS_VSCROLL, MSG, WM_KEYDOWN, BM_CLICK, GetClassNameW, GetParent, GetWindowLongW, GWL_STYLE,
+    LBS_EXTENDEDSEL, LBS_MULTIPLESEL, LB_SETSEL, GetDlgCtrlID, LBN_SELCHANGE, BS_TYPEMASK, BS_DEFPUSHBUTTON, IsWindowVisible,
+    EnumChildWindows,
 };
+
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetFocus, GetKeyState, IsWindowEnabled, VK_CONTROL, VK_RETURN};
 
 use crate::theme;
 use crate::win::{self, Fonts, scale};
@@ -561,6 +565,12 @@ fn forget(panel: HWND) {
             n.remove(c);
         }
     });
+    ENTER_BUTTONS.with(|e| {
+        let mut e = e.borrow_mut();
+        for c in &controls {
+            e.remove(c);
+        }
+    });
     for c in controls {
         theme::forget(c as HWND);
     }
@@ -683,5 +693,143 @@ fn text_height(hwnd: HWND, width: i32) -> i32 {
         SelectObject(hdc, old);
         ReleaseDC(std::ptr::null_mut(), hdc);
         r.bottom - r.top
+    }
+}
+
+thread_local! {
+    /// Text boxes of several lines whose button Ctrl+Enter presses (Add).
+    static ENTER_BUTTONS: RefCell<HashMap<isize, HWND>> = RefCell::new(HashMap::new());
+}
+
+/// Ctrl+Enter in the text box `edit` presses `button` (Enter itself starts
+/// a new line there).
+pub fn ctrl_enter(edit: HWND, button: HWND) {
+    ENTER_BUTTONS.with(|e| e.borrow_mut().insert(edit as isize, button));
+}
+
+/// Keys and the mouse wheel that windows with panels handle the same way,
+/// before the message is dispatched. Returns true when it was handled.
+///
+/// - The wheel over a text box or list that cannot scroll further that way
+///   scrolls the page around it instead (it would otherwise be lost).
+/// - Ctrl+A selects all of a text box, or every row of a list that allows
+///   choosing several.
+/// - Ctrl+Enter in a text box of several lines presses its button.
+pub fn before_dispatch(msg: &MSG) -> bool {
+    match msg.message {
+        WM_MOUSEWHEEL => wheel_to_page(msg),
+        WM_KEYDOWN if msg.wParam == b'A' as usize && ctrl_down() => select_all(),
+        WM_KEYDOWN if msg.wParam == VK_RETURN as usize && ctrl_down() => {
+            // SAFETY: no pointers involved.
+            let focus = unsafe { GetFocus() };
+            let Some(button) = ENTER_BUTTONS.with(|e| e.borrow().get(&(focus as isize)).copied()) else { return false };
+            win::send(button, BM_CLICK, 0, 0);
+            true
+        }
+        _ => false,
+    }
+}
+
+fn ctrl_down() -> bool {
+    // SAFETY: no pointers involved.
+    unsafe { GetKeyState(VK_CONTROL as i32) < 0 }
+}
+
+/// A control's class name, in lower case.
+fn class_of(hwnd: HWND) -> String {
+    let mut buf = [0u16; 32];
+    // SAFETY: the buffer's length is passed.
+    let n = unsafe { GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32) };
+    String::from_utf16_lossy(&buf[..n.max(0) as usize]).to_ascii_lowercase()
+}
+
+fn wheel_to_page(msg: &MSG) -> bool {
+    let target = msg.hwnd;
+    if !matches!(class_of(target).as_str(), "edit" | "listbox") {
+        return false;
+    }
+    let delta = win::hiword(msg.wParam) as i16 as i32;
+    let mut info = SCROLLINFO {
+        cbSize: std::mem::size_of::<SCROLLINFO>() as u32,
+        fMask: SIF_ALL,
+        nMin: 0,
+        nMax: 0,
+        nPage: 0,
+        nPos: 0,
+        nTrackPos: 0,
+    };
+    // SAFETY: a control of ours; a sized SCROLLINFO.
+    let has_bar = unsafe { GetScrollInfo(target, SB_VERT, &mut info) } != 0 && info.nMax > info.nMin && info.nPage as i32 <= info.nMax - info.nMin;
+    let can_scroll = has_bar && if delta > 0 { info.nPos > info.nMin } else { info.nPos + (info.nPage as i32).max(1) - 1 < info.nMax };
+    if can_scroll {
+        return false;
+    }
+    // The nearest page around it that scrolls.
+    // SAFETY: walking up our own windows.
+    let mut parent = unsafe { GetParent(target) };
+    while !parent.is_null() {
+        if with_state(parent, |s| s.scrolls) == Some(true) {
+            win::send(parent, WM_MOUSEWHEEL, msg.wParam, msg.lParam);
+            return true;
+        }
+        // SAFETY: as above.
+        parent = unsafe { GetParent(parent) };
+    }
+    false
+}
+
+fn select_all() -> bool {
+    // SAFETY: no pointers involved.
+    let focus = unsafe { GetFocus() };
+    if focus.is_null() {
+        return false;
+    }
+    match class_of(focus).as_str() {
+        "edit" => {
+            win::send(focus, EM_SETSEL, 0, -1);
+            true
+        }
+        "listbox" => {
+            // SAFETY: a live control.
+            let style = unsafe { GetWindowLongW(focus, GWL_STYLE) } as u32;
+            if style & (LBS_EXTENDEDSEL | LBS_MULTIPLESEL) as u32 == 0 {
+                return false;
+            }
+            win::send(focus, LB_SETSEL, 1, -1);
+            // As if the person had chosen them: the window updates its buttons.
+            // SAFETY: plain questions about our windows.
+            let (parent, id) = unsafe { (GetParent(focus), GetDlgCtrlID(focus)) };
+            win::send(parent, WM_COMMAND, (id as u16 as usize) | (LBN_SELCHANGE as usize) << 16, focus as isize);
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Enter in a one-line text box presses the window's default button (Save,
+/// OK, Add…), if it is shown and usable. `top`: the window that got Enter
+/// (IsDialogMessage sends it IDOK).
+pub fn press_default(top: HWND) {
+    unsafe extern "system" fn find(hwnd: HWND, found: LPARAM) -> i32 {
+        // SAFETY: plain questions about our windows; `found` points to an
+        // HWND alive during the enumeration.
+        unsafe {
+            let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+            if style & BS_TYPEMASK as u32 == BS_DEFPUSHBUTTON as u32
+                && IsWindowVisible(hwnd) != 0
+                && IsWindowEnabled(hwnd) != 0
+                && class_of(hwnd) == "button"
+            {
+                *(found as *mut HWND) = hwnd;
+                return 0;
+            }
+        }
+        1
+    }
+    let mut found: HWND = std::ptr::null_mut();
+    // SAFETY: our window; the callback only reads styles.
+    unsafe { EnumChildWindows(top, Some(find), (&raw mut found) as LPARAM) };
+    if !found.is_null() {
+        win::send(found, BM_CLICK, 0, 0);
     }
 }

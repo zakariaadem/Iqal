@@ -9,7 +9,7 @@ use std::os::unix::fs::MetadataExt;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use iqal_core::{Ctx, Engine, Hit, Now, ProcessInfo, Reason, SetId};
+use iqal_core::{Ctx, Engine, Hit, Meter, Now, ProcessInfo, Reason};
 use iqal_ipc::EventKind;
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
@@ -42,7 +42,7 @@ pub struct AppGuard {
 
 struct Verdict {
     hit: Option<Hit>,
-    metered: Vec<SetId>,
+    metered: Vec<Meter>,
     user: String,
 }
 
@@ -133,7 +133,7 @@ impl AppGuard {
 
     /// Checks an already running process; kills it if it is blocked.
     /// Otherwise returns the user and the allowances it is using up.
-    pub fn enforce_running(&self, pid: i32, engine: &Engine, now: Now) -> Option<(String, Vec<SetId>)> {
+    pub fn enforce_running(&self, pid: i32, engine: &Engine, now: Now) -> Option<(String, Vec<Meter>)> {
         if pid == self.own_pid || pid <= 1 {
             return None;
         }
@@ -165,7 +165,7 @@ impl AppGuard {
         let engine = self.service.engine();
         let now = crate::clock::now();
         let pids = procs::pids();
-        let mut metered: HashMap<String, Vec<SetId>> = HashMap::new();
+        let mut metered: HashMap<String, Vec<Meter>> = HashMap::new();
         for &pid in &pids {
             if let Some((user, sets)) = self.enforce_running(pid, &engine, now) {
                 metered.entry(user).or_default().extend(sets);

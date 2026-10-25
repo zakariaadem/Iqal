@@ -227,8 +227,32 @@ pub fn host_suffixes(host: &str) -> impl Iterator<Item = &str> {
     std::iter::once(host).chain(host.match_indices('.').map(move |(i, _)| &host[i + 1..]))
 }
 
+/// Sites blocked while SafeSearch is forced: search engines whose safe mode
+/// cannot be forced from outside, and social sites known for adult content.
+pub const SAFE_SEARCH_BLOCKED: &[&str] = &[
+    // Search engines.
+    "search.brave.com",
+    "search.yahoo.com",
+    "startpage.com",
+    "ecosia.org",
+    "qwant.com",
+    "yep.com",
+    "mojeek.com",
+    "presearch.com",
+    "metager.org",
+    // Social sites.
+    "reddit.com",
+    "redd.it",
+    "x.com",
+    "twitter.com",
+    "instagram.com",
+    "tumblr.com",
+    "bsky.app",
+    "imgur.com",
+];
+
 /// The host a search engine must be resolved to (DNS CNAME) to force
-/// SafeSearch / Restricted Mode, if `host` is one of those engines.
+/// SafeSearch, if `host` is one of those engines.
 pub fn safe_search_target(host: &str) -> Option<&'static str> {
     let host = clean_host(host);
     let bare = host.strip_prefix("www.").unwrap_or(&host);
@@ -237,8 +261,9 @@ pub fn safe_search_target(host: &str) -> Option<&'static str> {
         "duckduckgo.com" | "start.duckduckgo.com" | "html.duckduckgo.com" | "lite.duckduckgo.com" => {
             Some("safe.duckduckgo.com")
         }
-        "youtube.com" | "m.youtube.com" | "youtubei.googleapis.com" | "youtube.googleapis.com"
-        | "youtube-nocookie.com" => Some("restrict.youtube.com"),
+        "yandex.ru" | "yandex.com" | "yandex.by" | "yandex.kz" | "yandex.ua" | "yandex.com.tr" | "ya.ru" => {
+            Some("familysearch.yandex.ru")
+        }
         _ if is_google_search_host(bare) => Some("forcesafesearch.google.com"),
         _ => None,
     }
@@ -367,7 +392,8 @@ mod tests {
         assert_eq!(safe_search_target("mail.google.com"), None);
         assert_eq!(safe_search_target("www.bing.com"), Some("strict.bing.com"));
         assert_eq!(safe_search_target("duckduckgo.com."), Some("safe.duckduckgo.com"));
-        assert_eq!(safe_search_target("m.youtube.com"), Some("restrict.youtube.com"));
+        assert_eq!(safe_search_target("yandex.ru"), Some("familysearch.yandex.ru"));
+        assert_eq!(safe_search_target("m.youtube.com"), None, "YouTube is left alone");
         assert_eq!(safe_search_target("example.com"), None);
     }
 }

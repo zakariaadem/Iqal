@@ -89,7 +89,7 @@ web-placeholder = example.com, example.com/page, contains:kata, search:kata-kata
 web-syntax = example.com memblokir situs beserta semua subdomainnya. example.com/videos hanya memblokir halaman tersebut. contains:casino memblokir alamat apa pun yang memuat kata itu. search:film gratis memblokir pencarian yang memuat kata-kata itu.
 web-allowed = Situs yang diizinkan
 web-exceptions = Pengecualian (selalu diizinkan)
-web-safesearch = Wajibkan SafeSearch (Google, Bing, DuckDuckGo, YouTube)
+web-safesearch = Wajibkan SafeSearch (Google, Bing, DuckDuckGo, Yandex)
 
 import-done = Impor selesai
 import-result = { $added } aturan ditambahkan, { $skipped } baris dilewati.
@@ -137,7 +137,7 @@ schedule-date-invalid = Tulis periode sekali saja seperti ini: tanggal mulai, ja
 schedule-add-weekly = Tambah waktu mingguan
 schedule-no-days = Pilih setidaknya satu hari.
 allowance = Jatah waktu harian
-allowance-detail = Mengizinkan situs dan aplikasi yang diblokir selama waktu terbatas setiap hari; setelah itu diblokir.
+allowance-detail = Setiap situs dan aplikasi yang diblokir boleh dipakai selama sekian menit sehari; setelah itu diblokir sampai besok.
 allowance-minutes = Menit per hari
 
 area-circle = dalam radius { $radius } m dari { $lat }, { $lon }
@@ -267,9 +267,9 @@ notify-app-closed-body = { $app } ditutup oleh “{ $block }”.
 notify-window-closed = Jendela ditutup
 notify-window-closed-body = “{ $title }” ditutup oleh “{ $block }”.
 notify-allowance-low = Tersisa 5 menit
-notify-allowance-low-body = Waktu harian untuk “{ $block }” hampir habis.
+notify-allowance-low-body = Waktu harian untuk { $item } (“{ $block }”) hampir habis.
 notify-allowance-used = Waktu habis
-notify-allowance-used-body = Waktu harian untuk “{ $block }” sudah habis. Diblokir sampai besok.
+notify-allowance-used-body = Waktu harian untuk { $item } (“{ $block }”) sudah habis. Diblokir sampai besok.
 
 # Saving
 unsaved-changes = Perubahan belum disimpan
@@ -359,3 +359,12 @@ uninstall-failed = Iqal tidak dapat dihapus
 uninstall-locked = Iqal tidak dapat dihapus sekarang
 uninstall-locked-detail = Ada blok yang terkunci. Iqal dapat dihapus setelah semua kunci berakhir.
 setup-updated = Iqal sudah diperbarui
+web-safesearch-detail = Selama ini aktif, mesin pencari lain dan situs yang dikenal berisi konten dewasa diblokir (Reddit, X, Instagram, Tumblr, Bluesky, Imgur…).
+allowance-used-today-items = Terpakai hari ini:
+allowance-used-item = { $item } { $used } dari { $total } mnt
+allowance-unused = Belum ada yang terpakai hari ini.
+unsaved-locked-weaker = Blok ini terkunci, dan perubahan ini { $reason }.
+schedule-old = Jadwal waktu lama
+schedule-old-detail = Blok ini hanya berlaku pada waktu tertentu, yang diatur di versi Iqal sebelumnya. Waktu sekarang diatur dengan kunci (“Pada waktu tertentu”).
+schedule-old-remove = Jadikan selalu berlaku
+lock-schedule-detail = Pada waktu-waktu ini blok menyala dan terkunci. Di luar itu blok mati dan bisa diubah.

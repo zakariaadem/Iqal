@@ -89,7 +89,7 @@ web-placeholder = example.com, example.com/page, contains:词, search:词语
 web-syntax = example.com 拦截该网站及其所有子域名。example.com/videos 只拦截这些页面。contains:casino 拦截包含该词的任何地址。search:免费电影 拦截包含这些词的搜索。
 web-allowed = 允许的网站
 web-exceptions = 例外（始终允许）
-web-safesearch = 强制安全搜索（Google、Bing、DuckDuckGo、YouTube）
+web-safesearch = 强制安全搜索（Google、Bing、DuckDuckGo、Yandex）
 
 import-done = 导入完成
 import-result = 已添加 { $added } 条规则，跳过 { $skipped } 行。
@@ -137,7 +137,7 @@ schedule-date-invalid = 一次性时段请这样写：开始日期、开始时�
 schedule-add-weekly = 添加每周时间
 schedule-no-days = 请至少选择一天。
 allowance = 每日使用时长
-allowance-detail = 每天允许在有限时间内使用被拦截的网站和应用；用完后即被拦截。
+allowance-detail = 每个被拦截的网站和应用每天可以使用这么多分钟；之后会被拦截到明天。
 allowance-minutes = 每天分钟数
 
 area-circle = 距 { $lat }, { $lon } { $radius } 米以内
@@ -267,9 +267,9 @@ notify-app-closed-body = “{ $block }”关闭了 { $app }。
 notify-window-closed = 窗口已关闭
 notify-window-closed-body = “{ $block }”关闭了“{ $title }”。
 notify-allowance-low = 还剩 5 分钟
-notify-allowance-low-body = “{ $block }”的每日时长即将用完。
+notify-allowance-low-body = { $item }（“{ $block }”）的每日时间快用完了。
 notify-allowance-used = 时间到了
-notify-allowance-used-body = “{ $block }”的每日时长已用完，明天之前将被拦截。
+notify-allowance-used-body = { $item }（“{ $block }”）的每日时间已用完。明天之前都会被拦截。
 
 # Saving
 unsaved-changes = 有未保存的更改
@@ -359,3 +359,12 @@ uninstall-failed = 无法移除 Iqal
 uninstall-locked = 现在无法移除 Iqal
 uninstall-locked-detail = 有拦截组已上锁。所有锁结束后即可移除 Iqal。
 setup-updated = Iqal 已更新
+web-safesearch-detail = 开启时，其他搜索引擎以及以成人内容闻名的网站会被拦截（Reddit、X、Instagram、Tumblr、Bluesky、Imgur…）。
+allowance-used-today-items = 今天已用：
+allowance-used-item = { $item } { $used }/{ $total } 分钟
+allowance-unused = 今天还没有使用。
+unsaved-locked-weaker = 此拦截组已上锁，而这个更改{ $reason }。
+schedule-old = 旧的时间表
+schedule-old-detail = 此拦截组只在某些时间生效，这是在 Iqal 的旧版本中设置的。现在时间通过锁来设置（“在特定时间”）。
+schedule-old-remove = 改为始终生效
+lock-schedule-detail = 在这些时间内，拦截组开启并上锁。其余时间它是关闭的，可以更改。

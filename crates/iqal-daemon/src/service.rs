@@ -8,7 +8,7 @@ use std::time::Duration;
 use iqal_core::lock::{self, Challenge, LockContext, UnlockOutcome};
 use iqal_core::{
     import, BlockSet, Config, CoreError, Ctx, Decision, Engine, GeoArea, Hit, LocationFix, Lock, LockKind, Now,
-    PasswordHash, ProcessInfo, SetId,
+    Meter, PasswordHash, ProcessInfo, SetId, UsageMap,
 };
 use iqal_ipc::{
     BlockEvent, ChallengeInfo, CheckQuery, DecisionInfo, ErrorCode, EventKind, Request, Response, SetInfo, SetState,
@@ -155,7 +155,7 @@ struct Inner {
 
 type Result<T> = std::result::Result<T, Response>;
 /// Today's allowance usage per user, shared with the hot paths.
-type UsageView = Arc<HashMap<String, Arc<HashMap<SetId, u32>>>>;
+type UsageView = Arc<HashMap<String, Arc<UsageMap>>>;
 
 impl Service {
     pub fn new(store: Store, boot_id: String) -> std::io::Result<Self> {
@@ -455,7 +455,7 @@ impl Service {
                     id: s.id,
                     locked: lock::is_locked(s, &ctx),
                     active: active.contains(&s.id),
-                    used_today_secs: usage.as_ref().and_then(|u| u.get(&s.id)).copied().unwrap_or(0),
+                    used_today_secs: usage.as_ref().and_then(|u| u.get(&s.id)).map_or(0, |m| m.values().sum()),
                     place_known: place_known(s, &loc),
                 });
                 if matches!(request, Request::SetStates) {
@@ -471,6 +471,7 @@ impl Service {
                         locked: st.locked,
                         active: st.active,
                         used_today_secs: st.used_today_secs,
+                        used_items: used_items(usage.as_deref(), s.id),
                         place_known: st.place_known,
                     })
                     .collect();
@@ -632,7 +633,7 @@ impl Service {
             set: d.block.as_ref().map(|h| h.set),
             set_name: d.block.as_ref().and_then(|h| name(h.set)),
             reason: d.block.as_ref().map(|h| h.reason.to_string()),
-            metered: d.metered,
+            metered: d.metered.iter().map(|m| m.set).collect(),
         }
     }
 }
@@ -688,6 +689,15 @@ fn today() -> String {
     crate::clock::now().local.date().to_string()
 }
 
+/// Allowance time used today in block `set`, per website or app, most used
+/// first.
+fn used_items(usage: Option<&UsageMap>, set: SetId) -> Vec<(String, u32)> {
+    let mut items: Vec<(String, u32)> =
+        usage.and_then(|u| u.get(&set)).map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect()).unwrap_or_default();
+    items.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    items
+}
+
 /// Lists, allowance usage and statistics.
 impl Service {
     fn list_rules(&self) -> ListRules {
@@ -711,21 +721,22 @@ impl Service {
     }
 
     /// Today's allowance usage of `user`, for building a `Ctx`.
-    pub fn usage_for(&self, user: &str) -> Option<Arc<HashMap<SetId, u32>>> {
+    pub fn usage_for(&self, user: &str) -> Option<Arc<UsageMap>> {
         self.usage_view.read().unwrap_or_else(|e| e.into_inner()).get(user).cloned()
     }
 
     fn refresh_usage_view(&self) {
         let usage = self.usage.lock().unwrap_or_else(|e| e.into_inner());
-        let view: HashMap<String, Arc<HashMap<SetId, u32>>> =
+        let view: HashMap<String, Arc<UsageMap>> =
             usage.all().iter().map(|(u, m)| (u.clone(), Arc::new(m.clone()))).collect();
         *self.usage_view.write().unwrap_or_else(|e| e.into_inner()) = Arc::new(view);
     }
 
-    /// Counts `secs` of use against the allowances of `sets` (each once),
-    /// announcing when five minutes are left and when time is up.
-    pub fn add_usage(&self, user: &str, sets: &[SetId], secs: u32) {
-        if sets.is_empty() || secs == 0 {
+    /// Counts `secs` of use against the allowances of `meters` (each website
+    /// or app once), announcing when five minutes are left and when time is
+    /// up for one of them.
+    pub fn add_usage(&self, user: &str, meters: &[Meter], secs: u32) {
+        if meters.is_empty() || secs == 0 {
             return;
         }
         let snapshot = self.snapshot();
@@ -734,25 +745,28 @@ impl Service {
         let mut crossings = Vec::new();
         {
             let mut usage = self.usage.lock().unwrap_or_else(|e| e.into_inner());
-            for &set in sets {
-                if seen.contains(&set) {
+            for meter in meters {
+                if seen.iter().any(|m: &&Meter| *m == meter) {
                     continue;
                 }
-                seen.push(set);
-                let Some(&daily) = snapshot.allowances.get(&set) else { continue };
-                let (before, after) = usage.add(&date, user, set, secs);
+                seen.push(meter);
+                let Some(&daily) = snapshot.allowances.get(&meter.set) else { continue };
+                let (before, after) = usage.add(&date, user, meter, secs);
                 let warn_at = daily.saturating_sub(300);
                 if before < warn_at && after >= warn_at && warn_at > 0 {
-                    crossings.push((set, EventKind::AllowanceLow));
+                    crossings.push((meter, EventKind::AllowanceLow));
                 }
                 if before < daily && after >= daily {
-                    crossings.push((set, EventKind::AllowanceUsed));
+                    crossings.push((meter, EventKind::AllowanceUsed));
                 }
             }
         }
         {
             let mut stats = self.stats.lock().unwrap_or_else(|e| e.into_inner());
-            for set in &seen {
+            // Statistics count the time once per block.
+            let mut sets: Vec<SetId> = seen.iter().map(|m| m.set).collect();
+            sets.dedup();
+            for set in &sets {
                 if let Some(name) = snapshot.names.get(set)
                     && snapshot.allowances.contains_key(set)
                 {
@@ -765,13 +779,14 @@ impl Service {
             // Blocks whose allowance just ran out must take effect now.
             self.generation.fetch_add(1, Ordering::AcqRel);
         }
-        for (set, kind) in crossings {
-            let name = snapshot.names.get(&set).cloned().unwrap_or_default();
+        for (meter, kind) in crossings {
+            let name = snapshot.names.get(&meter.set).cloned().unwrap_or_default();
             let reason = match kind {
                 EventKind::AllowanceLow => "5 minutes of the daily allowance left",
                 _ => "daily allowance used up",
             };
-            self.record_event(user, kind, &name, set, name.clone(), reason.into());
+            // The event is about the website or app whose time it is.
+            self.record_event(user, kind, &meter.item, meter.set, name, reason.into());
         }
     }
 

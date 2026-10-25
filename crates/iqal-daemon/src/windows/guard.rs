@@ -8,7 +8,7 @@ use std::os::windows::fs::MetadataExt;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use iqal_core::{Ctx, Engine, Hit, Now, ProcessInfo, Reason, SetId};
+use iqal_core::{Ctx, Engine, Hit, Meter, Now, ProcessInfo, Reason};
 use iqal_ipc::EventKind;
 use sha2::{Digest, Sha256};
 
@@ -39,7 +39,7 @@ pub struct AppGuard {
 
 struct Verdict {
     hit: Option<Hit>,
-    metered: Vec<SetId>,
+    metered: Vec<Meter>,
     user: String,
 }
 
@@ -95,7 +95,7 @@ impl AppGuard {
 
     /// Checks a running process; closes it if it is blocked. Otherwise
     /// returns the user and the allowances it is using up.
-    pub fn enforce_running(&self, pid: u32, engine: &Engine, now: Now) -> Option<(String, Vec<SetId>)> {
+    pub fn enforce_running(&self, pid: u32, engine: &Engine, now: Now) -> Option<(String, Vec<Meter>)> {
         // 0 and 4 are Windows' idle and system processes.
         if pid == self.own_pid || pid <= 4 {
             return None;
@@ -126,7 +126,7 @@ impl AppGuard {
     pub fn sweep(&self) {
         let engine = self.service.engine();
         let now = crate::clock::now();
-        let mut metered: HashMap<String, Vec<SetId>> = HashMap::new();
+        let mut metered: HashMap<String, Vec<Meter>> = HashMap::new();
         for entry in procs::list() {
             if let Some((user, sets)) = self.enforce_running(entry.pid, &engine, now) {
                 metered.entry(user).or_default().extend(sets);

@@ -138,8 +138,8 @@ fn message(e: &BlockEvent) -> Option<(String, String)> {
             "notify-window-closed",
             ta("notify-window-closed-body", &[("title", shorten(&e.target, 80).into()), ("block", block())]),
         ),
-        EventKind::AllowanceLow => ("notify-allowance-low", ta("notify-allowance-low-body", &[("block", block())])),
-        EventKind::AllowanceUsed => ("notify-allowance-used", ta("notify-allowance-used-body", &[("block", block())])),
+        EventKind::AllowanceLow => ("notify-allowance-low", ta("notify-allowance-low-body", &[("item", shorten(&e.target, 60).into()), ("block", block())])),
+        EventKind::AllowanceUsed => ("notify-allowance-used", ta("notify-allowance-used-body", &[("item", shorten(&e.target, 60).into()), ("block", block())])),
         // Browsers look up and prefetch many names; the browser extension
         // shows a block page for sites actually opened.
         EventKind::SiteBlocked => return None,

@@ -92,7 +92,7 @@ web-placeholder = example.com, example.com/page, contains:kelime, search:kelimel
 web-syntax = example.com siteyi ve tüm alt alan adlarını engeller. example.com/videos yalnızca o sayfaları engeller. contains:casino kelimeyi içeren her adresi engeller. search:ücretsiz film bu kelimeleri içeren aramaları engeller.
 web-allowed = İzin verilen siteler
 web-exceptions = İstisnalar (her zaman izinli)
-web-safesearch = SafeSearch’ü zorunlu kıl (Google, Bing, DuckDuckGo, YouTube)
+web-safesearch = SafeSearch’ü zorla (Google, Bing, DuckDuckGo, Yandex)
 
 import-done = İçe aktarma tamamlandı
 import-result = { $added } kural eklendi, { $skipped } satır atlandı.
@@ -140,7 +140,7 @@ schedule-date-invalid = Tek seferlik bir dönemi şöyle yazın: başlangıç ta
 schedule-add-weekly = Haftalık saat ekle
 schedule-no-days = En az bir gün seçin.
 allowance = Günlük süre hakkı
-allowance-detail = Engellenen site ve uygulamalara her gün sınırlı bir süre izin verir; sonrasında engellenirler.
+allowance-detail = Engellenen her site ve uygulama günde bu kadar dakika kullanılabilir; sonrasında yarına kadar engellenir.
 allowance-minutes = Günlük dakika
 
 area-circle = { $lat }, { $lon } noktasının { $radius } m yakınında
@@ -273,9 +273,9 @@ notify-app-closed-body = { $app }, “{ $block }” tarafından kapatıldı.
 notify-window-closed = Pencere kapatıldı
 notify-window-closed-body = “{ $title }”, “{ $block }” tarafından kapatıldı.
 notify-allowance-low = 5 dakika kaldı
-notify-allowance-low-body = “{ $block }” için günlük süre neredeyse doldu.
+notify-allowance-low-body = { $item } için günlük süre (“{ $block }”) neredeyse doldu.
 notify-allowance-used = Süre doldu
-notify-allowance-used-body = “{ $block }” için günlük süre doldu. Yarına kadar engelli.
+notify-allowance-used-body = { $item } için günlük süre (“{ $block }”) doldu. Yarına kadar engellendi.
 
 # Saving
 unsaved-changes = Kaydedilmemiş değişiklikler
@@ -365,3 +365,12 @@ uninstall-failed = Iqal kaldırılamadı
 uninstall-locked = Iqal şu anda kaldırılamaz
 uninstall-locked-detail = Bir engel kilitli. Tüm kilitler bittiğinde Iqal kaldırılabilir.
 setup-updated = Iqal güncellendi
+web-safesearch-detail = Bu açıkken diğer arama motorları ve yetişkin içerikleriyle bilinen siteler engellenir (Reddit, X, Instagram, Tumblr, Bluesky, Imgur…).
+allowance-used-today-items = Bugün kullanılan:
+allowance-used-item = { $item } { $used } / { $total } dk
+allowance-unused = Bugün henüz bir şey kullanılmadı.
+unsaved-locked-weaker = Bu engel kilitli ve bu değişiklik { $reason }.
+schedule-old = Eski zaman çizelgesi
+schedule-old-detail = Bu engel yalnızca Iqal’ın önceki bir sürümünde ayarlanan belirli saatlerde geçerli. Saatler artık bir kilitle ayarlanıyor (“Belirli saatlerde”).
+schedule-old-remove = Her zaman geçerli yap
+lock-schedule-detail = Bu saatlerde engel açık ve kilitlidir. Geri kalan zamanda kapalıdır ve değiştirilebilir.

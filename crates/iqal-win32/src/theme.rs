@@ -661,7 +661,12 @@ fn paint_push(hwnd: HWND, hdc: HDC, rc: RECT, on: bool, state: u32) {
         let mut x = rc.left + ((rc.right - rc.left) - total).max(0) / 2;
         if let Some(g) = &glyph {
             let mut r = RECT { left: x, right: x + icon_size.cx, ..rc };
+            // Delete and the like: the icon in deep red, as a warning.
+            if look == Look::Quiet && !disabled {
+                SetTextColor(hdc, p.error);
+            }
             DrawTextW(hdc, g.as_ptr(), 1, &mut r, DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+            SetTextColor(hdc, ink);
             x += icon_size.cx + gap;
             SelectObject(hdc, fonts.normal);
         }

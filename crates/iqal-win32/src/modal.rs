@@ -143,6 +143,9 @@ pub fn run(owner: HWND, title: &str, size: (i32, i32), build: impl FnOnce(Panel,
                 PostMessageW(hwnd, WM_CLOSE, 0, 0);
                 continue;
             }
+            if panel::before_dispatch(&msg) {
+                continue;
+            }
             if IsDialogMessageW(hwnd, &msg) == 0 {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
@@ -203,6 +206,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             0
         }
         WM_ERASEBKGND => theme::erase(hwnd, wparam as HDC),
+        // Enter in a one-line text box (IDOK, from IsDialogMessage).
+        windows_sys::Win32::UI::WindowsAndMessaging::WM_COMMAND if win::loword(wparam) == 1 => {
+            panel::press_default(hwnd);
+            0
+        }
         WM_CLOSE => {
             // Ends the dialog's loop; the window is destroyed after it. It
             // disappears at once, even if a message on top keeps its loop

@@ -77,29 +77,7 @@ fn locked(reason: String) -> String {
 pub fn localize_error(message: &str) -> String {
     const LOCKED: &str = "this block is locked: the change ";
     if let Some(reason) = message.strip_prefix(LOCKED) {
-        let key = match reason {
-            "disables the block" => "reason-disables",
-            "applies to fewer users" => "reason-fewer-users",
-            "changes the website blocking mode" => "reason-web-mode",
-            "removes blocked websites" => "reason-removes-websites",
-            "adds allowed websites or exceptions" => "reason-adds-allowed-websites",
-            "turns off SafeSearch" => "reason-safesearch-off",
-            "changes the app blocking mode" => "reason-app-mode",
-            "removes blocked apps" => "reason-removes-apps",
-            "adds allowed apps or exceptions" => "reason-adds-allowed-apps",
-            "limits the block to a schedule" => "reason-adds-schedule",
-            "shortens the schedule" => "reason-shortens-schedule",
-            "adds a time allowance" => "reason-adds-allowance",
-            "increases the time allowance" => "reason-increases-allowance",
-            "removes the lock" => "reason-removes-lock",
-            "shortens the unlock delay" => "reason-shortens-delay",
-            "weakens the lock" => "reason-weakens-lock",
-            "changes a pending unlock" => "reason-pending-unlock",
-            "deletes the block" => "reason-deletes",
-            "turns off hardened mode" => "reason-hardened-off",
-            _ => return locked(reason.to_string()),
-        };
-        return locked(t(key));
+        return locked(reason_text(reason));
     }
     match message {
         "wrong answer" => t("error-wrong-answer"),
@@ -108,4 +86,32 @@ pub fn localize_error(message: &str) -> String {
         "no Wi-Fi networks in range (is Wi-Fi on?)" => t("error-no-wifi"),
         other => other.to_string(),
     }
+}
+
+/// Why a change would weaken a locked block (from `iqal_core::lock::weakening_reason`),
+/// in the app's language: "would turn SafeSearch off"...
+pub fn reason_text(reason: &str) -> String {
+    let key = match reason {
+        "disables the block" => "reason-disables",
+        "applies to fewer users" => "reason-fewer-users",
+        "changes the website blocking mode" => "reason-web-mode",
+        "removes blocked websites" => "reason-removes-websites",
+        "adds allowed websites or exceptions" => "reason-adds-allowed-websites",
+        "turns off SafeSearch" => "reason-safesearch-off",
+        "changes the app blocking mode" => "reason-app-mode",
+        "removes blocked apps" => "reason-removes-apps",
+        "adds allowed apps or exceptions" => "reason-adds-allowed-apps",
+        "limits the block to a schedule" => "reason-adds-schedule",
+        "shortens the schedule" => "reason-shortens-schedule",
+        "adds a time allowance" => "reason-adds-allowance",
+        "increases the time allowance" => "reason-increases-allowance",
+        "removes the lock" => "reason-removes-lock",
+        "shortens the unlock delay" => "reason-shortens-delay",
+        "weakens the lock" => "reason-weakens-lock",
+        "changes a pending unlock" => "reason-pending-unlock",
+        "deletes the block" => "reason-deletes",
+        "turns off hardened mode" => "reason-hardened-off",
+        _ => return reason.to_string(),
+    };
+    t(key)
 }

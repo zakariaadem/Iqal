@@ -92,7 +92,7 @@ web-placeholder = example.com, example.com/page, contains:word, search:words
 web-syntax = example.com blocks the site and all its subdomains. example.com/videos blocks only those pages. contains:casino blocks any address containing the word. search:free movies blocks searches containing the words.
 web-allowed = Allowed websites
 web-exceptions = Exceptions (always allowed)
-web-safesearch = Force SafeSearch (Google, Bing, DuckDuckGo, YouTube)
+web-safesearch = Force SafeSearch (Google, Bing, DuckDuckGo, Yandex)
 
 import-done = Import finished
 import-result = { $added } rules added, { $skipped } lines skipped.
@@ -140,7 +140,7 @@ schedule-date-invalid = Write a one-off period as: start date, start time, end d
 schedule-add-weekly = Add weekly times
 schedule-no-days = Choose at least one day.
 allowance = Daily time allowance
-allowance-detail = Allows the blocked websites and apps for a limited time each day; after that they are blocked.
+allowance-detail = Each blocked website and app may be used for this many minutes a day; after that it is blocked until tomorrow.
 allowance-minutes = Minutes per day
 
 area-circle = within { $radius } m of { $lat }, { $lon }
@@ -273,9 +273,9 @@ notify-app-closed-body = { $app } was closed by “{ $block }”.
 notify-window-closed = Window closed
 notify-window-closed-body = “{ $title }” was closed by “{ $block }”.
 notify-allowance-low = 5 minutes left
-notify-allowance-low-body = The daily time for “{ $block }” is almost used up.
+notify-allowance-low-body = The daily time for { $item } (“{ $block }”) is almost used up.
 notify-allowance-used = Time is up
-notify-allowance-used-body = The daily time for “{ $block }” is used up. It is blocked until tomorrow.
+notify-allowance-used-body = The daily time for { $item } (“{ $block }”) is used up. It is blocked until tomorrow.
 
 # Saving
 unsaved-changes = Unsaved changes
@@ -374,3 +374,12 @@ uninstall-failed = Iqal could not be removed
 uninstall-locked = Iqal cannot be removed now
 uninstall-locked-detail = A block is locked. Iqal can be removed when all locks have ended.
 setup-updated = Iqal is updated
+web-safesearch-detail = While this is on, other search engines and sites known for adult content (Reddit, X, Instagram, Tumblr, Bluesky, Imgur…) are blocked.
+allowance-used-today-items = Used today:
+allowance-used-item = { $item } { $used } of { $total } min
+allowance-unused = Nothing used today yet.
+unsaved-locked-weaker = This block is locked, and this change { $reason }.
+schedule-old = Old time schedule
+schedule-old-detail = This block is only in force at certain times, set in an earlier version of Iqal. Times are now set with a lock (“During certain times”).
+schedule-old-remove = Make it always in force
+lock-schedule-detail = During these times the block is on and locked. The rest of the time it is off and can be changed.

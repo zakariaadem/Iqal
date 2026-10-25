@@ -107,7 +107,7 @@ pub fn page(page: Panel, view: &View) {
     }
     if !info.locked {
         let text = t(if set.lock.is_some() { "action-change-lock" } else { "action-lock" });
-        let lock = page.control("BUTTON", &text, WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
+        let lock = page.control("BUTTON", &text, WS_TABSTOP, 0);
         crate::theme::style_button(lock, Some(crate::theme::Icon::Lock), crate::theme::Look::Main);
         panel::on(lock, |code| {
             if code == BN_CLICKED {
@@ -117,6 +117,8 @@ pub fn page(page: Panel, view: &View) {
         items.push(Item::Space(8));
         items.push(Item::Row { cells: vec![(lock, width_of(lock))], height: panel::ROW });
     }
+    // The daily allowance (and an old time schedule, if the block has one).
+    items.extend(crate::editor::allowance(page, view));
     page.set_items(items);
 }
 
@@ -225,7 +227,11 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
     sections[4].push(restart_note);
     items.push(Item::Text(restart_note));
 
-    // During certain times.
+    // During certain times: the block is on and locked then, off and free
+    // to change the rest of the time.
+    let schedule_note = page.note(&t("lock-schedule-detail"));
+    sections[5].push(schedule_note);
+    items.push(Item::Text(schedule_note));
     let (weekly, picked) = weekly_picker(page);
     for item in &weekly {
         if let Item::Row { cells, .. } = item {

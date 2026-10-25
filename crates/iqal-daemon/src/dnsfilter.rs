@@ -2,7 +2,7 @@
 //! 0.0.0.0 / ::, allowed ones are relayed unchanged.
 //!
 //! Also handled here:
-//! * SafeSearch: Google/Bing/DuckDuckGo/YouTube resolve to their
+//! * SafeSearch: Google/Bing/DuckDuckGo/Yandex resolve to their
 //!   restricted-mode addresses.
 //! * Encrypted-DNS bypasses: well-known DoH servers do not resolve, and
 //!   Firefox's canary domain tells it to keep DoH off.
