@@ -529,13 +529,15 @@ fn answer_dialog(id: SetId, text: Option<String>) {
                 Ok(Response::Unlock { outcome }) => {
                     closer.close();
                     let main = ui::main_window();
+                    // The main window shows the change at once, behind the message.
+                    if let UnlockInfo::Unlocked = outcome {
+                        ui::forget_lock(id);
+                    }
+                    ui::refresh(true);
                     match outcome {
-                        UnlockInfo::Unlocked => {
-                            // Unsaved changes still hold the old lock; saving
-                            // them must not put it back.
-                            ui::forget_lock(id);
-                            dialog::message(main, dialog::Icon::Info, &t("unlocked"), &t("unlocked-detail"))
-                        }
+                        // (Unsaved changes still held the old lock; `forget_lock`
+                        // above keeps saving them from putting it back.)
+                        UnlockInfo::Unlocked => dialog::message(main, dialog::Icon::Info, &t("unlocked"), &t("unlocked-detail")),
                         UnlockInfo::Pending { at } => dialog::message(
                             main,
                             dialog::Icon::Info,
@@ -543,7 +545,6 @@ fn answer_dialog(id: SetId, text: Option<String>) {
                             &ta("lock-pending", &[("time", fmt_time(at).into())]),
                         ),
                     }
-                    ui::refresh(true);
                 }
                 Ok(_) => dialog::error(owner, &t("error-unexpected")),
                 // Say which: the password, or the text.

@@ -216,8 +216,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             // disappears at once, even if a message on top keeps its loop
             // waiting a little longer.
             CLOSED.with(|c| c.borrow_mut().insert(hwnd as isize));
-            // SAFETY: our window.
+            // SAFETY: our windows.
             unsafe {
+                // The window underneath is usable again first: otherwise,
+                // with it still disabled when this one goes, Windows briefly
+                // brings another program to the front and Iqal's window is
+                // drawn again when it comes back.
+                let owner = windows_sys::Win32::UI::WindowsAndMessaging::GetWindow(hwnd, 4 /* GW_OWNER */);
+                if !owner.is_null() {
+                    EnableWindow(owner, 1);
+                }
                 ShowWindow(hwnd, SW_HIDE);
                 PostMessageW(hwnd, WM_DONE, 0, 0);
             }

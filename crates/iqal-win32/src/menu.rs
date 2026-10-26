@@ -155,8 +155,9 @@ fn import_blocks() {
             lines.extend(
                 rejected.iter().map(|(n, why)| ta("import-rejected", &[("name", n.clone().into()), ("why", why.clone().into())])),
             );
-            dialog::message(owner, dialog::Icon::Info, &t("import-done"), &lines.join("\n"));
+            // The imported blocks show at once, behind the message.
             ui::refresh(true);
+            dialog::message(owner, dialog::Icon::Info, &t("import-done"), &lines.join("\n"));
         }
         Ok(_) => dialog::error(owner, &t("error-unexpected")),
         Err(e) => dialog::error(owner, &e),
