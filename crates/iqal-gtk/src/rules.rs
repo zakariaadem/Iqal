@@ -9,7 +9,7 @@ use iqal_i18n::{t, ta};
 use gtk::prelude::*;
 
 use crate::ui::{ListKey, Ui};
-use crate::widgets::{heading, hbox, icon_button, label, note, pass_wheel, vbox};
+use crate::widgets::{heading, hbox, icon_button, label, note, vbox};
 
 /// Height of the add box and of the list beside it.
 const BOX_HEIGHT: i32 = 220;
@@ -113,7 +113,6 @@ pub fn rule_editor_with_lists(
     empty.set_wrap(false);
     let stack = gtk::Stack::new();
     let list_scroll = gtk::ScrolledWindow::builder().child(&list).vexpand(true).build();
-    pass_wheel(&list_scroll);
     stack.add_named(&list_scroll, Some("list"));
     stack.add_named(&empty, Some("empty"));
     let search = gtk::SearchEntry::builder().placeholder_text(t("search")).build();
@@ -204,7 +203,6 @@ pub fn rule_editor_with_lists(
     input.set_direction(gtk::TextDirection::Ltr);
     let input_scroll = gtk::ScrolledWindow::builder().child(&input).build();
     input_scroll.add_css_class("box-frame");
-    pass_wheel(&input_scroll);
     input_scroll.set_size_request(-1, BOX_HEIGHT);
     // The examples, under the buttons (as on Windows).
     let hint = note(&ta("list-empty-hint", &[("examples", examples.to_string().into())]));

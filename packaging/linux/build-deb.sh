@@ -26,7 +26,7 @@ d /usr/bin
 d /usr/lib/iqal/extension
 d /usr/lib/systemd/system
 d /usr/share/iqal/lists
-d /usr/share/iqal/icons
+d /usr/share/icons/hicolor/scalable/actions
 d /usr/share/applications
 d /usr/share/icons/hicolor/scalable/apps
 d /usr/share/doc/iqal
@@ -45,8 +45,9 @@ else
     install -m 0644 "$SRC/dist/extension/iqal.xpi" "$ROOT/usr/lib/iqal/extension/iqal.xpi"
 fi
 install -m 0644 "$SRC"/lists/*.txt "$ROOT/usr/share/iqal/lists/"
-# Icons the desktop's icon set may not have (the app finds them here).
-install -m 0644 "$SRC"/packaging/linux/icons/*.svg "$ROOT/usr/share/iqal/icons/"
+# Icons the desktop's icon set may not have, in the standard folder (so
+# they are coloured like the others).
+install -m 0644 "$SRC"/packaging/linux/icons/*.svg "$ROOT/usr/share/icons/hicolor/scalable/actions/"
 
 sed "s|@LIBDIR@|/usr/lib/iqal|" "$SRC/packaging/linux/iqal.service" > "$ROOT/usr/lib/systemd/system/iqal.service"
 sed "s|@BINDIR@|/usr/bin|" "$SRC/packaging/linux/iqal-agent.desktop" > "$ROOT/etc/xdg/autostart/iqal-agent.desktop"

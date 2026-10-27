@@ -127,10 +127,10 @@ pub fn apply() {
         _ => system_is_dark(),
     };
     DARK_MODE.with(|d| d.set(dark));
-    // Iqal's own icons (the globe), for icon sets without them: from the
-    // package, or from the source folder when run from a build.
+    // Iqal's own icons (the globe) are installed with the package in the
+    // standard icon folder; when run from a build, from the source folder.
     let icons = gtk::IconTheme::for_display(&display);
-    for dir in ["/usr/share/iqal/icons", concat!(env!("CARGO_MANIFEST_DIR"), "/../../packaging/linux/icons")] {
+    for dir in [concat!(env!("CARGO_MANIFEST_DIR"), "/../../packaging/linux/icons")] {
         if std::path::Path::new(dir).is_dir() && !icons.search_path().iter().any(|p| p.as_path() == std::path::Path::new(dir)) {
             icons.add_search_path(dir);
         }
