@@ -124,19 +124,12 @@ pub fn apply() {
     let dark = match GuiSettings::load().theme.as_deref() {
         Some("dark") => true,
         Some("light") => false,
-        _ => {
-            // The desktop's own choice, before Iqal set one.
-            if let Some(s) = gtk::Settings::default() {
-                s.set_gtk_application_prefer_dark_theme(false);
-            }
-            system_is_dark()
-        }
+        _ => system_is_dark(),
     };
     DARK_MODE.with(|d| d.set(dark));
-    // Windows' built-in parts (scroll bars, menus, pickers) follow the mode.
-    if let Some(s) = gtk::Settings::default() {
-        s.set_gtk_application_prefer_dark_theme(dark);
-    }
+    // (GTK's own light or dark style is left as it is: switching it makes
+    // GTK reload its whole style sheet, which slowed opening by about 15 ms,
+    // and Iqal's style sheet below colours every part anyway.)
     let css = gtk::CssProvider::new();
     css.load_from_string(&style(palette(), display.is_composited()));
     PROVIDER.with(|p| {
