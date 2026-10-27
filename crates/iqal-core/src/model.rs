@@ -83,6 +83,11 @@ pub struct BlockSet {
     /// (set when the lock has an unlock delay).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_unlock_at: Option<i64>,
+    /// With a "during certain times" lock: whether its times last turned the
+    /// block on (true, they started) or off (false, they ended). Kept by
+    /// the service, so it switches the block only when the times change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub times_on: Option<bool>,
 }
 
 fn default_true() -> bool {
@@ -102,6 +107,7 @@ impl BlockSet {
             allowance: None,
             lock: None,
             pending_unlock_at: None,
+            times_on: None,
         }
     }
 }

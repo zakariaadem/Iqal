@@ -147,8 +147,6 @@ struct CompiledSet {
     enabled: bool,
     users: UserScope,
     schedule: Option<Schedule>,
-    /// A "during certain times" lock: the block is in force only then.
-    lock_times: Option<Schedule>,
     allowance: Option<Allowance>,
     web_mode: ListMode,
     web_block: WebMatcher,
@@ -265,10 +263,6 @@ impl CompiledSet {
             enabled: set.enabled,
             users: set.users.clone(),
             schedule: set.schedule.clone(),
-            lock_times: match set.lock.as_ref().map(|l| &l.kind) {
-                Some(crate::model::LockKind::Schedule { schedule }) => Some(schedule.clone()),
-                _ => None,
-            },
             allowance: set.allowance,
             web_mode: set.web.mode,
             web_block,
@@ -288,7 +282,6 @@ impl CompiledSet {
         self.enabled
             && self.users.includes(ctx.user)
             && self.schedule.as_ref().is_none_or(|s| s.is_active(&ctx.now))
-            && self.lock_times.as_ref().is_none_or(|s| s.is_active(&ctx.now))
     }
 
     fn web_verdict(&self, view: &UrlView) -> Option<Reason> {
@@ -626,20 +619,6 @@ mod tests {
         let d = e.check_url("reddit.com", &c);
         assert!(!d.is_blocked());
         assert_eq!(d.metered, vec![Meter { set: id, item: "reddit.com".into() }]);
-    }
-
-    #[test]
-    fn times_lock_limits_when_in_force() {
-        use crate::model::{Lock, LockKind};
-        use crate::schedule::{Day, WeeklyRange};
-        let mut s = BlockSet::new("evenings");
-        s.web.block = rules(&["youtube.com"]);
-        // 2026-10-12 is a Monday; ctx() is 10:00.
-        let times = |start: u16, end: u16| Schedule { weekly: vec![WeeklyRange { days: vec![Day::Mon], start, end }], dates: vec![] };
-        s.lock = Some(Lock { kind: LockKind::Schedule { schedule: times(18 * 60, 22 * 60) }, unlock_delay_secs: 0 });
-        assert!(!blocked(&engine(vec![s.clone()]), "youtube.com"), "outside its times the block is off");
-        s.lock = Some(Lock { kind: LockKind::Schedule { schedule: times(9 * 60, 12 * 60) }, unlock_delay_secs: 0 });
-        assert!(blocked(&engine(vec![s]), "youtube.com"), "during its times it blocks");
     }
 
     #[test]

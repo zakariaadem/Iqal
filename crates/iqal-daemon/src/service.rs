@@ -383,7 +383,7 @@ impl Service {
             let result = self.commit(&mut inner, |c| {
                 for s in &mut c.block_sets {
                     if lock::expire(s, &ctx) {
-                        eprintln!("iqal: lock on \"{}\" ended", s.name);
+                        eprintln!("iqal: lock on \"{}\" ended, or its times switched the block", s.name);
                     }
                 }
                 Ok(())

@@ -80,7 +80,25 @@ pub fn expire(set: &mut BlockSet, ctx: &LockContext) -> bool {
             set.enabled = false;
         }
     }
-    finished
+    apply_times(set, &ctx.now) || finished
+}
+
+/// A "during certain times" lock switches its block: on when its times
+/// start, off when they end (in between, the block can be switched by
+/// hand). Returns true if anything changed.
+pub fn apply_times(set: &mut BlockSet, now: &Now) -> bool {
+    match set.lock.as_ref().map(|l| &l.kind) {
+        Some(LockKind::Schedule { schedule }) => {
+            let inside = schedule.is_active(now);
+            if set.times_on == Some(inside) {
+                return false;
+            }
+            set.enabled = inside;
+            set.times_on = Some(inside);
+            true
+        }
+        _ => set.times_on.take().is_some(),
+    }
 }
 
 /// What the user must do to open a lock early.
@@ -229,6 +247,7 @@ impl Config {
     /// replaced by a version that is at least as strict.
     pub fn upsert_set(&mut self, new: BlockSet, ctx: &LockContext) -> Result<(), CoreError> {
         validate_set(&new)?;
+        let mut new = new;
         match self.block_sets.iter_mut().find(|s| s.id == new.id) {
             Some(old) => {
                 if is_locked(old, ctx)
@@ -236,9 +255,22 @@ impl Config {
                 {
                     return Err(CoreError::Locked(reason));
                 }
+                // The same times lock keeps its last switch (so a block
+                // switched on by hand outside its times stays on); new times
+                // switch the block at once.
+                new.times_on = if old.lock.as_ref().map(|l| &l.kind) == new.lock.as_ref().map(|l| &l.kind) {
+                    old.times_on
+                } else {
+                    None
+                };
                 *old = new;
+                apply_times(old, &ctx.now);
             }
-            None => self.block_sets.push(new),
+            None => {
+                new.times_on = None;
+                apply_times(&mut new, &ctx.now);
+                self.block_sets.push(new);
+            }
         }
         Ok(())
     }
@@ -424,6 +456,32 @@ mod tests {
         assert!(expire(&mut s, &ctx(100)));
         assert!(s.lock.is_none());
         assert!(!s.enabled, "the block ends with its timer");
+    }
+
+    #[test]
+    fn times_lock_switches_the_block() {
+        // Mondays 09:00-12:00; ctx() is Monday 10:00.
+        let times = Schedule { weekly: vec![WeeklyRange { days: vec![Day::Mon], start: 9 * 60, end: 12 * 60 }], dates: vec![] };
+        let mut s = locked_set(LockKind::Schedule { schedule: times });
+        s.enabled = false;
+        let at = |h: i8| LockContext { now: Now { unix: 0, local: date(2026, 10, 12).at(h, 0, 0, 0) }, ..ctx(0) };
+
+        assert!(expire(&mut s, &at(10)), "the times started");
+        assert!(s.enabled && is_locked(&s, &at(10)));
+        assert!(!expire(&mut s, &at(11)), "nothing new");
+        assert!(expire(&mut s, &at(13)), "the times ended");
+        assert!(!s.enabled && !is_locked(&s, &at(13)));
+        // Switched on by hand outside the times: it stays on until they end.
+        s.enabled = true;
+        assert!(!expire(&mut s, &at(14)));
+        assert!(s.enabled);
+
+        // Saved with this lock outside its times: off at once.
+        let mut config = Config::default();
+        let mut new = locked_set(s.lock.clone().unwrap().kind);
+        new.enabled = true;
+        config.upsert_set(new, &at(14)).unwrap();
+        assert!(!config.block_sets[0].enabled);
     }
 
     #[test]
