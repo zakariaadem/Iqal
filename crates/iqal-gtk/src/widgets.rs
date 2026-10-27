@@ -98,25 +98,33 @@ pub fn badge(icon: &str, text: &str) -> gtk::Box {
     b
 }
 
-/// The mouse wheel over a box that cannot scroll further that way scrolls
-/// the page around it instead (otherwise the turn would be lost).
+/// The mouse wheel over a box: the box scrolls while it can, and only once
+/// it cannot scroll further that way, the page around it (never both at
+/// once, and the turn is never lost).
 pub fn pass_wheel(inner: &gtk::ScrolledWindow) {
     let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
     scroll.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = inner.downgrade();
-    scroll.connect_scroll(move |_, _, dy| {
+    scroll.connect_scroll(move |controller, _, dy| {
         let Some(inner) = weak.upgrade() else { return gtk::glib::Propagation::Proceed };
+        // A touchpad reports pixels, a wheel notches.
+        let pixels = |adj: &gtk::Adjustment| {
+            if controller.unit() == gtk::gdk::ScrollUnit::Surface { dy } else { dy * adj.step_increment().max(48.0) }
+        };
         let adj = inner.vadjustment();
         let can_scroll = if dy < 0.0 { adj.value() > adj.lower() } else { adj.value() < adj.upper() - adj.page_size() };
-        if can_scroll {
-            return gtk::glib::Propagation::Proceed;
-        }
-        let Some(outer) = inner.parent().and_then(|p| p.ancestor(gtk::ScrolledWindow::static_type())).and_downcast::<gtk::ScrolledWindow>()
-        else {
-            return gtk::glib::Propagation::Proceed;
+        let target = if can_scroll {
+            Some(adj)
+        } else {
+            inner
+                .parent()
+                .and_then(|p| p.ancestor(gtk::ScrolledWindow::static_type()))
+                .and_downcast::<gtk::ScrolledWindow>()
+                .map(|outer| outer.vadjustment())
         };
-        let page = outer.vadjustment();
-        page.set_value(page.value() + dy * page.step_increment().max(48.0));
+        if let Some(adj) = target {
+            adj.set_value(adj.value() + pixels(&adj));
+        }
         gtk::glib::Propagation::Stop
     });
     inner.add_controller(scroll);

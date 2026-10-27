@@ -127,6 +127,14 @@ pub fn apply() {
         _ => system_is_dark(),
     };
     DARK_MODE.with(|d| d.set(dark));
+    // Iqal's own icons (the globe), for icon sets without them: from the
+    // package, or from the source folder when run from a build.
+    let icons = gtk::IconTheme::for_display(&display);
+    for dir in ["/usr/share/iqal/icons", concat!(env!("CARGO_MANIFEST_DIR"), "/../../packaging/linux/icons")] {
+        if std::path::Path::new(dir).is_dir() && !icons.search_path().iter().any(|p| p.as_path() == std::path::Path::new(dir)) {
+            icons.add_search_path(dir);
+        }
+    }
     // (GTK's own light or dark style is left as it is: switching it makes
     // GTK reload its whole style sheet, which slowed opening by about 15 ms,
     // and Iqal's style sheet below colours every part anyway.)
@@ -178,6 +186,7 @@ entry, spinbutton, textview.boxed, .box-frame {{
     background: {field}; color: {text}; border: 1px solid {line}; border-radius: 0; box-shadow: none;
 }}
 entry:focus-within, spinbutton:focus-within {{ border-color: {accent}; box-shadow: inset 0 -1px {accent}; outline: none; }}
+entry:disabled, spinbutton:disabled, entry:disabled text {{ background: {page}; color: {grey}; }}
 textview text, textview {{ background: {field}; color: {text}; }}
 entry placeholder, text placeholder {{ color: {grey}; }}
 selection {{ background: {chosen}; color: {chosen_text}; }}

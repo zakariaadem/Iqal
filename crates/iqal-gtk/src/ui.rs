@@ -135,7 +135,9 @@ impl Ui {
 
         // Left: "New block" and "Menu", then the block list.
         let side = vbox(8);
+        // As wide as on Windows, whatever its buttons would like.
         side.set_size_request(280, -1);
+        side.set_hexpand(false);
         side.set_margin_start(12);
         side.set_margin_top(12);
         side.set_margin_bottom(12);

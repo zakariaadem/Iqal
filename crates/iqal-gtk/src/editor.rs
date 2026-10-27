@@ -41,7 +41,7 @@ pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
     tabs.set_margin_start(6);
     tabs.set_margin_end(12);
     let pages: [(&str, &str, gtk::Widget); 4] = [
-        ("tab-websites", "web-browser-symbolic", websites(ui, &info.set)),
+        ("tab-websites", "iqal-globe-symbolic", websites(ui, &info.set)),
         ("tab-apps", "view-list-symbolic", apps(ui, &info.set)),
         ("tab-users", "system-users-symbolic", users(ui, &info.set)),
         ("tab-lock", "changes-prevent-symbolic", lockui::page(ui, info)),
@@ -77,7 +77,7 @@ fn save_bar(ui: &Rc<Ui>) -> (gtk::Revealer, gtk::Label, gtk::Button) {
             glib::idle_add_local_once(move || ui.discard());
         }
     });
-    let save = icon_button(&t("action-save"), "document-save-symbolic", "main");
+    let save = icon_button(&t("action-save"), "media-floppy-symbolic", "main");
     save.set_tooltip_text(Some("Ctrl+S"));
     let weak = ui.weak();
     save.connect_clicked(move |_| {
