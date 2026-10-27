@@ -1,9 +1,8 @@
 //! Small reusable widgets and text helpers.
 
-use iqal_i18n::t;
 use gtk::prelude::*;
 
-pub use iqal_app::describe::{day_name, describe_area, describe_lock, describe_schedule, fmt_time};
+pub use iqal_app::describe::{day_name, describe_lock, fmt_time};
 
 pub fn vbox(spacing: i32) -> gtk::Box {
     gtk::Box::new(gtk::Orientation::Vertical, spacing)
@@ -37,6 +36,9 @@ pub fn note(text: &str) -> gtk::Label {
     l.add_css_class("dim-label");
     l.set_xalign(0.0);
     l.set_wrap(true);
+    // Long texts wrap instead of widening the window (they still use all
+    // the width the window has).
+    l.set_max_width_chars(60);
     l
 }
 
@@ -44,71 +46,10 @@ pub fn label(text: &str) -> gtk::Label {
     let l = gtk::Label::new(Some(text));
     l.set_xalign(0.0);
     l.set_wrap(true);
+    l.set_max_width_chars(60);
     l
 }
 
-/// A list of rules with a remove button each, and an entry to add more.
-pub fn rule_list(
-    title: &str,
-    rules: Vec<String>,
-    placeholder: &str,
-    on_add: impl Fn(String) + 'static,
-    on_remove: impl Fn(String) + 'static,
-) -> gtk::Box {
-    let b = vbox(6);
-    b.append(&heading(title));
-    let list = gtk::ListBox::new();
-    list.add_css_class("boxed-list");
-    list.set_selection_mode(gtk::SelectionMode::None);
-    let on_remove = std::rc::Rc::new(on_remove);
-    if rules.is_empty() {
-        let row = hbox(6);
-        row.append(&note(&t("list-empty")));
-        set_margins(&row, 8);
-        list.append(&row);
-    }
-    for rule in rules {
-        let row = hbox(6);
-        set_margins(&row, 4);
-        let text = gtk::Label::new(Some(&rule));
-        text.set_xalign(0.0);
-        text.set_hexpand(true);
-        text.set_selectable(true);
-        text.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        let remove = gtk::Button::from_icon_name("list-remove-symbolic");
-        remove.add_css_class("flat");
-        remove.set_tooltip_text(Some(&t("action-remove")));
-        let cb = on_remove.clone();
-        remove.connect_clicked(move |_| cb(rule.clone()));
-        row.append(&text);
-        row.append(&remove);
-        list.append(&row);
-    }
-    b.append(&list);
-
-    let add_row = hbox(6);
-    let entry = gtk::Entry::builder().placeholder_text(placeholder).hexpand(true).build();
-    let add = gtk::Button::with_label(&t("action-add"));
-    let on_add = std::rc::Rc::new(on_add);
-    let submit = {
-        let entry = entry.clone();
-        let on_add = on_add.clone();
-        move || {
-            let text = entry.text().trim().to_string();
-            if !text.is_empty() {
-                entry.set_text("");
-                on_add(text);
-            }
-        }
-    };
-    let s1 = submit.clone();
-    entry.connect_activate(move |_| s1());
-    add.connect_clicked(move |_| submit());
-    add_row.append(&entry);
-    add_row.append(&add);
-    b.append(&add_row);
-    b
-}
 
 pub fn set_margins(w: &impl IsA<gtk::Widget>, m: i32) {
     w.set_margin_top(m);
@@ -126,4 +67,57 @@ pub fn setting_row(text: &str, control: &impl IsA<gtk::Widget>) -> gtk::Box {
     control.set_valign(gtk::Align::Center);
     row.append(control);
     row
+}
+
+/// A button with a small icon and a text, as on Windows. `look`: "main"
+/// (filled with the accent), "quiet" (grey text, the icon in deep red, for
+/// Delete) or "" (plain).
+pub fn icon_button(text: &str, icon: &str, look: &str) -> gtk::Button {
+    let button = gtk::Button::new();
+    let row = hbox(6);
+    row.set_halign(gtk::Align::Center);
+    let image = gtk::Image::from_icon_name(icon);
+    if look == "quiet" {
+        image.add_css_class("danger");
+    }
+    row.append(&image);
+    row.append(&gtk::Label::new(Some(text)));
+    button.set_child(Some(&row));
+    if !look.is_empty() {
+        button.add_css_class(look);
+    }
+    button
+}
+
+/// A small gold label with an icon (the block list's "Active", "Locked").
+pub fn badge(icon: &str, text: &str) -> gtk::Box {
+    let b = hbox(4);
+    b.add_css_class("badge");
+    b.append(&gtk::Image::from_icon_name(icon));
+    b.append(&gtk::Label::new(Some(text)));
+    b
+}
+
+/// The mouse wheel over a box that cannot scroll further that way scrolls
+/// the page around it instead (otherwise the turn would be lost).
+pub fn pass_wheel(inner: &gtk::ScrolledWindow) {
+    let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+    scroll.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let weak = inner.downgrade();
+    scroll.connect_scroll(move |_, _, dy| {
+        let Some(inner) = weak.upgrade() else { return gtk::glib::Propagation::Proceed };
+        let adj = inner.vadjustment();
+        let can_scroll = if dy < 0.0 { adj.value() > adj.lower() } else { adj.value() < adj.upper() - adj.page_size() };
+        if can_scroll {
+            return gtk::glib::Propagation::Proceed;
+        }
+        let Some(outer) = inner.parent().and_then(|p| p.ancestor(gtk::ScrolledWindow::static_type())).and_downcast::<gtk::ScrolledWindow>()
+        else {
+            return gtk::glib::Propagation::Proceed;
+        };
+        let page = outer.vadjustment();
+        page.set_value(page.value() + dy * page.step_increment().max(48.0));
+        gtk::glib::Propagation::Stop
+    });
+    inner.add_controller(scroll);
 }

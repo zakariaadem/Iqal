@@ -28,8 +28,9 @@ pub fn new_block(ui: &Rc<Ui>) {
     let buttons = hbox(6);
     buttons.set_halign(gtk::Align::End);
     let cancel = gtk::Button::with_label(&t("action-cancel"));
-    let create = gtk::Button::with_label(&t("action-create"));
-    create.add_css_class("suggested-action");
+    let create = crate::widgets::icon_button(&t("action-create"), "list-add-symbolic", "main");
+    win.set_default_widget(Some(&create));
+    entry.set_activates_default(true);
     buttons.append(&cancel);
     buttons.append(&create);
     body.append(&buttons);
@@ -57,8 +58,6 @@ pub fn new_block(ui: &Rc<Ui>) {
             }
         }
     };
-    let s = submit.clone();
-    entry.connect_activate(move |_| s());
     create.connect_clicked(move |_| submit());
     win.present();
 }
@@ -141,17 +140,20 @@ pub fn activity(ui: &Rc<Ui>) {
         row.append(&note(&format!("{} · {} · {} · {}", fmt_time(e.time), e.user, e.set_name, e.reason)));
         list.append(&row);
     }
+    list.add_css_class("blocks");
     let scroll = gtk::ScrolledWindow::builder().vexpand(true).child(&list).build();
     body.append(&scroll);
+    body.append(&close_row(&win));
     win.present();
 }
 
 pub fn settings(ui: &Rc<Ui>) {
-    let (win, body) = small_window(ui, &t("menu-settings"), 520);
+    let (win, body) = small_window(ui, &t("menu-settings"), 560);
     body.append(&heading(&t("settings-language")));
     let mut names = vec![t("settings-language-system")];
     names.extend(LANGUAGES.iter().map(|(_, n, _)| n.to_string()));
     let dd = gtk::DropDown::from_strings(&names.iter().map(String::as_str).collect::<Vec<_>>());
+    dd.set_halign(gtk::Align::Start);
     let saved = GuiSettings::load();
     let pos = saved.language.as_deref().and_then(|c| LANGUAGES.iter().position(|(code, _, _)| *code == c)).map_or(0, |i| i + 1);
     dd.set_selected(pos as u32);
@@ -169,7 +171,23 @@ pub fn settings(ui: &Rc<Ui>) {
     });
     body.append(&dd);
 
-    body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    // Light or dark, at once.
+    body.append(&heading(&t("settings-theme")));
+    const THEMES: [Option<&str>; 3] = [None, Some("light"), Some("dark")];
+    let themes = [t("settings-theme-desktop"), t("settings-theme-light"), t("settings-theme-dark")];
+    let appearance = gtk::DropDown::from_strings(&themes.iter().map(String::as_str).collect::<Vec<_>>());
+    appearance.set_halign(gtk::Align::Start);
+    let pos = THEMES.iter().position(|th| *th == saved.theme.as_deref()).unwrap_or(0);
+    appearance.set_selected(pos as u32);
+    appearance.connect_selected_notify(|d| {
+        let mut s = GuiSettings::load();
+        s.theme = THEMES.get(d.selected() as usize).copied().flatten().map(String::from);
+        s.save();
+        crate::theme::apply();
+    });
+    body.append(&appearance);
+
+    // Linux only: while locked, no administrator rights for the blocked.
     let status = ui.status();
     let hardened = gtk::Switch::builder().active(status.as_ref().is_some_and(|s| s.hardened)).build();
     let weak = ui.weak();
@@ -182,11 +200,12 @@ pub fn settings(ui: &Rc<Ui>) {
         ui.refresh(false);
         glib::Propagation::Stop
     });
-    body.append(&setting_row(&t("settings-hardened"), &hardened));
+    let row = setting_row(&t("settings-hardened"), &hardened);
+    row.set_margin_top(6);
+    body.append(&row);
     body.append(&note(&t("settings-hardened-detail")));
 
     if let Some(s) = status {
-        body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
         body.append(&heading(&t("settings-status")));
         body.append(&note(&ta("status-service", &[("version", s.version.clone().into())])));
         body.append(&note(&ta("status-time", &[("source", iqal_app::describe::time_source(&s.clock).into())])));
@@ -197,18 +216,33 @@ pub fn settings(ui: &Rc<Ui>) {
             body.append(&note(&t("status-not-admin")));
         }
     }
+    body.append(&close_row(&win));
     win.present();
 }
 
+/// A Close button at the bottom right, the window's default button.
+fn close_row(win: &gtk::Window) -> gtk::Box {
+    let row = hbox(6);
+    row.set_halign(gtk::Align::End);
+    row.set_margin_top(8);
+    let close = gtk::Button::with_label(&t("action-close"));
+    let w = win.downgrade();
+    close.connect_clicked(move |_| {
+        if let Some(w) = w.upgrade() {
+            w.close();
+        }
+    });
+    win.set_default_widget(Some(&close));
+    row.append(&close);
+    row
+}
+
 pub fn about(ui: &Rc<Ui>) {
-    let d = gtk::AboutDialog::builder()
-        .transient_for(&ui.window)
-        .modal(true)
-        .program_name(t("app-name"))
-        .logo_icon_name("iqal")
-        .version(env!("CARGO_PKG_VERSION"))
-        .comments(t("app-description"))
-        .license_type(gtk::License::Gpl30)
-        .build();
-    d.present();
+    let detail = format!(
+        "{}\n\n{} {}\nGNU General Public License 3.0\nhttps://github.com/zakariaadem/Iqal",
+        t("app-description"),
+        t("app-name"),
+        env!("CARGO_PKG_VERSION"),
+    );
+    ui.info(&t("app-name"), &detail);
 }

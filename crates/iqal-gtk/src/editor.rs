@@ -7,16 +7,16 @@
 use std::rc::Rc;
 
 use iqal_core::import::parse_rules_text;
-use iqal_core::schedule::{DateRange, Day, Schedule, WeeklyRange};
+use iqal_core::schedule::{Day, WeeklyRange};
 use iqal_core::{Allowance, BlockSet, ListMode, UserScope};
 use iqal_i18n::{t, ta};
 use iqal_ipc::{Request, Response, SetInfo};
 use gtk::prelude::*;
 use gtk::{gio, glib};
 
-use crate::ui::{summary, ListKey, Ui};
+use crate::ui::{ListKey, Ui};
 use crate::rules::{rule_editor, rule_editor_with_lists};
-use crate::widgets::{describe_schedule, day_name, heading, hbox, label, note, page, rule_list, setting_row, vbox};
+use crate::widgets::{day_name, heading, hbox, icon_button, label, note, page, vbox};
 use crate::{appspicker, dialogs, lockui};
 
 pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
@@ -29,42 +29,55 @@ pub fn build(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
         root.append(&n);
     }
     if info.locked {
-        let banner = gtk::Label::new(Some(&t("locked-banner")));
-        banner.add_css_class("warning");
-        banner.set_wrap(true);
+        let banner = note(&t("locked-banner"));
         banner.set_margin_start(18);
         banner.set_margin_end(18);
         banner.set_margin_bottom(6);
-        banner.set_xalign(0.0);
         root.append(&banner);
     }
+    // Tabs with an icon and a word (the daily allowance is on the Lock tab).
     let tabs = gtk::Notebook::new();
     tabs.set_vexpand(true);
-    let pages: [(&str, gtk::Widget); 5] = [
-        ("tab-websites", websites(ui, &info.set)),
-        ("tab-apps", apps(ui, &info.set)),
-        ("tab-users", users(ui, &info.set)),
-        ("tab-schedule", schedule(ui, info)),
-        ("tab-lock", lockui::page(ui, info)),
+    tabs.set_margin_start(6);
+    tabs.set_margin_end(12);
+    let pages: [(&str, &str, gtk::Widget); 4] = [
+        ("tab-websites", "web-browser-symbolic", websites(ui, &info.set)),
+        ("tab-apps", "view-list-symbolic", apps(ui, &info.set)),
+        ("tab-users", "system-users-symbolic", users(ui, &info.set)),
+        ("tab-lock", "changes-prevent-symbolic", lockui::page(ui, info)),
     ];
-    for (key, widget) in pages {
-        tabs.append_page(&widget, Some(&gtk::Label::new(Some(&t(key)))));
+    for (key, icon, widget) in pages {
+        let face = hbox(6);
+        face.append(&gtk::Image::from_icon_name(icon));
+        face.append(&gtk::Label::new(Some(&t(key))));
+        tabs.append_page(&widget, Some(&face));
     }
     root.append(&tabs);
-    let bar = save_bar(ui);
+    let (bar, text, save) = save_bar(ui);
     root.append(&bar);
-    ui.editor_built(&tabs, &bar);
+    ui.editor_built(&tabs, &bar, &text, &save);
     root.upcast()
 }
 
-/// Shown while there are unsaved changes.
-fn save_bar(ui: &Rc<Ui>) -> gtk::Revealer {
-    let bar = gtk::ActionBar::new();
+/// Shown while there are unsaved changes: what is unsaved, Discard, Save.
+fn save_bar(ui: &Rc<Ui>) -> (gtk::Revealer, gtk::Label, gtk::Button) {
+    let bar = hbox(8);
+    bar.add_css_class("savebar");
+    bar.set_margin_start(18);
+    bar.set_margin_end(12);
     let text = gtk::Label::new(Some(&t("unsaved-changes")));
-    text.add_css_class("heading");
-    bar.pack_start(&text);
-    let save = gtk::Button::with_label(&t("action-save"));
-    save.add_css_class("suggested-action");
+    text.set_xalign(0.0);
+    text.set_hexpand(true);
+    text.set_wrap(true);
+    bar.append(&text);
+    let discard = icon_button(&t("action-discard"), "edit-undo-symbolic", "");
+    let weak = ui.weak();
+    discard.connect_clicked(move |_| {
+        if let Some(ui) = weak.upgrade() {
+            glib::idle_add_local_once(move || ui.discard());
+        }
+    });
+    let save = icon_button(&t("action-save"), "document-save-symbolic", "main");
     save.set_tooltip_text(Some("Ctrl+S"));
     let weak = ui.weak();
     save.connect_clicked(move |_| {
@@ -74,23 +87,23 @@ fn save_bar(ui: &Rc<Ui>) -> gtk::Revealer {
             });
         }
     });
-    let discard = gtk::Button::with_label(&t("action-discard"));
-    let weak = ui.weak();
-    discard.connect_clicked(move |_| {
-        if let Some(ui) = weak.upgrade() {
-            glib::idle_add_local_once(move || ui.discard());
-        }
-    });
-    bar.pack_end(&save);
-    bar.pack_end(&discard);
-    gtk::Revealer::builder().child(&bar).transition_type(gtk::RevealerTransitionType::SlideUp).build()
+    bar.append(&discard);
+    bar.append(&save);
+    let revealer = gtk::Revealer::builder().child(&bar).transition_type(gtk::RevealerTransitionType::None).build();
+    (revealer, text, save)
 }
 
+/// Name, on or off, lock, export, delete: as on Windows.
 fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
-    let bar = hbox(12);
-    crate::widgets::set_margins(&bar, 14);
-    let name = gtk::Entry::builder().text(&info.set.name).hexpand(true).build();
-    name.add_css_class("title-3");
+    let bar = hbox(10);
+    bar.set_margin_start(18);
+    bar.set_margin_end(12);
+    bar.set_margin_top(12);
+    bar.set_margin_bottom(10);
+    let name = gtk::Entry::builder().text(&info.set.name).width_chars(18).build();
+    name.add_css_class("heading");
+    // Enter saves (the save bar's Save is the window's default button).
+    name.set_activates_default(true);
     let weak = ui.weak();
     name.connect_changed(move |e| {
         let text = e.text().trim().to_string();
@@ -100,29 +113,28 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     });
     bar.append(&name);
 
-    let counts = note(&summary(info));
-    counts.set_wrap(false);
-    bar.append(&counts);
-
+    // On or off: a switch whose text says which.
+    let state_text = |on: bool| t(if on { "block-switch-on" } else { "block-switch-off" });
     let enabled = gtk::Switch::builder().active(info.set.enabled).valign(gtk::Align::Center).build();
-    enabled.set_tooltip_text(Some(&t("block-enabled")));
+    let enabled_text = gtk::Label::new(Some(&state_text(info.set.enabled)));
     let weak = ui.weak();
+    let label = enabled_text.clone();
     enabled.connect_state_set(move |_, on| {
+        label.set_text(&state_text(on));
         if let Some(ui) = weak.upgrade() {
             ui.edit(|s| s.enabled = on);
         }
         glib::Propagation::Proceed
     });
     bar.append(&enabled);
+    bar.append(&enabled_text);
+    let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    spacer.set_hexpand(true);
+    bar.append(&spacer);
 
     // Lock, or unlock while locked (the same as on the Lock tab).
-    let (icon, tip) = match (info.locked, &info.set.lock) {
-        (true, _) => ("changes-allow-symbolic", "action-unlock"),
-        (false, Some(_)) => ("changes-prevent-symbolic", "action-change-lock"),
-        (false, None) => ("changes-prevent-symbolic", "action-lock"),
-    };
-    let lock = gtk::Button::from_icon_name(icon);
-    lock.set_tooltip_text(Some(t(tip).trim_end_matches('…')));
+    let (text, icon) = if info.locked { ("action-unlock", "changes-allow-symbolic") } else { ("action-lock", "changes-prevent-symbolic") };
+    let lock = icon_button(&t(text), icon, "main");
     let weak = ui.weak();
     let (locked, id) = (info.locked, info.set.id);
     lock.connect_clicked(move |_| {
@@ -136,8 +148,7 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     });
     bar.append(&lock);
 
-    let export = gtk::Button::from_icon_name("document-save-symbolic");
-    export.set_tooltip_text(Some(&t("action-export-block")));
+    let export = icon_button(&t("action-export-block"), "document-save-as-symbolic", "");
     let weak = ui.weak();
     let id = info.set.id;
     export.connect_clicked(move |_| {
@@ -147,8 +158,7 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     });
     bar.append(&export);
 
-    let delete = gtk::Button::from_icon_name("user-trash-symbolic");
-    delete.set_tooltip_text(Some(&t("action-delete-block")));
+    let delete = icon_button(&t("action-delete-block"), "user-trash-symbolic", "quiet");
     delete.set_sensitive(!info.locked);
     let weak = ui.weak();
     let name_text = info.set.name.clone();
@@ -193,29 +203,6 @@ fn mode_dropdown(ui: &Rc<Ui>, current: ListMode, labels: [String; 2], apply: fn(
         }
     });
     dd
-}
-
-/// A switch that changes the draft; `redraw` when it shows or hides parts.
-fn switch(ui: &Rc<Ui>, on: bool, redraw: bool, apply: impl Fn(&mut BlockSet, bool) + Clone + 'static) -> gtk::Switch {
-    let sw = gtk::Switch::builder().active(on).build();
-    let weak = ui.weak();
-    sw.connect_state_set(move |_, on| {
-        let Some(ui) = weak.upgrade() else { return glib::Propagation::Proceed };
-        let apply = apply.clone();
-        if redraw {
-            glib::idle_add_local_once(move || {
-                ui.modify(|s| {
-                    apply(s, on);
-                    Ok(())
-                })
-            });
-            glib::Propagation::Stop
-        } else {
-            ui.edit(|s| apply(s, on));
-            glib::Propagation::Proceed
-        }
-    });
-    sw
 }
 
 /// A check button that adds or removes `id` in a list of the draft (and
@@ -287,8 +274,18 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         body.append(&rule_editor(ui, ListKey::WebAllow, &t("add-exceptions"), &t("web-exceptions"), &examples).widget);
     }
 
-    let safe = switch(ui, set.web.safe_search, false, |s, on| s.web.safe_search = on);
-    body.append(&setting_row(&t("web-safesearch"), &safe));
+    // A tick box and what it does, as on Windows.
+    let safe = gtk::CheckButton::with_label(&t("web-safesearch"));
+    safe.set_active(set.web.safe_search);
+    let weak = ui.weak();
+    safe.connect_toggled(move |c| {
+        let on = c.is_active();
+        if let Some(ui) = weak.upgrade() {
+            ui.edit(|s| s.web.safe_search = on);
+        }
+    });
+    body.append(&safe);
+    body.append(&note(&t("web-safesearch-detail")));
 
     if !catalog.is_empty() {
         body.append(&heading(&t("web-lists")));
@@ -344,8 +341,18 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         installed.connect_clicked(move |_| {
             if let Some(ui) = weak.upgrade() {
                 let add = add.clone();
-                appspicker::pick(&ui, move |exe| {
-                    add(vec![exe]);
+                appspicker::pick(&ui, move |rules| {
+                    add(rules);
+                });
+            }
+        });
+        let title = gtk::Button::with_label(&t("action-add-window-title"));
+        let (weak, add) = (ui.weak(), editor.add.clone());
+        title.connect_clicked(move |_| {
+            if let Some(ui) = weak.upgrade() {
+                let add = add.clone();
+                appspicker::pick_title(&ui, move |rule| {
+                    add(vec![rule]);
                 });
             }
         });
@@ -368,6 +375,7 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         more.set_halign(gtk::Align::Start);
         more.append(&installed);
         more.append(&file);
+        more.append(&title);
         let column = editor.actions.parent().and_downcast::<gtk::Box>();
         if let Some(column) = column {
             column.append(&more);
@@ -505,83 +513,54 @@ pub fn weekly_editor() -> (gtk::Box, impl Fn() -> Option<WeeklyRange>) {
     (b, get)
 }
 
-fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
-    let set = &info.set;
-    let (scroll, body) = page();
-    // How this differs from a lock, which people easily mix up.
-    body.append(&note(&t("schedule-explain")));
-    let limited = switch(ui, set.schedule.is_some(), true, |s, on| s.schedule = on.then(Schedule::default));
-    body.append(&setting_row(&t("schedule-limited"), &limited));
-    body.append(&note(&t(if set.schedule.is_some() { "schedule-limited-detail" } else { "schedule-always" })));
 
-    if let Some(schedule) = &set.schedule {
-        let lines = describe_schedule(schedule);
+/// The Lock tab's daily allowance: each blocked website and app may be used
+/// for some minutes a day. Also an old "only at certain times" schedule, if
+/// the block still has one (times are now set with a lock): it can be
+/// removed.
+pub fn allowance(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
+    let set = &info.set;
+    let b = vbox(10);
+    b.set_margin_top(16);
+    if set.schedule.is_some() {
+        b.append(&heading(&t("schedule-old")));
+        b.append(&note(&t("schedule-old-detail")));
+        let remove = icon_button(&t("schedule-old-remove"), "window-close-symbolic", "");
+        remove.set_halign(gtk::Align::Start);
         let weak = ui.weak();
-        let weak2 = ui.weak();
-        let sched = schedule.clone();
-        body.append(&rule_list(
-            &t("schedule-times"),
-            lines,
-            &t("schedule-date-placeholder"),
-            move |text| {
-                // "2026-10-20 08:00 2026-10-22 18:00": a one-off date range.
-                let Some(ui) = weak.upgrade() else { return };
-                let parts: Vec<&str> = text.split_whitespace().collect();
-                let parse = |d: &str, h: &str| format!("{d}T{h}").parse::<jiff::civil::DateTime>();
-                match parts.as_slice() {
-                    [d1, h1, d2, h2] => match (parse(d1, h1), parse(d2, h2)) {
-                        (Ok(start), Ok(end)) if start < end => ui.modify(|s| {
-                            s.schedule.get_or_insert_with(Schedule::default).dates.push(DateRange { start, end });
-                            Ok(())
-                        }),
-                        _ => ui.error(&t("schedule-date-invalid")),
-                    },
-                    _ => ui.error(&t("schedule-date-invalid")),
-                }
-            },
-            move |text| {
-                let Some(ui) = weak2.upgrade() else { return };
-                let idx = describe_schedule(&sched).iter().position(|l| *l == text);
-                let weekly_len = sched.weekly.len();
-                ui.modify(|s| {
-                    if let (Some(i), Some(sc)) = (idx, s.schedule.as_mut()) {
-                        if i < weekly_len {
-                            sc.weekly.remove(i);
-                        } else {
-                            sc.dates.remove(i - weekly_len);
-                        }
-                    }
-                    Ok(())
+        remove.connect_clicked(move |_| {
+            if let Some(ui) = weak.upgrade() {
+                // Always in force: stricter, so allowed while locked too.
+                glib::idle_add_local_once(move || {
+                    ui.modify(|s| {
+                        s.schedule = None;
+                        Ok(())
+                    })
                 });
-            },
-        ));
-        body.append(&heading(&t("schedule-add-weekly")));
-        let (editor, get) = weekly_editor();
-        body.append(&editor);
-        let add = gtk::Button::with_label(&t("action-add-times"));
-        add.set_halign(gtk::Align::Start);
-        let weak = ui.weak();
-        add.connect_clicked(move |_| {
-            let Some(ui) = weak.upgrade() else { return };
-            match get() {
-                Some(range) => ui.modify(|s| {
-                    s.schedule.get_or_insert_with(Schedule::default).weekly.push(range);
-                    Ok(())
-                }),
-                None => ui.error(&t("schedule-no-days")),
             }
         });
-        body.append(&add);
+        b.append(&remove);
     }
-
-    body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-    let allowance =
-        switch(ui, set.allowance.is_some(), true, |s, on| s.allowance = on.then_some(Allowance { daily_secs: 30 * 60 }));
-    body.append(&setting_row(&t("allowance"), &allowance));
-    body.append(&note(&t("allowance-detail")));
+    let check = gtk::CheckButton::with_label(&t("allowance"));
+    check.set_active(set.allowance.is_some());
+    let weak = ui.weak();
+    check.connect_toggled(move |c| {
+        let on = c.is_active();
+        if let Some(ui) = weak.upgrade() {
+            glib::idle_add_local_once(move || {
+                ui.modify(|s| {
+                    s.allowance = on.then_some(Allowance { daily_secs: 30 * 60 });
+                    Ok(())
+                })
+            });
+        }
+    });
+    b.append(&check);
+    b.append(&note(&t("allowance-detail")));
     if let Some(a) = set.allowance {
         let minutes = gtk::SpinButton::with_range(1.0, 24.0 * 60.0, 5.0);
         minutes.set_value((a.daily_secs / 60) as f64);
+        minutes.set_activates_default(true);
         let weak = ui.weak();
         minutes.connect_value_changed(move |m| {
             let v = m.value() as u32;
@@ -589,7 +568,12 @@ fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
                 ui.edit(|s| s.allowance = Some(Allowance { daily_secs: v * 60 }));
             }
         });
-        body.append(&setting_row(&t("allowance-minutes"), &minutes));
+        let row = hbox(12);
+        let text = label(&t("allowance-minutes"));
+        text.set_wrap(false);
+        row.append(&text);
+        row.append(&minutes);
+        b.append(&row);
         // Time used today, per website and app (the most used five).
         let total = (a.daily_secs / 60) as i64;
         let used: Vec<String> = info
@@ -602,7 +586,7 @@ fn schedule(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
             .collect();
         let text =
             if used.is_empty() { t("allowance-unused") } else { format!("{} {}", t("allowance-used-today-items"), used.join("   ·   ")) };
-        body.append(&label(&text));
+        b.append(&label(&text));
     }
-    scroll.upcast()
+    b
 }

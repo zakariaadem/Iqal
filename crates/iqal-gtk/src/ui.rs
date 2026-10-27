@@ -17,7 +17,8 @@ use gtk::prelude::*;
 pub use iqal_app::draft::{Draft, ListKey};
 
 use crate::service::Service;
-use crate::widgets::{hbox, note, set_margins, vbox};
+use crate::widgets::{badge, hbox, icon_button, note, vbox};
+use crate::messages::{self, Sign};
 use crate::{dialogs, editor};
 
 pub struct Ui {
@@ -25,6 +26,8 @@ pub struct Ui {
     pub service: Service,
     sidebar: gtk::ListBox,
     content: gtk::Box,
+    /// The service's state, at the bottom.
+    status_line: gtk::Label,
     state: RefCell<State>,
     rebuilding: Cell<bool>,
     /// Set while the editor is replaced: its tabs report switches then.
@@ -32,7 +35,7 @@ pub struct Ui {
     /// The editor tab shown, kept across rebuilds and blocks.
     tab: Cell<u32>,
     notebook: RefCell<Option<gtk::Notebook>>,
-    save_bar: RefCell<Option<gtk::Revealer>>,
+    save_bar: RefCell<Option<(gtk::Revealer, gtk::Label, gtk::Button)>>,
     was_dirty: Cell<bool>,
     /// (service start, change counter) of the blocks last fetched.
     loaded: Cell<Option<(i64, u64)>>,
@@ -89,6 +92,7 @@ impl Ui {
             service: Service::new(),
             sidebar,
             content,
+            status_line: gtk::Label::new(None),
             state: RefCell::new(State::default()),
             rebuilding: Cell::new(false),
             replacing: Cell::new(false),
@@ -124,37 +128,54 @@ impl Ui {
     }
 
     fn build(self: &Rc<Self>) {
+        // A plain title bar, as on Windows: the menu is a button above the
+        // block list.
         let header = gtk::HeaderBar::new();
-        let menu = gtk::MenuButton::builder().icon_name("open-menu-symbolic").tooltip_text(t("menu")).build();
-        menu.set_popover(Some(&self.menu_popover()));
-        // Developer aid (screenshots): IQAL_GUI_DIALOG=menu opens the menu.
-        if std::env::var("IQAL_GUI_DIALOG").as_deref() == Ok("menu") {
-            let m = menu.clone();
-            glib::timeout_add_local_once(std::time::Duration::from_secs(1), move || m.popup());
-        }
-        header.pack_end(&menu);
         self.window.set_titlebar(Some(&header));
 
-        let side = vbox(6);
-        side.set_size_request(260, -1);
-        let scroll = gtk::ScrolledWindow::builder().vexpand(true).child(&self.sidebar).build();
-        side.append(&scroll);
-        let new_button = gtk::Button::with_label(&t("action-new-block"));
-        new_button.add_css_class("suggested-action");
-        set_margins(&new_button, 8);
+        // Left: "New block" and "Menu", then the block list.
+        let side = vbox(8);
+        side.set_size_request(280, -1);
+        side.set_margin_start(12);
+        side.set_margin_top(12);
+        side.set_margin_bottom(12);
+        let buttons = hbox(6);
+        let new_button = icon_button(&t("action-new-block"), "list-add-symbolic", "main");
+        new_button.set_hexpand(true);
         let weak = Rc::downgrade(self);
         new_button.connect_clicked(move |_| {
             if let Some(ui) = weak.upgrade() {
                 ui.after_unsaved(dialogs::new_block);
             }
         });
-        side.append(&new_button);
         // Developer aid (tests): IQAL_GUI_CLICK=new-block presses the button
         // as a user would, through its click handler.
         if std::env::var("IQAL_GUI_CLICK").as_deref() == Ok("new-block") {
             let b = new_button.clone();
             glib::timeout_add_local_once(std::time::Duration::from_secs(1), move || b.emit_clicked());
         }
+        let menu = gtk::MenuButton::new();
+        let menu_face = hbox(6);
+        menu_face.append(&gtk::Image::from_icon_name("open-menu-symbolic"));
+        menu_face.append(&gtk::Label::new(Some(&t("menu"))));
+        menu.set_child(Some(&menu_face));
+        menu.set_popover(Some(&self.menu_popover()));
+        // Developer aid (screenshots): IQAL_GUI_DIALOG=menu opens the menu.
+        if std::env::var("IQAL_GUI_DIALOG").as_deref() == Ok("menu") {
+            let m = menu.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_secs(1), move || m.popup());
+        }
+        buttons.append(&new_button);
+        buttons.append(&menu);
+        side.append(&buttons);
+        self.sidebar.add_css_class("blocks");
+        let scroll = gtk::ScrolledWindow::builder()
+            .vexpand(true)
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .child(&self.sidebar)
+            .build();
+        scroll.add_css_class("blocks");
+        side.append(&scroll);
 
         let weak = Rc::downgrade(self);
         self.sidebar.connect_row_selected(move |_, row| {
@@ -177,12 +198,18 @@ impl Ui {
             });
         });
 
-        let paned = gtk::Paned::new(gtk::Orientation::Horizontal);
-        paned.set_start_child(Some(&side));
-        paned.set_end_child(Some(&self.content));
-        paned.set_resize_start_child(false);
-        paned.set_shrink_start_child(false);
-        self.window.set_child(Some(&paned));
+        let main = hbox(0);
+        main.set_vexpand(true);
+        main.append(&side);
+        main.append(&self.content);
+        let root = vbox(0);
+        root.append(&main);
+        // The service's state at the bottom, as on Windows.
+        self.status_line.add_css_class("statusline");
+        self.status_line.set_xalign(0.0);
+        self.status_line.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        root.append(&self.status_line);
+        self.window.set_child(Some(&root));
 
         let weak = Rc::downgrade(self);
         self.window.connect_close_request(move |w| {
@@ -250,11 +277,12 @@ impl Ui {
     fn open_requested_dialog(self: &Rc<Self>) {
         match std::env::var("IQAL_GUI_DIALOG").as_deref() {
             Ok("lock") => crate::lockui::lock_dialog(self),
-            Ok("map") => crate::mapdialog::pick(self.window.upcast_ref(), None, |_| {}),
             Ok("new") => dialogs::new_block(self),
             Ok("settings") => dialogs::settings(self),
             Ok("activity") => dialogs::activity(self),
             Ok("stats") => crate::stats::statistics(self),
+            Ok("about") => dialogs::about(self),
+            Ok("picker") => crate::appspicker::pick(self, |_| {}),
             _ => {}
         }
     }
@@ -297,6 +325,7 @@ impl Ui {
                 (draft, _) => *draft = None,
             }
         }
+        self.update_status_line();
         self.rebuild_sidebar();
         if self.is_dirty() {
             self.update_dirty();
@@ -306,6 +335,26 @@ impl Ui {
         let changed = force || self.state.borrow().shown != current;
         if changed {
             self.rebuild_content();
+        }
+    }
+
+    /// The service's version and time source at the bottom, as on Windows.
+    fn update_status_line(&self) {
+        let text = match &self.state.borrow().status {
+            Some(info) => {
+                let mut parts = vec![
+                    ta("status-service", &[("version", info.version.clone().into())]),
+                    ta("status-time", &[("source", iqal_app::describe::time_source(&info.clock).into())]),
+                ];
+                if !info.admin {
+                    parts.push(t("status-not-admin"));
+                }
+                parts.join("   ·   ")
+            }
+            None => String::new(),
+        };
+        if self.status_line.text() != text {
+            self.status_line.set_text(&text);
         }
     }
 
@@ -364,25 +413,32 @@ impl Ui {
                 self.sidebar.remove(&child);
             }
             for r in &rows {
-                let row = hbox(8);
-                set_margins(&row, 8);
+                // The name, and below it gold labels: on, off or waiting,
+                // and locked. The chosen one has a stripe (see theme).
+                let row = vbox(4);
+                row.set_margin_start(8);
+                row.set_margin_end(8);
+                row.set_margin_top(6);
+                row.set_margin_bottom(6);
                 let name = gtk::Label::new(Some(&if r.unsaved { format!("{} •", r.name) } else { r.name.clone() }));
+                name.add_css_class("name");
                 if r.unsaved {
                     name.set_tooltip_text(Some(&t("unsaved-changes")));
                 }
                 name.set_xalign(0.0);
-                name.set_hexpand(true);
                 name.set_ellipsize(gtk::pango::EllipsizeMode::End);
                 row.append(&name);
-                let badge = gtk::Label::new(Some(&t(r.state)));
-                badge.add_css_class("dim-label");
-                badge.add_css_class("caption");
-                row.append(&badge);
+                let labels = hbox(6);
+                let icon = match r.state {
+                    "state-off" => "system-shutdown-symbolic",
+                    "state-active" => "object-select-symbolic",
+                    _ => "alarm-symbolic",
+                };
+                labels.append(&badge(icon, &t(r.state)));
                 if r.locked {
-                    let lock = gtk::Image::from_icon_name("changes-prevent-symbolic");
-                    lock.set_tooltip_text(Some(&t("state-locked")));
-                    row.append(&lock);
+                    labels.append(&badge("changes-prevent-symbolic", &t("state-locked")));
                 }
+                row.append(&labels);
                 self.sidebar.append(&row);
             }
             *self.sidebar_rows.borrow_mut() = Some(rows);
@@ -443,7 +499,7 @@ impl Ui {
     }
 
     /// Called by the editor for its tabs and save bar.
-    pub fn editor_built(self: &Rc<Self>, notebook: &gtk::Notebook, save_bar: &gtk::Revealer) {
+    pub fn editor_built(self: &Rc<Self>, notebook: &gtk::Notebook, save_bar: &gtk::Revealer, text: &gtk::Label, save: &gtk::Button) {
         notebook.set_current_page(Some(self.tab.get().min(notebook.n_pages().saturating_sub(1))));
         let weak = self.weak();
         notebook.connect_switch_page(move |nb, _, n| {
@@ -457,7 +513,9 @@ impl Ui {
             }
         });
         *self.notebook.borrow_mut() = Some(notebook.clone());
-        *self.save_bar.borrow_mut() = Some(save_bar.clone());
+        *self.save_bar.borrow_mut() = Some((save_bar.clone(), text.clone(), save.clone()));
+        // Enter in a one-line box presses Save (when it is shown and usable).
+        self.window.set_default_widget(Some(save));
     }
 
     fn current_from(&self, st: &State) -> Option<SetInfo> {
@@ -525,25 +583,19 @@ impl Ui {
             return then(self);
         }
         let name = self.view().map(|i| i.set.name).unwrap_or_default();
-        let d = gtk::AlertDialog::builder()
-            .modal(true)
-            .message(ta("confirm-unsaved", &[("name", name.into())]))
-            .detail(t("confirm-unsaved-detail"))
-            .buttons([t("action-cancel"), t("action-discard"), t("action-save")])
-            .cancel_button(0)
-            .default_button(2)
-            .build();
+        let buttons = [t("action-cancel"), t("action-discard"), t("action-save")];
+        let title = ta("confirm-unsaved", &[("name", name.into())]);
         let weak = self.weak();
-        d.choose(Some(&self.window), None::<&gtk::gio::Cancellable>, move |r| {
+        messages::show(&self.window, Some(Sign::Warning), &title, &t("confirm-unsaved-detail"), &buttons, move |r| {
             let Some(ui) = weak.upgrade() else { return };
             match r {
-                Ok(1) => {
+                Some(1) => {
                     ui.state.borrow_mut().draft = None;
                     ui.rebuild_sidebar();
                     ui.rebuild_content();
                     then(&ui);
                 }
-                Ok(2) if ui.save() => then(&ui),
+                Some(2) if ui.save() => then(&ui),
                 _ => {}
             }
         });
@@ -640,11 +692,30 @@ impl Ui {
         }
     }
 
-    /// Shows or hides the save bar and the sidebar mark.
+    /// Shows or hides the save bar and the sidebar mark. On a locked block,
+    /// Save is greyed while the change would weaken it, and the bar says why.
     fn update_dirty(&self) {
         let dirty = self.is_dirty();
-        if let Some(bar) = self.save_bar.borrow().as_ref() {
+        let weaker = if dirty {
+            let st = self.state.borrow();
+            let info = self.current_from(&st).filter(|i| i.locked);
+            // Only for a locked block: reading the rule lists takes a moment.
+            let set = info.as_ref().and(st.draft.as_ref()).and_then(|d| d.finish().ok());
+            match (info, set) {
+                (Some(info), Some(set)) => iqal_core::lock::weakening_reason(&info.set, &set).map(iqal_app::service::reason_text),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        if let Some((bar, text, save)) = self.save_bar.borrow().as_ref() {
             bar.set_reveal_child(dirty);
+            bar.set_visible(dirty);
+            text.set_text(&match &weaker {
+                Some(reason) => ta("unsaved-locked-weaker", &[("reason", reason.clone().into())]),
+                None => t("unsaved-changes"),
+            });
+            save.set_sensitive(weaker.is_none());
         }
         if self.was_dirty.replace(dirty) != dirty {
             self.rebuild_sidebar();
@@ -655,27 +726,18 @@ impl Ui {
     /// is the title, any further lines the explanation.
     pub fn error(&self, message: &str) {
         let (title, detail) = message.split_once('\n').unwrap_or((message, ""));
-        let d = gtk::AlertDialog::builder().modal(true).message(title).detail(detail).build();
-        d.show(Some(&self.window));
+        messages::show(&self.window, Some(Sign::Error), title, detail, &[], |_| {});
     }
 
     pub fn info(&self, title: &str, detail: &str) {
-        let d = gtk::AlertDialog::builder().modal(true).message(title).detail(detail).build();
-        d.show(Some(&self.window));
+        messages::show(&self.window, Some(Sign::Info), title, detail, &[], |_| {});
     }
 
     /// Asks before doing something hard to undo.
     pub fn confirm(&self, title: &str, detail: &str, ok: &str, on_ok: impl Fn() + 'static) {
-        let d = gtk::AlertDialog::builder()
-            .modal(true)
-            .message(title)
-            .detail(detail)
-            .buttons([t("action-cancel"), ok.to_string()])
-            .cancel_button(0)
-            .default_button(1)
-            .build();
-        d.choose(Some(&self.window), None::<&gtk::gio::Cancellable>, move |r| {
-            if r == Ok(1) {
+        let buttons = [t("action-cancel"), ok.to_string()];
+        messages::show(&self.window, Some(Sign::Warning), title, detail, &buttons, move |answer| {
+            if answer == Some(1) {
                 on_ok();
             }
         });
@@ -717,24 +779,4 @@ fn placeholder(title: &str, detail: &str) -> gtk::Box {
     d.set_max_width_chars(50);
     b.append(&d);
     b
-}
-
-/// Shown in the editor header: counts for a set.
-pub fn summary(info: &SetInfo) -> String {
-    let s = &info.set;
-    ta(
-        "block-summary",
-        &[
-            ("web", (used_rules(s.web.mode, s.web.block.len(), s.web.allow.len()) as i64).into()),
-            ("apps", (used_rules(s.apps.mode, s.apps.block.len(), s.apps.allow.len()) as i64).into()),
-        ],
-    )
-}
-
-/// Rules in use: an allow list does not use the blocked ones.
-fn used_rules(mode: iqal_core::ListMode, block: usize, allow: usize) -> usize {
-    match mode {
-        iqal_core::ListMode::Block => block + allow,
-        iqal_core::ListMode::AllowOnly => allow,
-    }
 }

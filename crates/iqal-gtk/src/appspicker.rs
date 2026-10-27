@@ -7,7 +7,7 @@ use iqal_i18n::t;
 use gtk::prelude::*;
 
 use crate::ui::Ui;
-use crate::widgets::{hbox, set_margins, vbox};
+use crate::widgets::{hbox, icon_button, set_margins, vbox};
 
 struct App {
     name: String,
@@ -94,23 +94,30 @@ fn installed_apps() -> Vec<App> {
     apps
 }
 
-pub fn pick(ui: &Rc<Ui>, on_pick: impl Fn(String) + 'static) {
+/// Shows the installed apps with a tick box each (as on Windows); `on_pick`
+/// gets the rules of those ticked.
+pub fn pick(ui: &Rc<Ui>, on_pick: impl Fn(Vec<String>) + 'static) {
     let win = gtk::Window::builder()
         .transient_for(&ui.window)
         .modal(true)
         .title(t("action-add-installed-app"))
-        .default_width(460)
-        .default_height(560)
+        .default_width(480)
+        .default_height(600)
         .build();
     let body = vbox(8);
     set_margins(&body, 12);
-    let search = gtk::SearchEntry::new();
+    let search = gtk::SearchEntry::builder().placeholder_text(t("search")).build();
     body.append(&search);
     let list = gtk::ListBox::new();
+    list.add_css_class("blocks");
+    list.set_selection_mode(gtk::SelectionMode::None);
     let apps = Rc::new(installed_apps());
+    let mut checks = Vec::new();
     for app in apps.iter() {
         let row = hbox(10);
         set_margins(&row, 6);
+        let check = gtk::CheckButton::new();
+        row.append(&check);
         let image = match &app.icon {
             Some(i) if i.starts_with('/') => gtk::Image::from_file(i),
             Some(i) => gtk::Image::from_icon_name(i),
@@ -122,6 +129,18 @@ pub fn pick(ui: &Rc<Ui>, on_pick: impl Fn(String) + 'static) {
         l.set_xalign(0.0);
         row.append(&l);
         list.append(&row);
+        checks.push(check);
+    }
+    let checks = Rc::new(checks);
+    // A click anywhere on the row ticks or unticks the app.
+    {
+        let checks = checks.clone();
+        list.set_activate_on_single_click(true);
+        list.connect_row_activated(move |_, row| {
+            if let Some(c) = checks.get(row.index() as usize) {
+                c.set_active(!c.is_active());
+            }
+        });
     }
     {
         let apps = apps.clone();
@@ -136,14 +155,126 @@ pub fn pick(ui: &Rc<Ui>, on_pick: impl Fn(String) + 'static) {
         search.connect_search_changed(move |_| list.invalidate_filter());
     }
     let scroll = gtk::ScrolledWindow::builder().vexpand(true).child(&list).build();
+    scroll.add_css_class("box-frame");
     body.append(&scroll);
+    let buttons = hbox(6);
+    buttons.set_halign(gtk::Align::End);
+    let add = icon_button(&t("action-add"), "list-add-symbolic", "main");
+    let cancel = gtk::Button::with_label(&t("action-cancel"));
+    buttons.append(&add);
+    buttons.append(&cancel);
+    body.append(&buttons);
     win.set_child(Some(&body));
+    win.set_default_widget(Some(&add));
+    {
+        let win = win.clone();
+        cancel.connect_clicked(move |_| win.close());
+    }
     let win2 = win.clone();
-    list.connect_row_activated(move |_, row| {
-        if let Some(app) = apps.get(row.index() as usize) {
-            on_pick(app.rule.clone());
-            win2.close();
+    add.connect_clicked(move |_| {
+        let rules: Vec<String> =
+            checks.iter().zip(apps.iter()).filter(|(c, _)| c.is_active()).map(|(_, a)| a.rule.clone()).collect();
+        if rules.is_empty() {
+            return;
         }
+        win2.close();
+        on_pick(rules);
+    });
+    win.present();
+}
+
+/// The titles of the windows open now (X11; Wayland does not tell other
+/// programs, and then the list is empty).
+fn open_window_titles() -> Vec<String> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::{AtomEnum, ConnectionExt};
+    let Ok((conn, screen)) = x11rb::connect(None) else { return Vec::new() };
+    let root = conn.setup().roots[screen].root;
+    let atom = |name: &[u8]| conn.intern_atom(false, name).ok().and_then(|c| c.reply().ok()).map(|r| r.atom);
+    let (Some(list), Some(name), Some(utf8)) = (atom(b"_NET_CLIENT_LIST"), atom(b"_NET_WM_NAME"), atom(b"UTF8_STRING")) else {
+        return Vec::new();
+    };
+    let Some(windows) = conn
+        .get_property(false, root, list, AtomEnum::WINDOW, 0, 4096)
+        .ok()
+        .and_then(|c| c.reply().ok())
+        .and_then(|r| r.value32().map(|v| v.collect::<Vec<u32>>()))
+    else {
+        return Vec::new();
+    };
+    let mut titles: Vec<String> = windows
+        .into_iter()
+        .filter_map(|w| conn.get_property(false, w, name, utf8, 0, 1024).ok()?.reply().ok())
+        .map(|r| String::from_utf8_lossy(&r.value).trim().to_string())
+        .filter(|t| !t.is_empty() && t != &iqal_i18n::t("app-name"))
+        .collect();
+    titles.sort();
+    titles.dedup();
+    titles
+}
+
+/// "Add a window title…" (as on Windows): words of a title, typed or taken
+/// from a window open now; `on_pick` gets the rule.
+pub fn pick_title(ui: &Rc<Ui>, on_pick: impl Fn(String) + 'static) {
+    let win = gtk::Window::builder()
+        .transient_for(&ui.window)
+        .modal(true)
+        .title(t("action-add-window-title"))
+        .default_width(520)
+        .default_height(560)
+        .build();
+    let body = vbox(10);
+    set_margins(&body, 14);
+    body.append(&crate::widgets::note(&t("window-title-intro")));
+    let words = gtk::Entry::builder().placeholder_text(t("window-title-words")).build();
+    words.set_activates_default(true);
+    body.append(&words);
+    body.append(&crate::widgets::heading(&t("window-title-open")));
+    let list = gtk::ListBox::new();
+    list.add_css_class("blocks");
+    let titles = open_window_titles();
+    for title in &titles {
+        let l = gtk::Label::new(Some(title));
+        l.set_xalign(0.0);
+        l.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        set_margins(&l, 6);
+        list.append(&l);
+    }
+    {
+        let words = words.clone();
+        list.connect_row_selected(move |_, row| {
+            if let Some(title) = row.and_then(|r| titles.get(r.index() as usize)) {
+                words.set_text(title);
+            }
+        });
+    }
+    let scroll = gtk::ScrolledWindow::builder().vexpand(true).child(&list).build();
+    scroll.add_css_class("box-frame");
+    body.append(&scroll);
+    let buttons = hbox(6);
+    buttons.set_halign(gtk::Align::End);
+    let add = icon_button(&t("action-add"), "list-add-symbolic", "main");
+    let cancel = gtk::Button::with_label(&t("action-cancel"));
+    buttons.append(&add);
+    buttons.append(&cancel);
+    body.append(&buttons);
+    win.set_child(Some(&body));
+    win.set_default_widget(Some(&add));
+    {
+        let win = win.clone();
+        cancel.connect_clicked(move |_| win.close());
+    }
+    let (win2, weak) = (win.clone(), ui.weak());
+    add.connect_clicked(move |_| {
+        let text = words.text().trim().to_string();
+        if text.is_empty() {
+            if let Some(ui) = weak.upgrade() {
+                ui.info(&t("window-title-empty"), "");
+            }
+            return;
+        }
+        win2.close();
+        on_pick(format!("title:{text}"));
     });
     win.present();
 }

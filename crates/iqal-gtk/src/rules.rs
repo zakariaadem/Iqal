@@ -9,7 +9,7 @@ use iqal_i18n::{t, ta};
 use gtk::prelude::*;
 
 use crate::ui::{ListKey, Ui};
-use crate::widgets::{heading, hbox, label, note, vbox};
+use crate::widgets::{heading, hbox, icon_button, label, note, pass_wheel, vbox};
 
 /// Height of the add box and of the list beside it.
 const BOX_HEIGHT: i32 = 220;
@@ -80,7 +80,6 @@ pub fn rule_editor_with_lists(
         let l = gtk::Label::new(None);
         l.set_xalign(0.0);
         l.set_hexpand(true);
-        l.add_css_class("monospace");
         l.set_ellipsize(gtk::pango::EllipsizeMode::End);
         let source = gtk::Label::new(None);
         source.add_css_class("dim-label");
@@ -113,11 +112,13 @@ pub fn rule_editor_with_lists(
     empty.set_halign(gtk::Align::Center);
     empty.set_wrap(false);
     let stack = gtk::Stack::new();
-    stack.add_named(&gtk::ScrolledWindow::builder().child(&list).vexpand(true).build(), Some("list"));
+    let list_scroll = gtk::ScrolledWindow::builder().child(&list).vexpand(true).build();
+    pass_wheel(&list_scroll);
+    stack.add_named(&list_scroll, Some("list"));
     stack.add_named(&empty, Some("empty"));
     let search = gtk::SearchEntry::builder().placeholder_text(t("search")).build();
     let frame = vbox(0);
-    frame.add_css_class("frame");
+    frame.add_css_class("list-frame");
     frame.append(&search);
     frame.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     frame.append(&stack);
@@ -126,7 +127,7 @@ pub fn rule_editor_with_lists(
     frame.set_vexpand(false);
 
     let list_heading = heading(list_title);
-    let remove = gtk::Button::with_label(&t("action-remove-selected"));
+    let remove = icon_button(&t("action-remove"), "window-close-symbolic", "");
     remove.set_halign(gtk::Align::Start);
     remove.set_sensitive(false);
     let right = vbox(6);
@@ -140,7 +141,7 @@ pub fn rule_editor_with_lists(
         move || {
             // With pre-made lists, the total; each of their rows names its list.
             let n = model.n_items() as usize + from_lists;
-            list_heading.set_text(&format!("{title} · {n}"));
+            list_heading.set_text(&title);
             stack.set_visible_child_name(if n == 0 { "empty" } else { "list" });
         }
     };
@@ -199,34 +200,27 @@ pub fn rule_editor_with_lists(
     let buffer = gtk::TextBuffer::new(None);
     let invalid = gtk::TextTag::builder().name("invalid").underline(gtk::pango::Underline::Error).build();
     buffer.tag_table().add(&invalid);
-    let input = gtk::TextView::builder().buffer(&buffer).monospace(true).accepts_tab(false).top_margin(8).bottom_margin(8).left_margin(10).right_margin(10).build();
+    let input = gtk::TextView::builder().buffer(&buffer).accepts_tab(false).top_margin(8).bottom_margin(8).left_margin(10).right_margin(10).build();
     input.set_direction(gtk::TextDirection::Ltr);
     let input_scroll = gtk::ScrolledWindow::builder().child(&input).build();
-    input_scroll.add_css_class("frame");
+    input_scroll.add_css_class("box-frame");
+    pass_wheel(&input_scroll);
     input_scroll.set_size_request(-1, BOX_HEIGHT);
-    // The examples show inside the empty box, so both boxes line up.
+    // The examples, under the buttons (as on Windows).
     let hint = note(&ta("list-empty-hint", &[("examples", examples.to_string().into())]));
-    hint.set_valign(gtk::Align::Start);
-    hint.set_margin_top(8);
-    hint.set_margin_start(12);
-    hint.set_margin_end(12);
-    hint.set_can_target(false);
-    let input_box = gtk::Overlay::new();
-    input_box.set_child(Some(&input_scroll));
-    input_box.add_overlay(&hint);
     let problem = label("");
-    problem.add_css_class("error");
+    problem.add_css_class("warning-text");
     problem.set_visible(false);
     problem.set_max_width_chars(30);
-    let add_button = gtk::Button::with_label(&t("action-add"));
-    add_button.add_css_class("suggested-action");
+    let add_button = icon_button(&t("action-add"), "list-add-symbolic", "");
     let actions = hbox(6);
     actions.append(&add_button);
     let left = vbox(6);
     left.append(&heading(add_title));
-    left.append(&input_box);
-    left.append(&actions);
+    left.append(&input_scroll);
     left.append(&problem);
+    left.append(&actions);
+    left.append(&hint);
 
     let add: Rc<dyn Fn(Vec<String>) -> usize> = {
         let (model, all, changed, buffer, problem, invalid) =
@@ -271,11 +265,23 @@ pub fn rule_editor_with_lists(
             add(text.lines().map(String::from).collect());
         }
     });
-    // Typing again clears the marks; the examples show while it is empty.
+    // Ctrl+Enter adds (Enter starts a new line).
+    let keys = gtk::ShortcutController::new();
+    let add_now = add_button.downgrade();
+    keys.add_shortcut(gtk::Shortcut::new(
+        gtk::ShortcutTrigger::parse_string("<Control>Return"),
+        Some(gtk::CallbackAction::new(move |_, _| {
+            if let Some(b) = add_now.upgrade() {
+                b.emit_clicked();
+            }
+            gtk::glib::Propagation::Stop
+        })),
+    ));
+    input.add_controller(keys);
+    // Typing again clears the marks.
     buffer.connect_changed({
         let problem = problem.clone();
         move |b| {
-            hint.set_visible(b.char_count() == 0);
             if problem.is_visible() && b.char_count() == 0 {
                 problem.set_visible(false);
             }

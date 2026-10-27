@@ -1,6 +1,5 @@
 //! The Lock tab: current lock, locking, unlocking.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use iqal_core::lock::random_text;
@@ -13,7 +12,7 @@ use gtk::prelude::*;
 
 use crate::editor::weekly_editor;
 use crate::ui::Ui;
-use crate::widgets::{describe_area, describe_lock, fmt_time, heading, hbox, label, note, set_margins, vbox};
+use crate::widgets::{describe_lock, fmt_time, heading, hbox, label, note, set_margins, vbox};
 use crate::widgets::page as page_body;
 
 pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
@@ -88,8 +87,8 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
         }
     }
     if !info.locked {
-        let lock = gtk::Button::with_label(&t(if set.lock.is_some() { "action-change-lock" } else { "action-lock" }));
-        lock.add_css_class("suggested-action");
+        let text = t(if set.lock.is_some() { "action-change-lock" } else { "action-lock" });
+        let lock = crate::widgets::icon_button(&text, "changes-prevent-symbolic", "main");
         lock.set_halign(gtk::Align::Start);
         let weak = ui.weak();
         lock.connect_clicked(move |_| {
@@ -99,6 +98,8 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
         });
         body.append(&lock);
     }
+    // The daily allowance (and an old time schedule, if the block has one).
+    body.append(&crate::editor::allowance(ui, info));
     scroll.upcast()
 }
 
@@ -135,9 +136,13 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
 
     let kinds: Vec<String> = KINDS.iter().map(|k| t(k)).collect();
     let kind = gtk::DropDown::from_strings(&kinds.iter().map(String::as_str).collect::<Vec<_>>());
+    kind.set_halign(gtk::Align::Start);
     body.append(&kind);
     let stack = gtk::Stack::new();
     stack.set_vhomogeneous(false);
+    // Each kind as wide as it needs (not as wide as the widest).
+    stack.set_hhomogeneous(false);
+    stack.set_interpolate_size(false);
 
     // Duration
     let dur = hbox(6);
@@ -190,30 +195,23 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
     // Restart
     stack.add_named(&note(&t("lock-restart-detail")), Some("4"));
 
-    // Schedule
+    // During certain times: on and locked then, off and free to change the
+    // rest of the time.
+    let sched = vbox(8);
+    sched.append(&note(&t("lock-schedule-detail")));
     let (sched_editor, get_weekly) = weekly_editor();
-    stack.add_named(&sched_editor, Some("5"));
+    sched.append(&sched_editor);
+    stack.add_named(&sched, Some("5"));
 
-    // Location
+    // While at a place: a name, and whether the computer is there now (as
+    // on Windows; Iqal knows the place by its Wi-Fi networks).
     let loc = vbox(6);
-    let area: Rc<RefCell<Option<GeoArea>>> = Rc::default();
-    let area_label = note(&t("location-none-chosen"));
-    let choose = gtk::Button::with_label(&t("action-choose-on-map"));
-    choose.set_halign(gtk::Align::Start);
-    {
-        let (area, area_label, win) = (area.clone(), area_label.clone(), win.clone());
-        choose.connect_clicked(move |_| {
-            let (area, area_label) = (area.clone(), area_label.clone());
-            let current = area.borrow().clone();
-            crate::mapdialog::pick(&win, current, move |a| {
-                area_label.set_text(&describe_area(&a));
-                *area.borrow_mut() = Some(a);
-            });
-        });
-    }
-    loc.append(&choose);
-    loc.append(&area_label);
-    loc.append(&note(&t("lock-location-detail")));
+    let name_row = hbox(8);
+    name_row.append(&label(&t("location-name")));
+    let place = gtk::Entry::builder().placeholder_text(t("location-name-placeholder")).hexpand(true).build();
+    name_row.append(&place);
+    loc.append(&name_row);
+    loc.append(&note(&t("lock-location-detail-named")));
     // Iqal learns the place's Wi-Fi networks when the computer is there.
     // No answer is chosen in advance: a wrong "yes" would teach it the
     // networks of another place.
@@ -252,12 +250,12 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
     let buttons = hbox(6);
     buttons.set_halign(gtk::Align::End);
     let cancel = gtk::Button::with_label(&t("action-cancel"));
-    let ok = gtk::Button::with_label(&t("action-lock"));
-    ok.add_css_class("suggested-action");
+    let ok = crate::widgets::icon_button(&t("action-lock"), "changes-prevent-symbolic", "main");
     buttons.append(&cancel);
     buttons.append(&ok);
     body.append(&buttons);
     win.set_child(Some(&body));
+    win.set_default_widget(Some(&ok));
 
     {
         let win = win.clone();
@@ -313,13 +311,16 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
                 Some(w) => LockKind::Schedule { schedule: Schedule { weekly: vec![w], dates: vec![] } },
                 None => return ui.error(&t("schedule-no-days")),
             },
-            _ => match area.borrow().clone() {
-                Some(_) if !here_yes.is_active() && !here_no.is_active() => {
+            _ => {
+                let area = GeoArea::Named { name: place.text().trim().to_string() };
+                if area.validate().is_err() {
+                    return ui.error(&t("location-name"));
+                }
+                if !here_yes.is_active() && !here_no.is_active() {
                     return ui.error(&t("location-here-unanswered"));
                 }
-                Some(area) => LockKind::Location { area },
-                None => return ui.error(&t("location-none-chosen")),
-            },
+                LockKind::Location { area }
+            }
         };
         let learn = matches!(lock_kind, LockKind::Location { .. }) && here_yes.is_active();
         let timer = matches!(lock_kind, LockKind::Until { .. });
@@ -408,12 +409,19 @@ fn answer_dialog(ui: &Rc<Ui>, id: iqal_core::SetId, text: Option<String>) {
     let buttons = hbox(6);
     buttons.set_halign(gtk::Align::End);
     let cancel = gtk::Button::with_label(&t("action-cancel"));
-    let ok = gtk::Button::with_label(&t("action-unlock"));
-    ok.add_css_class("suggested-action");
+    let ok = crate::widgets::icon_button(&t("action-unlock"), "changes-allow-symbolic", "main");
     buttons.append(&cancel);
     buttons.append(&ok);
     body.append(&buttons);
     win.set_child(Some(&body));
+    // Enter in the box presses Unlock.
+    win.set_default_widget(Some(&ok));
+    if let Some(e) = entry.downcast_ref::<gtk::Entry>() {
+        e.set_activates_default(true);
+    }
+    if let Some(e) = entry.downcast_ref::<gtk::PasswordEntry>() {
+        e.set_activates_default(true);
+    }
     {
         let win = win.clone();
         cancel.connect_clicked(move |_| win.close());
@@ -427,11 +435,12 @@ fn answer_dialog(ui: &Rc<Ui>, id: iqal_core::SetId, text: Option<String>) {
         match ui.service.call(Request::UnlockAnswer { id, answer }) {
             Ok(Response::Unlock { outcome }) => {
                 win2.close();
+                // The main window shows the change at once, behind the message.
+                ui.refresh(true);
                 match outcome {
                     UnlockInfo::Unlocked => ui.info(&t("unlocked"), &t("unlocked-detail")),
                     UnlockInfo::Pending { at } => ui.info(&t("unlock-pending"), &ta("lock-pending", &[("time", fmt_time(at).into())])),
                 }
-                ui.refresh(true);
             }
             Ok(_) => ui.error(&t("error-unexpected")),
             // Say which: the password, or the text.

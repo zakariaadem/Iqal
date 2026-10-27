@@ -1,8 +1,9 @@
 //! Learned Wi-Fi networks for location locks, shared by every platform
 //! (the platform scans; this remembers and judges).
 //!
-//! The networks around a place are remembered ("I am here now", or
-//! automatically while a precise position says the machine is there).
+//! The networks around a place are remembered only when the person says
+//! "I am at this place now" (never from a position estimate, which can be
+//! off and would teach a place the networks of another).
 //! Any of them in range: *inside*. Wi-Fi working and several networks in
 //! range but none of them: *away*. Neighbours' networks count too, so
 //! switching off one router does not fake "away". Without evidence the
@@ -11,7 +12,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use iqal_core::geo::{GeoArea, LocationFix, Relation};
+use iqal_core::geo::{GeoArea, LocationFix};
 use serde::{Deserialize, Serialize};
 
 use crate::service::LocationState;
@@ -45,20 +46,12 @@ pub fn learn(state_dir: &Path, area: &GeoArea, visible: &[String]) -> std::io::R
 }
 
 /// Where the machine is, for each area, from a position (if any) and the
-/// networks in range. Networks seen while the position is inside an area
-/// are learned for it.
+/// networks in range. A place's networks are learned only when the person
+/// says "I am at this place now" (`learn`), never from a position estimate:
+/// an estimate that is off would teach a place the networks of another.
 pub fn assess(state_dir: &Path, areas: &[GeoArea], fix: LocationFix, visible: &[String]) -> LocationState {
     let _guard = FILE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let mut fps = load(state_dir);
-    let mut changed = false;
-    for area in areas {
-        if area.relation(fix) == Relation::Inside {
-            changed |= add_networks(&mut fps, area, visible);
-        }
-    }
-    if changed {
-        save(state_dir, &fps);
-    }
+    let fps = load(state_dir);
     let mut state = LocationState { fix, ..LocationState::default() };
     for area in areas {
         let learned = fps.iter().find(|f| f.area.as_ref() == Some(area)).map_or(&[][..], |f| &f.bssids);

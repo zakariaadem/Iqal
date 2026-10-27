@@ -64,7 +64,7 @@ Version: $VERSION
 Architecture: $ARCH
 Maintainer: Iqal contributors <iqal@localhost>
 Installed-Size: $SIZE
-Depends: libc6 (>= 2.39), libgtk-4-1 (>= 4.14), libshumate-1.0-1, libglib2.0-0t64 | libglib2.0-0, nftables, curl, polkitd, systemd
+Depends: libc6 (>= 2.39), libgtk-4-1 (>= 4.14), libglib2.0-0t64 | libglib2.0-0, nftables, curl, polkitd, systemd
 Recommends: geoclue-2.0, network-manager
 Conflicts: al-dir
 Replaces: al-dir
