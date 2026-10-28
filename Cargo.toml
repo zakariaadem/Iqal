@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/iqal-core", "crates/iqal-ipc", "crates/iqal-daemon", "crates/iqal-cli", "crates/iqal-agent", "crates/iqal-host", "crates/iqal-pack", "crates/iqal-i18n", "crates/iqal-gtk", "crates/iqal-app", "crates/iqal-win32", "crates/iqal-winres", "crates/iqal-setup"]
 
 [workspace.package]
-version = "0.1.16"
+version = "0.1.17"
 edition = "2024"
 license = "GPL-3.0-or-later"
 authors = ["Iqal contributors"]

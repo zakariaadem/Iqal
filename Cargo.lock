@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-agent"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-i18n",
  "iqal-ipc",
@@ -1114,7 +1114,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-app"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-core",
  "iqal-i18n",
@@ -1126,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-cli"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "clap",
  "iqal-core",
@@ -1138,7 +1138,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-core"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "aho-corasick",
  "argon2",
@@ -1153,7 +1153,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-daemon"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-core",
  "iqal-ipc",
@@ -1172,7 +1172,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-gtk"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "gtk4",
  "iqal-app",
@@ -1187,7 +1187,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-host"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-ipc",
  "iqal-winres",
@@ -1196,7 +1196,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-i18n"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "fluent-bundle",
  "unic-langid",
@@ -1205,7 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-ipc"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-core",
  "serde",
@@ -1215,14 +1215,14 @@ dependencies = [
 
 [[package]]
 name = "iqal-pack"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "sha2",
 ]
 
 [[package]]
 name = "iqal-setup"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-i18n",
  "iqal-ipc",
@@ -1233,7 +1233,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-win32"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "iqal-app",
  "iqal-core",
@@ -1246,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "iqal-winres"
-version = "0.1.16"
+version = "0.1.17"
 
 [[package]]
 name = "is_terminal_polyfill"
