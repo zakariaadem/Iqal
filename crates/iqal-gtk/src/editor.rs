@@ -135,6 +135,11 @@ fn header(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Box {
     // Lock, or unlock while locked (the same as on the Lock tab).
     let (text, icon) = if info.locked { ("action-unlock", "changes-allow-symbolic") } else { ("action-lock", "changes-prevent-symbolic") };
     let lock = icon_button(&t(text), icon, "main");
+    // Only a password or a random text opens a lock early; the Lock tab
+    // says how the others open.
+    if info.locked {
+        lock.set_sensitive(info.set.lock.as_ref().is_some_and(|l| crate::widgets::opens_by_itself(l).is_none()));
+    }
     let weak = ui.weak();
     let (locked, id) = (info.locked, info.set.id);
     lock.connect_clicked(move |_| {

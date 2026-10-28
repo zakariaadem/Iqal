@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use iqal_app::describe::{describe_lock, fmt_time};
+use iqal_app::describe::{describe_lock, fmt_time, opens_by_itself};
 use iqal_core::lock::random_text;
 use iqal_core::schedule::Schedule;
 use iqal_core::{GeoArea, Lock, LockKind, PasswordHash, SetId};
@@ -69,25 +69,38 @@ pub fn page(page: Panel, view: &View) {
                 items.push(Item::Row { cells: vec![(cancel, width_of(cancel))], height: panel::ROW });
             }
             if let LockKind::Location { .. } = lock.kind {
-                if info.place_known {
-                    items.push(Item::Text(page.note(&t("location-known"))));
+                // Until Iqal recognises the place: "I am here now". After
+                // that, the same button adds where the computer is now
+                // (another place, or the same one, recognised better).
+                let (detail, action) = if info.place_known {
+                    ("location-learn-more-detail", "action-learn-more")
                 } else {
-                    // Only needed when Iqal cannot recognise the place by
-                    // itself (it was not there when the lock was made).
-                    items.push(Item::Text(page.note(&t("location-learn-detail"))));
-                    let learn = page.control("BUTTON", &t("action-learn-location"), WS_TABSTOP, 0);
-                    panel::on(learn, move |code| {
-                        if code == BN_CLICKED {
-                            learn_place(ui::main_window(), id);
-                            ui::refresh(true);
-                        }
-                    });
-                    items.push(Item::Row { cells: vec![(learn, width_of(learn))], height: panel::ROW });
-                }
+                    ("location-learn-detail", "action-learn-location")
+                };
+                items.push(Item::Text(page.note(&t(detail))));
+                let learn = page.control("BUTTON", &t(action), WS_TABSTOP, 0);
+                panel::on(learn, move |code| {
+                    if code == BN_CLICKED {
+                        learn_place(ui::main_window(), id);
+                        ui::refresh(true);
+                    }
+                });
+                items.push(Item::Row { cells: vec![(learn, width_of(learn))], height: panel::ROW });
             }
             if info.locked {
+                let opens = opens_by_itself(lock);
+                // An unknown place stays locked everywhere (said above).
+                let unknown_place = matches!(lock.kind, LockKind::Location { .. }) && !info.place_known;
+                if let (Some(text), false) = (&opens, unknown_place) {
+                    items.push(Item::Text(page.note(text)));
+                }
                 let unlock = page.control("BUTTON", &t("action-unlock"), WS_TABSTOP, 0);
                 crate::theme::style_button(unlock, Some(crate::theme::Icon::Unlock), crate::theme::Look::Main);
+                // Only a password or a random text opens a lock early.
+                if opens.is_some() {
+                    // SAFETY: our button.
+                    unsafe { EnableWindow(unlock, 0) };
+                }
                 panel::on(unlock, move |code| {
                     if code == BN_CLICKED {
                         start_unlock(id);

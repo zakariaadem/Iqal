@@ -170,6 +170,12 @@ fn header(root: Panel, view: &View) -> Vec<Item> {
     let lock = root.control("BUTTON", &lock_text, WS_TABSTOP, 0);
     theme::style_button(lock, Some(if view.info.locked { theme::Icon::Unlock } else { theme::Icon::Lock }), theme::Look::Main);
     let (locked, id) = (view.info.locked, view.set.id);
+    // Only a password or a random text opens a lock early; the Lock tab
+    // says how the others open.
+    if locked && view.set.lock.as_ref().is_none_or(|l| iqal_app::describe::opens_by_itself(l).is_some()) {
+        // SAFETY: our button.
+        unsafe { EnableWindow(lock, 0) };
+    }
     panel::on(lock, move |code| {
         if code == BN_CLICKED {
             if locked {

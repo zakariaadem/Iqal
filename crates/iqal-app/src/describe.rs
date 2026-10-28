@@ -78,3 +78,16 @@ pub fn describe_lock(lock: &Lock) -> String {
     }
     s
 }
+
+/// How a lock opens, for the locks that cannot be opened early (only a
+/// password or a random text opens one early: `None` for those).
+pub fn opens_by_itself(lock: &Lock) -> Option<String> {
+    let key = match lock.kind {
+        LockKind::Password { .. } | LockKind::RandomText { .. } => return None,
+        LockKind::Until { .. } => "lock-opens-until",
+        LockKind::Schedule { .. } => "lock-opens-schedule",
+        LockKind::UntilRestart { .. } => "lock-opens-restart",
+        LockKind::Location { .. } => "lock-opens-location",
+    };
+    Some(t(key))
+}

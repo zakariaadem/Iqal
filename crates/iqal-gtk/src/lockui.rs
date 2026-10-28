@@ -12,7 +12,7 @@ use gtk::prelude::*;
 
 use crate::editor::weekly_editor;
 use crate::ui::Ui;
-use crate::widgets::{describe_lock, fmt_time, heading, hbox, label, note, set_margins, vbox};
+use crate::widgets::{describe_lock, fmt_time, heading, hbox, label, note, opens_by_itself, set_margins, vbox};
 use crate::widgets::page as page_body;
 
 pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
@@ -43,27 +43,37 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
                 body.append(&cancel);
             }
             if let LockKind::Location { .. } = lock.kind {
-                if info.place_known {
-                    body.append(&note(&t("location-known")));
+                // Until Iqal recognises the place: "I am here now". After
+                // that, the same button adds where the computer is now
+                // (another place, or the same one, recognised better).
+                let (detail, action) = if info.place_known {
+                    ("location-learn-more-detail", "action-learn-more")
                 } else {
-                    // Only needed when Iqal cannot recognise the place by
-                    // itself (it was not there when the lock was made).
-                    body.append(&note(&t("location-learn-detail")));
-                    let learn = gtk::Button::with_label(&t("action-learn-location"));
-                    learn.set_halign(gtk::Align::Start);
-                    let weak = ui.weak();
-                    let id = set.id;
-                    learn.connect_clicked(move |_| {
-                        if let Some(ui) = weak.upgrade() {
-                            learn_place(&ui, id);
-                            ui.refresh(true);
-                        }
-                    });
-                    body.append(&learn);
-                }
+                    ("location-learn-detail", "action-learn-location")
+                };
+                body.append(&note(&t(detail)));
+                let learn = gtk::Button::with_label(&t(action));
+                learn.set_halign(gtk::Align::Start);
+                let weak = ui.weak();
+                let id = set.id;
+                learn.connect_clicked(move |_| {
+                    if let Some(ui) = weak.upgrade() {
+                        learn_place(&ui, id);
+                        ui.refresh(true);
+                    }
+                });
+                body.append(&learn);
             }
             if info.locked {
+                let opens = opens_by_itself(lock);
+                // An unknown place stays locked everywhere (said above).
+                let unknown_place = matches!(lock.kind, LockKind::Location { .. }) && !info.place_known;
+                if let (Some(text), false) = (&opens, unknown_place) {
+                    body.append(&note(text));
+                }
                 let unlock = gtk::Button::with_label(&t("action-unlock"));
+                // Only a password or a random text opens a lock early.
+                unlock.set_sensitive(opens.is_none());
                 unlock.set_halign(gtk::Align::Start);
                 let weak = ui.weak();
                 let id = set.id;

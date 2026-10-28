@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 
-pub use iqal_app::describe::{day_name, describe_lock, fmt_time};
+pub use iqal_app::describe::{day_name, describe_lock, fmt_time, opens_by_itself};
 
 pub fn vbox(spacing: i32) -> gtk::Box {
     gtk::Box::new(gtk::Orientation::Vertical, spacing)
