@@ -23,10 +23,29 @@ pub struct RuleEditor {
     /// Adds rules to the list; returns how many were new. Rules that cannot
     /// be used are put in the add box, marked, for fixing.
     pub add: Rc<dyn Fn(Vec<String>) -> usize>,
+    /// Shows other pre-made lists' rules (when lists are ticked or unticked),
+    /// without redrawing the page.
+    pub set_lists: SetLists,
+}
+
+/// The pre-made lists' rules, each website once: not those in the block's
+/// own list, and only under the first list that has it.
+fn listed_rules(own: &gtk::StringList, lists: &[(String, Rc<Vec<String>>)]) -> Vec<String> {
+    let own: Vec<String> = (0..own.n_items()).filter_map(|i| own.string(i)).map(|s| s.to_string()).collect();
+    let mut seen: std::collections::HashSet<&str> = own.iter().map(String::as_str).collect();
+    lists
+        .iter()
+        .flat_map(|(name, rules)| rules.iter().map(move |r| (name, r)))
+        .filter(|(_, r)| seen.insert(r.as_str()))
+        .map(|(name, r)| format!("{r}{FROM_LIST}{name}"))
+        .collect()
 }
 
 /// Separates a pre-made list's rule from the list's name in the list model.
 const FROM_LIST: char = '\u{1f}';
+
+/// Pre-made lists to show: each list's name and rules.
+pub type SetLists = Rc<dyn Fn(&[(String, Rc<Vec<String>>)])>;
 
 pub fn rule_editor(ui: &Rc<Ui>, key: ListKey, add_title: &str, list_title: &str, examples: &str) -> RuleEditor {
     rule_editor_with_lists(ui, key, add_title, list_title, examples, &[])
@@ -50,18 +69,11 @@ pub fn rule_editor_with_lists(
     // The saved list, then the pre-made lists' rules.
     let items: Vec<String> = ui.list_text(key).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect();
     let model = gtk::StringList::new(&items.iter().map(String::as_str).collect::<Vec<_>>());
-    // Each website once: the block's own rule, or the first list with it.
-    let mut seen: std::collections::HashSet<&str> = items.iter().map(String::as_str).collect();
-    let listed: Vec<String> = lists
-        .iter()
-        .flat_map(|(name, rules)| rules.iter().map(move |r| (name, r)))
-        .filter(|(_, r)| seen.insert(r.as_str()))
-        .map(|(name, r)| format!("{r}{FROM_LIST}{name}"))
-        .collect();
-    let from_lists = listed.len();
+    let listed = listed_rules(&model, lists);
+    let listed_model = gtk::StringList::new(&listed.iter().map(String::as_str).collect::<Vec<_>>());
     let parts = gtk::gio::ListStore::new::<gtk::StringList>();
     parts.append(&model);
-    parts.append(&gtk::StringList::new(&listed.iter().map(String::as_str).collect::<Vec<_>>()));
+    parts.append(&listed_model);
     let combined = gtk::FlattenListModel::new(Some(parts));
     let filter = gtk::StringFilter::new(Some(gtk::PropertyExpression::new(
         gtk::StringObject::static_type(),
@@ -136,10 +148,11 @@ pub fn rule_editor_with_lists(
 
     // Counts, the empty state, and the draft follow the list.
     let refresh = {
-        let (model, stack, list_heading, title) = (model.clone(), stack.clone(), list_heading.clone(), list_title.to_string());
+        let (model, listed_model, stack, list_heading, title) =
+            (model.clone(), listed_model.clone(), stack.clone(), list_heading.clone(), list_title.to_string());
         move || {
             // With pre-made lists, the total; each of their rows names its list.
-            let n = model.n_items() as usize + from_lists;
+            let n = model.n_items() + listed_model.n_items();
             list_heading.set_text(&title);
             stack.set_visible_child_name(if n == 0 { "empty" } else { "list" });
         }
@@ -286,7 +299,16 @@ pub fn rule_editor_with_lists(
         }
     });
 
+    let set_lists: SetLists = {
+        let (model, listed_model, refresh) = (model.clone(), listed_model.clone(), refresh.clone());
+        Rc::new(move |lists| {
+            let listed = listed_rules(&model, lists);
+            listed_model.splice(0, listed_model.n_items(), &listed.iter().map(String::as_str).collect::<Vec<_>>());
+            refresh();
+        })
+    };
+
     columns.append(&left);
     columns.append(&right);
-    RuleEditor { widget: columns.upcast(), actions, add }
+    RuleEditor { widget: columns.upcast(), actions, add, set_lists }
 }

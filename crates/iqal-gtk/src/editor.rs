@@ -205,27 +205,27 @@ fn mode_dropdown(ui: &Rc<Ui>, current: ListMode, labels: [String; 2], apply: fn(
     dd
 }
 
-/// A check button that adds or removes `id` in a list of the draft (and
-/// redraws: the list's websites show in the blocked websites).
-fn list_check(ui: &Rc<Ui>, text: &str, active: bool, id: String, list: fn(&mut BlockSet) -> &mut Vec<String>) -> gtk::CheckButton {
+/// Shows the pre-made lists with these ids in the blocked websites.
+type ShowLists = Rc<dyn Fn(&[String])>;
+
+/// A check button that adds or removes a pre-made list in the draft; then
+/// `shown` puts the chosen lists' websites in the blocked websites.
+fn list_check(ui: &Rc<Ui>, text: &str, active: bool, id: String, shown: ShowLists) -> gtk::CheckButton {
     let check = gtk::CheckButton::with_label(text);
     check.set_active(active);
     let weak = ui.weak();
     check.connect_toggled(move |c| {
         let on = c.is_active();
-        let id = id.clone();
-        if let Some(ui) = weak.upgrade() {
-            glib::idle_add_local_once(move || {
-                ui.modify(|s| {
-                    let l = list(s);
-                    l.retain(|x| *x != id);
-                    if on {
-                        l.push(id);
-                    }
-                    Ok(())
-                })
-            });
-        }
+        let Some(ui) = weak.upgrade() else { return };
+        let mut chosen = Vec::new();
+        ui.edit(|s| {
+            s.web.lists.retain(|x| *x != id);
+            if on {
+                s.web.lists.push(id.clone());
+            }
+            chosen = s.web.lists.clone();
+        });
+        shown(&chosen);
     });
     check
 }
@@ -248,6 +248,8 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         _ => Vec::new(),
     };
     let examples = t("web-placeholder");
+    // Ticking a pre-made list updates the blocked websites in place.
+    let mut shown: ShowLists = Rc::new(|_: &[String]| {});
     if allow_only {
         // An allow list stands on its own.
         body.append(&rule_editor(ui, ListKey::WebAllow, &t("add-websites"), &t("web-allowed"), &examples).widget);
@@ -269,6 +271,16 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
             }
         });
         blocked.actions.append(&import);
+        let (weak, catalog, set_lists) = (ui.weak(), catalog.clone(), blocked.set_lists.clone());
+        shown = Rc::new(move |ids: &[String]| {
+            let Some(ui) = weak.upgrade() else { return };
+            let chosen: Vec<(String, Rc<Vec<String>>)> = catalog
+                .iter()
+                .filter(|l| ids.contains(&l.id))
+                .map(|l| (t(&format!("list-{}", l.id)), ui.list_rules(l)))
+                .collect();
+            set_lists(&chosen);
+        });
         body.append(&blocked.widget);
         body.append(&note(&t("web-syntax")));
         body.append(&rule_editor(ui, ListKey::WebAllow, &t("add-exceptions"), &t("web-exceptions"), &examples).widget);
@@ -294,7 +306,7 @@ fn websites(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     for list in catalog {
         let text = format!("{}  ·  {}", t(&format!("list-{}", list.id)), ta("list-count", &[("count", (list.rules as i64).into())]));
         let active = set.web.lists.contains(&list.id);
-        body.append(&list_check(ui, &text, active, list.id, |s| &mut s.web.lists));
+        body.append(&list_check(ui, &text, active, list.id, shown.clone()));
     }
 
     scroll.upcast()

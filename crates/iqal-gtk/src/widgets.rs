@@ -1,5 +1,8 @@
 //! Small reusable widgets and text helpers.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use gtk::prelude::*;
 
 pub use iqal_app::describe::{day_name, describe_lock, fmt_time};
@@ -104,17 +107,33 @@ pub fn badge(icon: &str, text: &str) -> gtk::Box {
 /// the page (never both at once, and the turn is never lost). Decided here,
 /// before GTK's own handling: it gives the turn to the page first.
 fn take_over_wheel(page: &gtk::ScrolledWindow) {
+    // Where the pointer is on the page: wheel turns themselves do not always
+    // say (they do not on X11).
+    let pointer = Rc::new(Cell::new(None::<(f64, f64)>));
+    let motion = gtk::EventControllerMotion::new();
+    motion.set_propagation_phase(gtk::PropagationPhase::Capture);
+    motion.connect_enter({
+        let pointer = pointer.clone();
+        move |_, x, y| pointer.set(Some((x, y)))
+    });
+    motion.connect_motion({
+        let pointer = pointer.clone();
+        move |_, x, y| pointer.set(Some((x, y)))
+    });
+    motion.connect_leave({
+        let pointer = pointer.clone();
+        move |_| pointer.set(None)
+    });
+    page.add_controller(motion);
+
     let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
     scroll.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = page.downgrade();
     scroll.connect_scroll(move |controller, _, dy| {
         let Some(page) = weak.upgrade() else { return gtk::glib::Propagation::Proceed };
         // The box under the pointer, if any.
-        let inner = controller.current_event().and_then(|e| e.position()).and_then(|(x, y)| {
-            let native = page.native()?;
-            let (ox, oy) = native.surface_transform();
-            let point = native.compute_point(&page, &gtk::graphene::Point::new((x - ox) as f32, (y - oy) as f32))?;
-            let mut w = page.pick(point.x() as f64, point.y() as f64, gtk::PickFlags::DEFAULT)?;
+        let inner = pointer.get().and_then(|(x, y)| {
+            let mut w = page.pick(x, y, gtk::PickFlags::DEFAULT)?;
             loop {
                 if w == *page.upcast_ref::<gtk::Widget>() {
                     return None;
