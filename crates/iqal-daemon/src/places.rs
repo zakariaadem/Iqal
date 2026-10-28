@@ -19,8 +19,8 @@ use crate::service::LocationState;
 
 const FINGERPRINTS: &str = "wifi-fingerprints.json";
 const MAX_LEARNED: usize = 64;
-/// "Away" needs a place with at least this many learned networks, and at
-/// least this many other networks in range now.
+/// "Away" needs at least this many other networks in range now (and none
+/// of the place's). Few in range (Wi-Fi off, a quiet spot): no evidence.
 const MIN_FOR_AWAY: usize = 2;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -98,7 +98,7 @@ enum WifiEvidence {
 fn wifi_evidence(learned: &[String], visible: &[String]) -> WifiEvidence {
     if learned.iter().any(|b| visible.contains(b)) {
         WifiEvidence::Inside
-    } else if learned.len() >= MIN_FOR_AWAY && visible.len() >= MIN_FOR_AWAY {
+    } else if !learned.is_empty() && visible.len() >= MIN_FOR_AWAY {
         WifiEvidence::Away
     } else {
         WifiEvidence::None
@@ -134,7 +134,10 @@ mod tests {
         assert_eq!(wifi_evidence(&home, &s(&["x"])), WifiEvidence::None, "too few networks to be sure");
         assert_eq!(wifi_evidence(&home, &s(&["x", "y"])), WifiEvidence::Away);
         assert_eq!(wifi_evidence(&home, &[]), WifiEvidence::None, "Wi-Fi off");
-        assert_eq!(wifi_evidence(&s(&["a"]), &s(&["x", "y", "z"])), WifiEvidence::None, "place barely learned");
+        // A place known by one network only (a first scan that found little)
+        // must not keep the lock closed everywhere else.
+        assert_eq!(wifi_evidence(&s(&["a"]), &s(&["x", "y", "z"])), WifiEvidence::Away);
+        assert_eq!(wifi_evidence(&[], &s(&["x", "y", "z"])), WifiEvidence::None, "place not learned");
     }
 
     #[test]

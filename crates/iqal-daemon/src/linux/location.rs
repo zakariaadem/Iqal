@@ -188,11 +188,24 @@ fn wifi_networks(conn: &Connection, fresh: bool) -> Vec<String> {
             continue; // not Wi-Fi
         }
         let Ok(wireless) = proxy(conn, nm, dev.as_str(), "org.freedesktop.NetworkManager.Device.Wireless") else { continue };
+        let last_scan = || wireless.get_property::<i64>("LastScan").ok();
+        let before = last_scan();
+        let mut aps = Vec::new();
+        if fresh {
+            // While a scan runs, the list can hold only the network in use:
+            // keep what is known now, and wait for the scan to finish.
+            aps.extend(wireless.call::<_, _, Vec<OwnedObjectPath>>("GetAllAccessPoints", &()).unwrap_or_default());
+        }
         let _ = wireless.call_method("RequestScan", &(HashMap::<&str, Value<'_>>::new(),));
         if fresh {
-            std::thread::sleep(Duration::from_secs(4));
+            for _ in 0..30 {
+                std::thread::sleep(Duration::from_millis(500));
+                if last_scan() != before {
+                    break;
+                }
+            }
         }
-        let Ok(aps) = wireless.call::<_, _, Vec<OwnedObjectPath>>("GetAllAccessPoints", &()) else { continue };
+        aps.extend(wireless.call::<_, _, Vec<OwnedObjectPath>>("GetAllAccessPoints", &()).unwrap_or_default());
         for ap in aps {
             let Ok(ap) = proxy(conn, nm, ap.as_str(), "org.freedesktop.NetworkManager.AccessPoint") else { continue };
             // Weak networks count too: neighbours' networks make the evidence
