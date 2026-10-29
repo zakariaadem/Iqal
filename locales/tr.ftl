@@ -338,7 +338,7 @@ location-name-placeholder = Örneğin: Ev
 area-named = “{ $name }” konumunda
 action-close = Kapat
 
-lock-location-detail-named = Bu bilgisayar bu yerde olduğu sürece ve Iqal nerede olduğunu anlayamadığı her durumda engel kilitli kalır.
+lock-location-detail-named = Bu yerde engel açık ve kilitlidir. Bu yerden uzaktayken kapalıdır ve değiştirilebilir. Iqal bilgisayarın nerede olduğunu anlayamadığında engel kilitli kalır.
 time-source-network = ağ saati
 time-source-system = eşitlenmiş sistem saati
 time-source-counted = son güvenilir saatten sayılan (çevrimdışı)
@@ -379,4 +379,4 @@ location-learn-more-detail = Bilgisayarın şu an bulunduğu yerde de engeli kil
 lock-opens-until = Bu kilit, süresi dolunca kendiliğinden açılır.
 lock-opens-schedule = Bu kilit, zamanları bitince kendiliğinden açılır.
 lock-opens-restart = Bu kilit, bilgisayar yeniden başlatılınca kendiliğinden açılır.
-lock-opens-location = Bu kilit, bilgisayar o yerden ayrılınca kendiliğinden açılır.
+lock-opens-location = Bu kilit, bilgisayar o yerden ayrılınca kendiliğinden açılır ve engel kapanır.

@@ -84,8 +84,10 @@ pub struct BlockSet {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_unlock_at: Option<i64>,
     /// With a "during certain times" lock: whether its times last turned the
-    /// block on (true, they started) or off (false, they ended). Kept by
-    /// the service, so it switches the block only when the times change.
+    /// block on (true, they started) or off (false, they ended). With a
+    /// "while at a place" lock: whether arriving (true) or leaving (false)
+    /// last switched it. Kept by the service, so it switches the block only
+    /// when that changes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub times_on: Option<bool>,
 }

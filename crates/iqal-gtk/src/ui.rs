@@ -466,6 +466,9 @@ impl Ui {
             _ => Vec::new(),
         };
         self.replacing.set(true);
+        // The window must never keep a removed button as its default (GTK
+        // then crashes on the next change of default).
+        self.window.set_default_widget(None::<&gtk::Widget>);
         while let Some(child) = self.content.first_child() {
             self.content.remove(&child);
         }
@@ -486,6 +489,11 @@ impl Ui {
         };
         widget.set_vexpand(true);
         self.content.append(&widget);
+        // Enter in a one-line box presses Save (when it is shown and usable),
+        // set only now that the button is in the window.
+        if let Some((_, _, save)) = self.save_bar.borrow().as_ref() {
+            self.window.set_default_widget(Some(save));
+        }
         self.replacing.set(false);
         self.was_dirty.set(!self.is_dirty());
         self.update_dirty();
@@ -516,8 +524,6 @@ impl Ui {
         });
         *self.notebook.borrow_mut() = Some(notebook.clone());
         *self.save_bar.borrow_mut() = Some((save_bar.clone(), text.clone(), save.clone()));
-        // Enter in a one-line box presses Save (when it is shown and usable).
-        self.window.set_default_widget(Some(save));
     }
 
     fn current_from(&self, st: &State) -> Option<SetInfo> {

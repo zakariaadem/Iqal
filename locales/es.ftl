@@ -347,7 +347,7 @@ location-name-placeholder = Por ejemplo: Casa
 area-named = en «{ $name }»
 action-close = Cerrar
 
-lock-location-detail-named = El bloqueo sigue cerrado mientras este equipo esté en este lugar, y también siempre que Iqal no pueda saber dónde está.
+lock-location-detail-named = En este lugar el bloque está activado y bloqueado. Fuera de él está desactivado y se puede cambiar. Cuando Iqal no puede saber dónde está el equipo, el bloque sigue bloqueado.
 time-source-network = hora de la red
 time-source-system = hora del sistema sincronizada
 time-source-counted = contada desde la última hora fiable (sin conexión)
@@ -388,4 +388,4 @@ location-learn-more-detail = Pulsa aquí para que el bloque quede bloqueado tamb
 lock-opens-until = Este bloqueo se abre solo cuando termina su tiempo.
 lock-opens-schedule = Este bloqueo se abre solo cuando terminan sus horarios.
 lock-opens-restart = Este bloqueo se abre solo cuando se reinicia el ordenador.
-lock-opens-location = Este bloqueo se abre solo cuando el ordenador sale del lugar.
+lock-opens-location = Este bloqueo se abre solo, y el bloque se desactiva, cuando el ordenador sale del lugar.

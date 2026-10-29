@@ -65,7 +65,8 @@ pub fn cleanup() {
 /// "I am at this place now": adds the networks in range to the area.
 fn learn_now(state_dir: &Path, area: &GeoArea) -> std::io::Result<usize> {
     let conn = Connection::system().map_err(std::io::Error::other)?;
-    places::learn(state_dir, area, &wifi_networks(&conn, true))
+    let now = wifi_networks(&conn, false);
+    places::learn_now_and_later(state_dir, area, now, move || wifi_networks(&conn, true))
 }
 
 struct Watcher {
@@ -197,7 +198,8 @@ fn wifi_networks(conn: &Connection, fresh: bool) -> Vec<String> {
             aps.extend(wireless.call::<_, _, Vec<OwnedObjectPath>>("GetAllAccessPoints", &()).unwrap_or_default());
         }
         let _ = wireless.call_method("RequestScan", &(HashMap::<&str, Value<'_>>::new(),));
-        if fresh {
+        // Wi-Fi switched off (state "unavailable"): no scan to wait for.
+        if fresh && device.get_property::<u32>("State").is_ok_and(|s| s > 20) {
             for _ in 0..30 {
                 std::thread::sleep(Duration::from_millis(500));
                 if last_scan() != before {

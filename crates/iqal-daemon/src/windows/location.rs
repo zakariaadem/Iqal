@@ -32,14 +32,14 @@ pub fn start(service: Arc<Service>, state_dir: PathBuf) -> std::io::Result<()> {
     {
         let dir = state_dir.clone();
         service.set_learner(Box::new(move |area| {
-            let visible = wifi_networks(true);
+            let visible = wifi_networks(false);
             if visible.is_empty() && location_services_off() {
                 return Err(std::io::Error::other(
                     "Windows hides nearby Wi-Fi networks while Location services are off. Turn them on in \
                      Settings > Privacy & security > Location, then try again.",
                 ));
             }
-            places::learn(&dir, area, &visible)
+            places::learn_now_and_later(&dir, area, visible, || wifi_networks(true))
         }));
     }
     std::thread::Builder::new().name("iqal-location".into()).spawn(move || loop {

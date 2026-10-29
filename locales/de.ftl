@@ -347,7 +347,7 @@ location-name-placeholder = Zum Beispiel: Zuhause
 area-named = bei „{ $name }“
 action-close = Schließen
 
-lock-location-detail-named = Die Sperre bleibt gesperrt, solange dieser Computer an diesem Ort ist, und auch immer dann, wenn Iqal nicht erkennen kann, wo er ist.
+lock-location-detail-named = An diesem Ort ist die Sperre ein und abgeschlossen. Anderswo ist sie aus und kann geändert werden. Wenn Iqal nicht erkennen kann, wo der Computer ist, bleibt sie abgeschlossen.
 time-source-network = Netzwerkzeit
 time-source-system = synchronisierte Systemzeit
 time-source-counted = gezählt ab der letzten vertrauenswürdigen Zeit (offline)
@@ -388,4 +388,4 @@ location-learn-more-detail = Drücken Sie hier, damit die Sperre auch dort gilt,
 lock-opens-until = Dieses Schloss öffnet sich von selbst, wenn seine Zeit abgelaufen ist.
 lock-opens-schedule = Dieses Schloss öffnet sich von selbst, wenn seine Zeiten vorbei sind.
 lock-opens-restart = Dieses Schloss öffnet sich von selbst, wenn der Computer neu startet.
-lock-opens-location = Dieses Schloss öffnet sich von selbst, wenn der Computer den Ort verlässt.
+lock-opens-location = Dieses Schloss öffnet sich von selbst, und die Sperre schaltet sich aus, wenn der Computer den Ort verlässt.

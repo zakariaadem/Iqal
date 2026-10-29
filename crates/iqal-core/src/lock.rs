@@ -80,24 +80,42 @@ pub fn expire(set: &mut BlockSet, ctx: &LockContext) -> bool {
             set.enabled = false;
         }
     }
-    apply_times(set, &ctx.now) || finished
+    apply_times(set, ctx) || finished
 }
 
 /// A "during certain times" lock switches its block: on when its times
-/// start, off when they end (in between, the block can be switched by
-/// hand). Returns true if anything changed.
-pub fn apply_times(set: &mut BlockSet, now: &Now) -> bool {
-    match set.lock.as_ref().map(|l| &l.kind) {
-        Some(LockKind::Schedule { schedule }) => {
-            let inside = schedule.is_active(now);
-            if set.times_on == Some(inside) {
-                return false;
-            }
-            set.enabled = inside;
-            set.times_on = Some(inside);
-            true
+/// start, off when they end. A "while at a place" lock does the same when
+/// the computer arrives at or leaves the place (only on clear evidence:
+/// while Iqal cannot tell where the computer is, the block stays as it
+/// is). In between, the block can be switched by hand. Returns true if
+/// anything changed.
+pub fn apply_times(set: &mut BlockSet, ctx: &LockContext) -> bool {
+    let inside = match set.lock.as_ref().map(|l| &l.kind) {
+        Some(LockKind::Schedule { schedule }) => Some(schedule.is_active(&ctx.now)),
+        Some(LockKind::Location { area }) => at_place(area, ctx),
+        _ => return set.times_on.take().is_some(),
+    };
+    let Some(inside) = inside else { return false };
+    if set.times_on == Some(inside) {
+        return false;
+    }
+    set.enabled = inside;
+    set.times_on = Some(inside);
+    true
+}
+
+/// Whether the computer is at the place, if Iqal can tell.
+fn at_place(area: &crate::geo::GeoArea, ctx: &LockContext) -> Option<bool> {
+    if ctx.inside.contains(area) {
+        Some(true)
+    } else if ctx.outside.contains(area) {
+        Some(false)
+    } else {
+        match area.relation(ctx.location) {
+            Relation::Inside => Some(true),
+            Relation::Outside => Some(false),
+            Relation::Unknown => None,
         }
-        _ => set.times_on.take().is_some(),
     }
 }
 
@@ -264,11 +282,11 @@ impl Config {
                     None
                 };
                 *old = new;
-                apply_times(old, &ctx.now);
+                apply_times(old, ctx);
             }
             None => {
                 new.times_on = None;
-                apply_times(&mut new, &ctx.now);
+                apply_times(&mut new, ctx);
                 self.block_sets.push(new);
             }
         }
@@ -508,6 +526,23 @@ mod tests {
         assert!(!is_locked(&s, &wifi_says_outside), "away from the learned Wi-Fi");
     }
 
+
+    #[test]
+    fn place_lock_switches_the_block() {
+        let areas = [GeoArea::Named { name: "Home".into() }];
+        let mut s = locked_set(LockKind::Location { area: areas[0].clone() });
+        assert!(!expire(&mut s, &ctx(0)), "no evidence: the block stays as it is");
+        assert!(s.enabled);
+        let away = LockContext { outside: &areas, ..ctx(0) };
+        assert!(expire(&mut s, &away));
+        assert!(!s.enabled, "left the place: off");
+        assert!(!expire(&mut s, &ctx(0)), "lost track: stays off");
+        assert!(!s.enabled);
+        let home = LockContext { inside: &areas, ..ctx(0) };
+        assert!(expire(&mut s, &home));
+        assert!(s.enabled, "back: on");
+        assert!(s.lock.is_some(), "the lock stays");
+    }
     #[test]
     fn schedule_lock() {
         let schedule = Schedule {

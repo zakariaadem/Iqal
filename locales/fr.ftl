@@ -347,7 +347,7 @@ location-name-placeholder = Par exemple : Maison
 area-named = à « { $name } »
 action-close = Fermer
 
-lock-location-detail-named = Le blocage reste verrouillé tant que cet ordinateur est à cet endroit, et aussi chaque fois qu’Iqal ne peut pas savoir où il se trouve.
+lock-location-detail-named = À cet endroit, le bloc est activé et verrouillé. Ailleurs, il est désactivé et peut être modifié. Quand Iqal ne peut pas savoir où se trouve l’ordinateur, le bloc reste verrouillé.
 time-source-network = heure du réseau
 time-source-system = heure système synchronisée
 time-source-counted = comptée depuis la dernière heure fiable (hors ligne)
@@ -388,4 +388,4 @@ location-learn-more-detail = Appuyez ici pour verrouiller aussi le bloc là où 
 lock-opens-until = Ce verrou s’ouvre tout seul quand son temps est écoulé.
 lock-opens-schedule = Ce verrou s’ouvre tout seul quand ses horaires sont terminés.
 lock-opens-restart = Ce verrou s’ouvre tout seul au redémarrage de l’ordinateur.
-lock-opens-location = Ce verrou s’ouvre tout seul quand l’ordinateur quitte l’endroit.
+lock-opens-location = Ce verrou s’ouvre tout seul, et le bloc se désactive, quand l’ordinateur quitte l’endroit.

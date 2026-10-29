@@ -332,7 +332,7 @@ location-name-placeholder = 例如：家
 area-named = 在“{ $name }”
 action-close = 关闭
 
-lock-location-detail-named = 只要这台电脑在这个地方，以及 Iqal 无法判断它在哪里时，拦截组都会保持锁定。
+lock-location-detail-named = 在这个地方，拦截组开启并上锁。离开这里时，它是关闭的，可以更改。Iqal 无法判断电脑在哪里时，拦截组保持锁定。
 time-source-network = 网络时间
 time-source-system = 已同步的系统时间
 time-source-counted = 从上次可信时间起计算（离线）
@@ -373,4 +373,4 @@ location-learn-more-detail = 按下此按钮，让这个拦截组在电脑现在
 lock-opens-until = 时间结束时，这个锁会自动打开。
 lock-opens-schedule = 设定的时段结束时，这个锁会自动打开。
 lock-opens-restart = 电脑重启时，这个锁会自动打开。
-lock-opens-location = 电脑离开该地点时，这个锁会自动打开。
+lock-opens-location = 电脑离开该地点时，这个锁会自动打开，拦截组也会关闭。

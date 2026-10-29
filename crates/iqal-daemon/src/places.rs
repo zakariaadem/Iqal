@@ -32,8 +32,26 @@ struct Fingerprint {
 /// Serialises access to the fingerprint file (watcher and "learn now").
 static FILE_LOCK: Mutex<()> = Mutex::new(());
 
-/// "I am at this place now": adds the networks in range to the area.
-/// Returns how many networks the place now has.
+/// "I am at this place now", without making the person wait: learns the
+/// networks the computer already lists (`now`) at once, and those a fresh
+/// scan finds (`later`) in the background. With none listed yet, waits for
+/// the scan. Returns how many networks the place has.
+pub fn learn_now_and_later(
+    state_dir: &Path,
+    area: &GeoArea,
+    now: Vec<String>,
+    later: impl FnOnce() -> Vec<String> + Send + 'static,
+) -> std::io::Result<usize> {
+    let (dir, place) = (state_dir.to_path_buf(), area.clone());
+    let scan = std::thread::spawn(move || learn(&dir, &place, &later()));
+    if now.is_empty() {
+        return scan.join().unwrap_or_else(|_| Err(std::io::Error::other("Wi-Fi scan failed")));
+    }
+    learn(state_dir, area, &now)
+}
+
+/// Adds the networks in range to the area. Returns how many networks the
+/// place now has.
 pub fn learn(state_dir: &Path, area: &GeoArea, visible: &[String]) -> std::io::Result<usize> {
     if visible.is_empty() {
         return Err(std::io::Error::other("no Wi-Fi networks in range (is Wi-Fi on?)"));

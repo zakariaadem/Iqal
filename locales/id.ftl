@@ -332,7 +332,7 @@ location-name-placeholder = Misalnya: Rumah
 area-named = di “{ $name }”
 action-close = Tutup
 
-lock-location-detail-named = Blokir tetap terkunci selama komputer ini berada di tempat ini, dan juga setiap kali Iqal tidak dapat mengetahui lokasinya.
+lock-location-detail-named = Di tempat ini blok menyala dan terkunci. Di luar tempat ini blok mati dan bisa diubah. Saat Iqal tidak dapat mengetahui lokasi komputer, blok tetap terkunci.
 time-source-network = waktu jaringan
 time-source-system = waktu sistem yang tersinkron
 time-source-counted = dihitung dari waktu tepercaya terakhir (luring)
@@ -373,4 +373,4 @@ location-learn-more-detail = Tekan ini agar blok juga terkunci di tempat kompute
 lock-opens-until = Kunci ini terbuka sendiri saat waktunya habis.
 lock-opens-schedule = Kunci ini terbuka sendiri saat waktu-waktunya selesai.
 lock-opens-restart = Kunci ini terbuka sendiri saat komputer dinyalakan ulang.
-lock-opens-location = Kunci ini terbuka sendiri saat komputer meninggalkan tempat itu.
+lock-opens-location = Kunci ini terbuka sendiri, dan blok mati, saat komputer meninggalkan tempat itu.

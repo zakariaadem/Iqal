@@ -347,7 +347,7 @@ location-name-placeholder = Por exemplo: Casa
 area-named = em «{ $name }»
 action-close = Fechar
 
-lock-location-detail-named = O bloqueio continua trancado enquanto este computador estiver neste lugar, e também sempre que o Iqal não conseguir saber onde ele está.
+lock-location-detail-named = Neste lugar o bloqueio fica ligado e trancado. Fora dele fica desligado e pode ser alterado. Quando o Iqal não consegue saber onde o computador está, continua trancado.
 time-source-network = hora da rede
 time-source-system = hora do sistema sincronizada
 time-source-counted = contada a partir da última hora confiável (offline)
@@ -388,4 +388,4 @@ location-learn-more-detail = Pressione aqui para trancar o bloqueio também onde
 lock-opens-until = Esta tranca abre sozinha quando o tempo acaba.
 lock-opens-schedule = Esta tranca abre sozinha quando os horários terminam.
 lock-opens-restart = Esta tranca abre sozinha quando o computador reinicia.
-lock-opens-location = Esta tranca abre sozinha quando o computador sai do lugar.
+lock-opens-location = Esta tranca abre sozinha, e o bloqueio desliga-se, quando o computador sai do lugar.

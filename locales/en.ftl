@@ -347,7 +347,7 @@ location-name-placeholder = For example: Home
 area-named = at “{ $name }”
 action-close = Close
 
-lock-location-detail-named = The block stays locked while this computer is at this place, and also whenever Iqal cannot tell where it is.
+lock-location-detail-named = At this place the block is on and locked. Away from it, the block is off and can be changed. When Iqal cannot tell where the computer is, the block stays locked.
 time-source-network = network time
 time-source-system = synchronised system time
 time-source-counted = counted from the last trusted time (offline)
@@ -388,4 +388,4 @@ location-learn-more-detail = Press this to lock the block where the computer is 
 lock-opens-until = This lock opens by itself when its time is over.
 lock-opens-schedule = This lock opens by itself when its times are over.
 lock-opens-restart = This lock opens by itself when the computer restarts.
-lock-opens-location = This lock opens by itself when the computer leaves the place.
+lock-opens-location = This lock opens by itself, and the block turns off, when the computer leaves the place.
