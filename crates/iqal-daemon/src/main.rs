@@ -270,7 +270,12 @@ fn run_windows_service() -> Result<(), String> {
     let (service, listener) = start_windows(&options)?;
     {
         let service = service.clone();
-        windows::scm::set_lock_check(move || service.lock_summary().any_locked);
+        windows::scm::set_lock_check(move || {
+            let locked = service.lock_summary().any_locked;
+            // So settings folders made again get the permissions for it.
+            service.seal_settings(locked);
+            locked
+        });
     }
     std::thread::Builder::new()
         .name("iqal-pipe".into())

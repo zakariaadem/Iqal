@@ -319,7 +319,6 @@ impl Service {
 
     /// Seals the settings files while a block is locked (see
     /// [`Store::seal`]).
-    #[cfg_attr(not(target_os = "linux"), allow(dead_code))] // Windows protects the folder instead
     pub fn seal_settings(&self, on: bool) {
         self.store.seal(on);
     }

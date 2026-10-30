@@ -318,10 +318,19 @@ pub fn seal_folders(locked: bool) {
         if !dir.is_dir() {
             continue;
         }
-        let sddl = if locked { format!("D:P{SEAL_DENY}{aces}{OWNER_READS}") } else { format!("D:P{aces}") };
-        if let Err(e) = set_folder_permissions(&dir, &sddl) {
-            eprintln!("iqal: permissions of {}: {e}", dir.display());
-        }
+        seal_folder(&dir, aces, locked);
+    }
+}
+
+/// Gives a settings folder made again (someone deleted it) its permissions.
+pub fn protect_settings_dir(dir: &Path, locked: bool) {
+    seal_folder(dir, PRIVATE_DIR_ACES, locked);
+}
+
+fn seal_folder(dir: &Path, aces: &str, locked: bool) {
+    let sddl = if locked { format!("D:P{SEAL_DENY}{aces}{OWNER_READS}") } else { format!("D:P{aces}") };
+    if let Err(e) = set_folder_permissions(dir, &sddl) {
+        eprintln!("iqal: permissions of {}: {e}", dir.display());
     }
 }
 

@@ -22,8 +22,9 @@ pub struct Store {
     dir: PathBuf,
     /// The hidden second copy (a file elsewhere), if any.
     keep: Option<PathBuf>,
-    /// Whether the settings files are sealed (Linux: marked "cannot be
-    /// changed or deleted", which the service lifts for its own saves).
+    /// Whether a block is locked, so the settings are sealed: Linux marks
+    /// the files "cannot be changed or deleted" (lifted for its own saves),
+    /// Windows protects their folders (see `protect_folder`).
     sealed: AtomicBool,
 }
 
@@ -125,6 +126,14 @@ impl Store {
     pub fn save(&self, config: &Config) -> io::Result<()> {
         let json = config.to_json();
         let sealed = self.sealed.load(Ordering::Acquire);
+        // Folders deleted by someone: made again, as private as before.
+        let folders = std::iter::once(self.dir.as_path()).chain(self.keep.as_deref().and_then(Path::parent));
+        for dir in folders {
+            if !dir.is_dir() {
+                create_private_dir(dir)?;
+                protect_folder(dir, sealed);
+            }
+        }
         if sealed {
             self.files().iter().for_each(|f| seal_file(f, false));
         }
@@ -159,6 +168,19 @@ fn seal_file(path: &Path, on: bool) {
 /// Windows protects the settings folder with its permissions instead.
 #[cfg(not(target_os = "linux"))]
 fn seal_file(_path: &Path, _on: bool) {}
+
+/// Windows: the permissions of a settings folder made again (Linux makes
+/// it private when creating it). Only for the real service: a development
+/// folder stays the developer's own.
+#[cfg(windows)]
+fn protect_folder(dir: &Path, sealed: bool) {
+    if crate::windows::system::is_elevated() {
+        crate::windows::system::protect_settings_dir(dir, sealed);
+    }
+}
+
+#[cfg(not(windows))]
+fn protect_folder(_dir: &Path, _sealed: bool) {}
 
 fn read_config(path: &Path) -> io::Result<Option<Config>> {
     let text = match fs::read_to_string(path) {
@@ -263,6 +285,10 @@ mod tests {
         assert!(keep.exists());
         // Deleted while the service runs: written back.
         fs::remove_file(dir.join(CONFIG)).unwrap();
+        store.repair(&config);
+        assert_eq!(read_config(&dir.join(CONFIG)).unwrap().unwrap(), config);
+        // The whole folder deleted: made again.
+        fs::remove_dir_all(&dir).unwrap();
         store.repair(&config);
         assert_eq!(read_config(&dir.join(CONFIG)).unwrap().unwrap(), config);
         // Deleted, then a restart: loaded from the hidden copy.
