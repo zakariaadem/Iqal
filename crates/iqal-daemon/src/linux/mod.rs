@@ -53,6 +53,7 @@ pub fn cleanup() {
     firewall::remove();
     policies::remove();
     lockdown::remove();
+    lockdown::seal_programs(false);
     location::cleanup();
 }
 
@@ -79,8 +80,17 @@ pub fn start_enforcement(service: Arc<Service>, state_dir: std::path::PathBuf, n
         let service = service.clone();
         std::thread::Builder::new().name("iqal-lockdown".into()).spawn(move || {
             let users = procs::Users::load();
+            let mut sealed = None;
             loop {
-                lockdown::apply(&service.lock_summary(), &users);
+                let summary = service.lock_summary();
+                lockdown::apply(&summary, &users);
+                // Iqal's files: sealed while anything is locked (changed
+                // only when that changes, and once at start).
+                if sealed != Some(summary.any_locked) {
+                    sealed = Some(summary.any_locked);
+                    service.seal_settings(summary.any_locked);
+                    lockdown::seal_programs(summary.any_locked);
+                }
                 std::thread::sleep(Duration::from_secs(2));
             }
         })?;

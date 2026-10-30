@@ -8,7 +8,8 @@ case "$1" in
         ;;
     purge)
         # Settings, statistics and downloaded lists.
-        rm -rf /var/lib/iqal
+        chattr -R -i /var/lib/iqal /etc/.iqal-keep.json 2>/dev/null || true
+        rm -rf /var/lib/iqal /etc/.iqal-keep.json
         systemctl daemon-reload || true
         ;;
 esac

@@ -317,6 +317,13 @@ impl Service {
         self.location.read().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
+    /// Seals the settings files while a block is locked (see
+    /// [`Store::seal`]).
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))] // Windows protects the folder instead
+    pub fn seal_settings(&self, on: bool) {
+        self.store.seal(on);
+    }
+
     pub fn set_learner(&self, learner: Learner) {
         let _ = self.learner.set(learner);
     }
@@ -368,13 +375,16 @@ impl Service {
         Ok(out)
     }
 
-    /// Periodic housekeeping: drops expired locks and applies due unlocks.
+    /// Periodic housekeeping: drops expired locks, applies due unlocks and
+    /// writes back deleted settings files.
     pub fn tick(&self) {
         self.save_counters();
         let now = crate::clock::now();
         let loc = self.location();
         let ctx = self.lock_ctx(now, &loc);
         let mut inner = self.lock_inner();
+        // Settings files deleted by someone: written back.
+        self.store.repair(&inner.config);
         let due = inner.config.block_sets.iter().any(|s| {
             let mut probe = s.clone();
             lock::expire(&mut probe, &ctx)

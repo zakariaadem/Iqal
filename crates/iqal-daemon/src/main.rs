@@ -22,6 +22,21 @@ mod linux;
 #[cfg(windows)]
 mod windows;
 
+/// Where the hidden second copy of the settings lives: `real` for the real
+/// settings folder, beside the folder for a development one.
+fn keep_path(state_dir: &std::path::Path, default_dir: &std::path::Path, real: &std::path::Path) -> std::path::PathBuf {
+    if state_dir == default_dir {
+        real.to_path_buf()
+    } else {
+        let mut name = state_dir.as_os_str().to_owned();
+        name.push(".keep.json");
+        name.into()
+    }
+}
+
+#[cfg(target_os = "linux")]
+const LINUX_KEEP: &str = "/etc/.iqal-keep.json";
+
 #[cfg(target_os = "linux")]
 fn main() {
     if let Err(e) = linux_main() {
@@ -78,7 +93,9 @@ fn linux_main() -> Result<(), String> {
             Err(e) => eprintln!("iqal: could not move settings from {}: {e}", legacy.display()),
         }
     }
-    let store = storage::Store::open(&state_dir).map_err(|e| format!("state directory {}: {e}", state_dir.display()))?;
+    let store = storage::Store::open(&state_dir)
+        .map_err(|e| format!("state directory {}: {e}", state_dir.display()))?
+        .with_keep(keep_path(&state_dir, Path::new("/var/lib/iqal"), Path::new(LINUX_KEEP)));
     clock::init(state_dir.clone());
     let service = Arc::new(
         service::Service::new(store, system::boot_id()).map_err(|e| format!("loading settings: {e}"))?,
@@ -88,6 +105,7 @@ fn linux_main() -> Result<(), String> {
         if service.lock_summary().any_locked {
             return Err("a block is locked; Iqal cannot be removed until its locks end".into());
         }
+        service.seal_settings(false);
         linux::cleanup();
         return Ok(());
     }
@@ -274,7 +292,9 @@ fn prepare_state_dir(dir: &std::path::Path) -> Result<(), String> {
 
 #[cfg(windows)]
 fn load_service(state_dir: &std::path::Path) -> Result<service::Service, String> {
-    let store = storage::Store::open(state_dir).map_err(|e| format!("state directory {}: {e}", state_dir.display()))?;
+    let store = storage::Store::open(state_dir)
+        .map_err(|e| format!("state directory {}: {e}", state_dir.display()))?
+        .with_keep(keep_path(state_dir, &WindowsOptions::default().state_dir, &windows::system::keep_file()));
     service::Service::new(store, windows::system::boot_id()).map_err(|e| format!("loading settings: {e}"))
 }
 

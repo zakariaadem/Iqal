@@ -3,11 +3,15 @@
 //! Writes go to a temporary file which is synced and then renamed over the
 //! real file, so a crash or power loss leaves either the old or the new
 //! config, never a torn one. A backup copy is kept for the case where the
-//! main file is damaged anyway.
+//! main file is damaged anyway, and a hidden second copy in another
+//! protected place for the case where someone deletes the settings: the
+//! service writes them back while it runs, and starts from the hidden copy
+//! after a restart.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use iqal_core::Config;
 
@@ -16,47 +20,90 @@ const BACKUP: &str = "config.json.bak";
 
 pub struct Store {
     dir: PathBuf,
+    /// The hidden second copy (a file elsewhere), if any.
+    keep: Option<PathBuf>,
+    /// Whether the settings files are sealed (Linux: marked "cannot be
+    /// changed or deleted", which the service lifts for its own saves).
+    sealed: AtomicBool,
 }
 
 impl Store {
     pub fn open(dir: impl Into<PathBuf>) -> io::Result<Self> {
         let dir = dir.into();
         create_private_dir(&dir)?;
-        Ok(Self { dir })
+        Ok(Self { dir, keep: None, sealed: AtomicBool::new(false) })
     }
 
-    /// Loads the config. A missing file means a fresh install. A damaged
-    /// file falls back to the backup; if that is damaged too, both are
-    /// kept aside for inspection and an empty config is used.
+    /// Also keeps a hidden second copy of the settings in this file.
+    pub fn with_keep(mut self, keep: PathBuf) -> Self {
+        if let Some(parent) = keep.parent()
+            && let Err(e) = create_private_dir(parent)
+        {
+            eprintln!("iqal: {}: {e}", parent.display());
+        }
+        self.keep = Some(keep);
+        self
+    }
+
+    /// The files that hold the settings.
+    fn files(&self) -> Vec<PathBuf> {
+        let mut files = vec![self.dir.join(CONFIG), self.dir.join(BACKUP)];
+        files.extend(self.keep.clone());
+        files
+    }
+
+    /// Seals the settings files while a block is locked (Linux), or opens
+    /// them again.
+    pub fn seal(&self, on: bool) {
+        self.sealed.store(on, Ordering::Release);
+        for f in self.files() {
+            seal_file(&f, on);
+        }
+    }
+
+    /// Writes the settings back if any of their files is missing (someone
+    /// deleted them). Cheap: only looks whether the files are there.
+    pub fn repair(&self, config: &Config) {
+        if self.files().iter().all(|f| f.exists()) {
+            return;
+        }
+        eprintln!("iqal: settings files were deleted; writing them back");
+        if let Err(e) = self.save(config) {
+            eprintln!("iqal: writing the settings back: {e}");
+        }
+    }
+
+    /// Loads the config: the main file, else the backup, else the hidden
+    /// copy (and then writes the others back). None of them there: a fresh
+    /// install. All damaged: they are kept aside for inspection and an
+    /// empty config is used.
     pub fn load(&self) -> io::Result<Config> {
-        let main = self.dir.join(CONFIG);
-        match read_config(&main) {
-            Ok(Some(c)) => return Ok(c),
-            Ok(None) => return Ok(Config::default()),
-            Err(e) => eprintln!("iqal: {} is damaged ({e}); trying the backup", main.display()),
-        }
-        let backup = self.dir.join(BACKUP);
-        match read_config(&backup) {
-            Ok(Some(c)) => {
-                eprintln!("iqal: restored configuration from backup");
-                self.save(&c)?;
-                Ok(c)
-            }
-            other => {
-                if let Err(e) = other {
-                    eprintln!("iqal: backup is damaged too ({e})");
+        let mut damaged = false;
+        for (i, path) in self.files().iter().enumerate() {
+            match read_config(path) {
+                Ok(Some(c)) => {
+                    if i > 0 {
+                        eprintln!("iqal: restored the settings from {}", path.display());
+                        self.save(&c)?;
+                    }
+                    return Ok(c);
                 }
-                let stamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                for f in [CONFIG, BACKUP] {
-                    let _ = fs::rename(self.dir.join(f), self.dir.join(format!("{f}.damaged-{stamp}")));
+                Ok(None) => {}
+                Err(e) => {
+                    eprintln!("iqal: {} is damaged ({e})", path.display());
+                    damaged = true;
                 }
-                eprintln!("iqal: starting with an empty configuration");
-                Ok(Config::default())
             }
         }
+        if damaged {
+            let stamp =
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            for f in [CONFIG, BACKUP] {
+                let _ = fs::rename(self.dir.join(f), self.dir.join(format!("{f}.damaged-{stamp}")));
+            }
+            eprintln!("iqal: starting with an empty configuration");
+        }
+        Ok(Config::default())
     }
 
     /// Small auxiliary state files next to the config.
@@ -74,10 +121,41 @@ impl Store {
 
     pub fn save(&self, config: &Config) -> io::Result<()> {
         let json = config.to_json();
-        write_atomic(&self.dir, CONFIG, json.as_bytes())?;
-        write_atomic(&self.dir, BACKUP, json.as_bytes())
+        let sealed = self.sealed.load(Ordering::Acquire);
+        if sealed {
+            self.files().iter().for_each(|f| seal_file(f, false));
+        }
+        let result = (|| {
+            write_atomic(&self.dir, CONFIG, json.as_bytes())?;
+            write_atomic(&self.dir, BACKUP, json.as_bytes())?;
+            if let Some(keep) = &self.keep
+                && let (Some(dir), Some(name)) = (keep.parent(), keep.file_name())
+            {
+                write_atomic(dir, &name.to_string_lossy(), json.as_bytes())?;
+            }
+            Ok(())
+        })();
+        if sealed {
+            self.files().iter().for_each(|f| seal_file(f, true));
+        }
+        result
     }
 }
+
+/// Linux: sets or clears the "cannot be changed or deleted" mark, which
+/// even root must clear first. A missing file is fine.
+#[cfg(target_os = "linux")]
+fn seal_file(path: &Path, on: bool) {
+    if let Err(e) = crate::linux::system::set_immutable(path, on)
+        && e.kind() != io::ErrorKind::NotFound
+    {
+        eprintln!("iqal: {}: {e}", path.display());
+    }
+}
+
+/// Windows protects the settings folder with its permissions instead.
+#[cfg(not(target_os = "linux"))]
+fn seal_file(_path: &Path, _on: bool) {}
 
 fn read_config(path: &Path) -> io::Result<Option<Config>> {
     let text = match fs::read_to_string(path) {
@@ -169,6 +247,28 @@ mod tests {
         // The main file was repaired.
         assert_eq!(read_config(&dir.join(CONFIG)).unwrap().unwrap(), config);
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn hidden_copy_brings_deleted_settings_back() {
+        let dir = temp_dir("keep");
+        let keep = temp_dir("keep-hidden").join("keep.json");
+        let store = Store::open(&dir).unwrap().with_keep(keep.clone());
+        let mut config = Config::default();
+        config.block_sets.push(BlockSet::new("a"));
+        store.save(&config).unwrap();
+        assert!(keep.exists());
+        // Deleted while the service runs: written back.
+        fs::remove_file(dir.join(CONFIG)).unwrap();
+        store.repair(&config);
+        assert_eq!(read_config(&dir.join(CONFIG)).unwrap().unwrap(), config);
+        // Deleted, then a restart: loaded from the hidden copy.
+        fs::remove_dir_all(&dir).unwrap();
+        let store = Store::open(&dir).unwrap().with_keep(keep.clone());
+        assert_eq!(store.load().unwrap(), config);
+        assert!(dir.join(CONFIG).exists() && dir.join(BACKUP).exists());
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(keep.parent().unwrap()).unwrap();
     }
 
     #[test]

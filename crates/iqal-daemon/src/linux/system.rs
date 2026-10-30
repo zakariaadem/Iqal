@@ -73,3 +73,27 @@ pub fn watchdog_interval() -> Option<std::time::Duration> {
     }
     Some(std::time::Duration::from_micros(usec / 2))
 }
+
+/// Sets or clears a file's "cannot be changed or deleted" mark (the
+/// immutable attribute, `chattr +i`). Only root may, and even root must
+/// clear it before deleting, renaming or changing the file.
+pub fn set_immutable(path: &std::path::Path, on: bool) -> std::io::Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+    const FS_IMMUTABLE_FL: libc::c_int = 0x10;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(path)?;
+    let fd = std::os::fd::AsRawFd::as_raw_fd(&file);
+    let mut flags: libc::c_int = 0;
+    // SAFETY: fd is open; the kernel reads and writes one int.
+    if unsafe { libc::ioctl(fd, libc::FS_IOC_GETFLAGS, &mut flags) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    let wanted = if on { flags | FS_IMMUTABLE_FL } else { flags & !FS_IMMUTABLE_FL };
+    // SAFETY: as above.
+    if wanted != flags && unsafe { libc::ioctl(fd, libc::FS_IOC_SETFLAGS, &wanted) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}

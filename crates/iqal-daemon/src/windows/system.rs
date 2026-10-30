@@ -8,10 +8,11 @@ use std::path::Path;
 
 use windows_sys::Win32::Foundation::{HANDLE, LocalFree};
 use windows_sys::Win32::Security::Authorization::{
-    ConvertStringSecurityDescriptorToSecurityDescriptorW, ConvertStringSidToSidW, SDDL_REVISION_1,
+    ConvertStringSecurityDescriptorToSecurityDescriptorW, ConvertStringSidToSidW, SDDL_REVISION_1, SE_FILE_OBJECT,
+    SetNamedSecurityInfoW,
 };
 use windows_sys::Win32::Security::{
-    CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetTokenInformation, LookupAccountSidW,
+    ACL, CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetSecurityDescriptorDacl, GetTokenInformation, LookupAccountSidW,
     PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, RevertToSelf, SECURITY_MAX_SID_SIZE, SID_NAME_USE, SetFileSecurityW, TOKEN_GROUPS, TOKEN_QUERY,
     TOKEN_ELEVATION, TOKEN_USER, TokenElevation, TokenGroups, TokenUser, WELL_KNOWN_SID_TYPE, WinBuiltinAdministratorsSid, WinLocalSystemSid,
 };
@@ -271,4 +272,117 @@ pub fn protect_dir(dir: &Path) -> io::Result<()> {
         SetFileSecurityW(path.as_ptr(), DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, sd.as_ptr())
     };
     if ok == 0 { Err(io::Error::last_os_error()) } else { Ok(()) }
+}
+
+/// Who may change Iqal's folders while a block is locked: nobody signed in
+/// to Windows (administrators included) and no program such a person
+/// starts may delete, rename, write, or change the owner or permissions of
+/// anything in them; reading and running stay allowed. INTERACTIVE,
+/// NETWORK and BATCH are in every signed-in person's access token but not
+/// in Windows' own (LocalSystem, which the service runs as), so the service
+/// itself can still save and change these permissions back. Rights denied:
+/// DELETE, WRITE_DAC, WRITE_OWNER, FILE_DELETE_CHILD, write data, append,
+/// write extended attributes and attributes.
+const SEAL_DENY: &str = "(D;OICI;0xd0156;;;IU)(D;OICI;0xd0156;;;NU)(D;OICI;0xd0156;;;S-1-5-3)";
+/// Limits an owner's implicit rights to reading the permissions (else the
+/// owner could always change them).
+const OWNER_READS: &str = "(A;OICI;RC;;;OW)";
+/// The program folder normally: like Program Files, everyone may read and
+/// run (also apps from the Store), Windows and administrators change.
+const PROGRAM_DIR_ACES: &str = "(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)(A;OICI;0x1200a9;;;AC)";
+/// The settings folders normally (as `PRIVATE_DIR_SDDL`).
+const PRIVATE_DIR_ACES: &str = "(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
+
+/// Iqal's folders and their permissions: the programs (only an installed
+/// Iqal, in Program Files), the settings, and the settings' hidden copy.
+fn sealable_folders() -> Vec<(std::path::PathBuf, &'static str)> {
+    let mut out = Vec::new();
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+        && dir.join("iqal-setup.exe").exists()
+    {
+        out.push((dir.to_path_buf(), PROGRAM_DIR_ACES));
+    }
+    let program_data = std::env::var_os("ProgramData").unwrap_or_else(|| r"C:\ProgramData".into());
+    out.push((Path::new(&program_data).join("Iqal"), PRIVATE_DIR_ACES));
+    if let Some(dir) = keep_file().parent() {
+        out.push((dir.to_path_buf(), PRIVATE_DIR_ACES));
+    }
+    out
+}
+
+/// Seals Iqal's folders while a block is locked (see `SEAL_DENY`), or
+/// gives them their normal permissions again. Applied to everything inside.
+pub fn seal_folders(locked: bool) {
+    for (dir, aces) in sealable_folders() {
+        if !dir.is_dir() {
+            continue;
+        }
+        let sddl = if locked { format!("D:P{SEAL_DENY}{aces}{OWNER_READS}") } else { format!("D:P{aces}") };
+        if let Err(e) = set_folder_permissions(&dir, &sddl) {
+            eprintln!("iqal: permissions of {}: {e}", dir.display());
+        }
+    }
+}
+
+/// Where the settings' hidden second copy lives: inside Windows' own
+/// (LocalSystem's) profile folder.
+pub fn keep_file() -> std::path::PathBuf {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+    Path::new(&root).join(r"System32\config\systemprofile\AppData\Local\Iqal\keep.json")
+}
+
+/// Sets a folder's permissions (not inherited from its parent) and passes
+/// them on to everything inside it.
+pub fn set_folder_permissions(dir: &Path, sddl: &str) -> io::Result<()> {
+    let sd = SecurityDescriptor::from_sddl(sddl)?;
+    let mut present = 0;
+    let mut defaulted = 0;
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    // SAFETY: sd is a valid descriptor; out pointers are valid.
+    if unsafe { GetSecurityDescriptorDacl(sd.as_ptr(), &mut present, &mut dacl, &mut defaulted) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let path = wide(&dir.to_string_lossy());
+    // SAFETY: path is NUL-terminated; dacl points into sd, alive here.
+    let status = unsafe {
+        SetNamedSecurityInfoW(
+            path.as_ptr(),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            dacl,
+            std::ptr::null(),
+        )
+    };
+    if status != 0 { Err(io::Error::from_raw_os_error(status as i32)) } else { Ok(()) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn folder_permissions_are_valid() {
+        for aces in [PROGRAM_DIR_ACES, PRIVATE_DIR_ACES] {
+            SecurityDescriptor::from_sddl(&format!("D:P{SEAL_DENY}{aces}{OWNER_READS}")).unwrap();
+            SecurityDescriptor::from_sddl(&format!("D:P{aces}")).unwrap();
+        }
+    }
+
+    /// Permissions reach what is already inside the folder. (BATCH stands
+    /// in for the people denied: the test itself must keep its rights.)
+    #[test]
+    fn folder_permissions_reach_the_files_inside() {
+        let dir = std::env::temp_dir().join(format!("iqal-seal-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        std::fs::write(dir.join("sub").join("f.txt"), "x").unwrap();
+        set_folder_permissions(&dir, "D:P(D;OICI;0xd0156;;;S-1-5-3)(A;OICI;FA;;;AU)").unwrap();
+        let out = std::process::Command::new("icacls").arg(dir.join("sub").join("f.txt")).output().unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(text.contains("BATCH:(I)(DENY)"), "{text}");
+        set_folder_permissions(&dir, "D:P(A;OICI;FA;;;AU)").unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

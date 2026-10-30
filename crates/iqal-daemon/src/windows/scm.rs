@@ -70,6 +70,8 @@ const LOCKED_SERVICE_SDDL: &str = "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;SY)(A;;CCL
 
 /// Applies the service permissions for the lock state.
 fn protect(locked: bool) {
+    // Iqal's own folders: not to be deleted or changed while locked.
+    super::system::seal_folders(locked);
     let sddl = if locked { LOCKED_SERVICE_SDDL } else { SERVICE_SDDL };
     let result = (|| -> std::io::Result<()> {
         let sd = super::system::SecurityDescriptor::from_sddl(sddl)?;

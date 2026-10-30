@@ -12,8 +12,12 @@
 //! * while anything is locked: the startup menu (GRUB) is hidden and offers
 //!   no recovery mode, which would start the computer without Iqal (the
 //!   Linux way around it, like Safe Mode on Windows).
+//! * while anything is locked: Iqal's program and settings files are
+//!   marked "cannot be changed or deleted" (`seal_programs`, and the
+//!   settings store).
 //!
-//! Root itself is never restricted.
+//! Root itself is never restricted, except that it must lift that mark
+//! before deleting Iqal's files.
 
 use std::fs;
 use std::io;
@@ -212,5 +216,44 @@ mod tests {
         // Hardened but nothing locked: no restrictions at all.
         let idle = LockSummary { hardened: true, ..LockSummary::default() };
         assert!(polkit_rules(&idle).is_none());
+    }
+}
+
+/// The installed program files (the package's own, not a development
+/// build): while anything is locked they carry the "cannot be changed or
+/// deleted" mark, so even an administrator cannot simply delete Iqal. The
+/// package lifts the mark itself before an update.
+const PROGRAM_FILES: &[&str] = &[
+    "/usr/lib/iqal",
+    "/usr/bin/iqal",
+    "/usr/bin/iqal-cli",
+    "/usr/bin/iqal-agent",
+    "/usr/lib/systemd/system/iqal.service",
+    "/etc/xdg/autostart/iqal-agent.desktop",
+];
+
+pub fn seal_programs(on: bool) {
+    if std::env::current_exe().ok().as_deref() != Some(std::path::Path::new("/usr/lib/iqal/iqal-daemon")) {
+        return;
+    }
+    for path in PROGRAM_FILES {
+        seal_tree(std::path::Path::new(path), on);
+    }
+}
+
+fn seal_tree(path: &std::path::Path, on: bool) {
+    let Ok(meta) = fs::symlink_metadata(path) else { return };
+    if meta.file_type().is_symlink() {
+        return;
+    }
+    if meta.is_dir()
+        && let Ok(entries) = fs::read_dir(path)
+    {
+        for entry in entries.flatten() {
+            seal_tree(&entry.path(), on);
+        }
+    }
+    if let Err(e) = system::set_immutable(path, on) {
+        eprintln!("iqal: {}: {e}", path.display());
     }
 }

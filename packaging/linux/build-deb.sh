@@ -56,7 +56,7 @@ install -m 0644 "$SRC/packaging/linux/iqal.svg" "$ROOT/usr/share/icons/hicolor/s
 install -m 0644 "$SRC/packaging/linux/debian/copyright" "$ROOT/usr/share/doc/iqal/copyright"
 chmod 0644 "$ROOT/usr/lib/systemd/system/iqal.service" "$ROOT/etc/xdg/autostart/iqal-agent.desktop" "$ROOT/usr/share/applications/iqal.desktop"
 
-for s in postinst prerm postrm; do
+for s in preinst postinst prerm postrm; do
     install -m 0755 "$SRC/packaging/linux/debian/$s" "$ROOT/DEBIAN/$s"
 done
 echo "/etc/xdg/autostart/iqal-agent.desktop" > "$ROOT/DEBIAN/conffiles"

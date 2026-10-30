@@ -1,0 +1,15 @@
+#!/bin/sh
+# Iqal: before installing or updating.
+set -e
+
+case "$1" in
+    upgrade)
+        # While a block is locked Iqal marks its program files "cannot be
+        # changed or deleted"; an update lifts the mark so it can replace
+        # them (the new service sets it again when it starts).
+        chattr -R -i /usr/lib/iqal /usr/bin/iqal /usr/bin/iqal-cli /usr/bin/iqal-agent \
+            /usr/lib/systemd/system/iqal.service /etc/xdg/autostart/iqal-agent.desktop 2>/dev/null || true
+        ;;
+esac
+
+exit 0
