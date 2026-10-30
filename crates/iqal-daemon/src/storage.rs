@@ -36,7 +36,10 @@ impl Store {
 
     /// Also keeps a hidden second copy of the settings in this file.
     pub fn with_keep(mut self, keep: PathBuf) -> Self {
+        // Only a folder made here is made private: an existing one (such as
+        // /etc, which everyone must be able to read) keeps its permissions.
         if let Some(parent) = keep.parent()
+            && !parent.exists()
             && let Err(e) = create_private_dir(parent)
         {
             eprintln!("iqal: {}: {e}", parent.display());
