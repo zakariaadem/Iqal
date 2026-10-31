@@ -39,7 +39,7 @@ use crate::ui::{self, View};
 use crate::{dialog, theme, win};
 
 /// Static texts centred vertically (single line), without & shortcuts.
-const SS_LABEL: u32 = 0x2000 | 0x0200;
+const SS_LABEL: u32 = panel::SS_TEXT | 0x0200;
 
 pub struct Editor {
     pub root: Panel,
@@ -514,7 +514,7 @@ pub fn allowance(page: Panel, view: &View) -> Vec<Item> {
             })
             .collect();
         let text = if used.is_empty() { t("allowance-unused") } else { format!("{} {}", t("allowance-used-today-items"), used.join("   ·   ")) };
-        items.push(Item::Text(page.control("STATIC", &text, 0x2000, 0)));
+        items.push(Item::Text(page.control("STATIC", &text, panel::SS_TEXT, 0)));
     }
     items
 }

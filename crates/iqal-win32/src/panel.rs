@@ -42,6 +42,9 @@ const WHEEL_STEP: i32 = 48;
 pub const ROW: i32 = 30;
 /// Height of a drop-down list's window while open, at 96 DPI.
 const DROPDOWN_OPEN: i32 = 240;
+/// Style of static texts: wrapped like a text box (SS_EDITCONTROL), with
+/// "&" shown as it is rather than as a shortcut underline (SS_NOPREFIX).
+pub const SS_TEXT: u32 = 0x2000 | 0x0080;
 
 /// How wide a control in a row is.
 #[derive(Clone, Copy)]
@@ -173,14 +176,14 @@ impl Panel {
 
     /// A greyed explanation text.
     pub fn note(&self, text: &str) -> HWND {
-        let hwnd = self.control("STATIC", text, 0x2000 /* SS_NOPREFIX */, 0);
+        let hwnd = self.control("STATIC", text, SS_TEXT, 0);
         NOTES.with(|n| n.borrow_mut().insert(hwnd as isize, theme::Tone::Grey));
         hwnd
     }
 
     /// A text in the bold font (headings).
     pub fn heading(&self, text: &str) -> HWND {
-        let hwnd = self.control("STATIC", text, 0x2000, 0);
+        let hwnd = self.control("STATIC", text, SS_TEXT, 0);
         if let Some(fonts) = fonts() {
             win::send(hwnd, windows_sys::Win32::UI::WindowsAndMessaging::WM_SETFONT, fonts.bold as usize, 1);
         }

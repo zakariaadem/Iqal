@@ -333,6 +333,9 @@ area-named = di “{ $name }”
 action-close = Tutup
 
 lock-location-detail-named = Di tempat ini blok menyala dan terkunci. Di luar tempat ini blok mati dan bisa diubah. Saat Iqal tidak dapat mengetahui lokasi komputer, blok tetap terkunci.
+location-windows-off-title = Lokasi Windows mati
+location-windows-off-detail = Selama Lokasi Windows mati, Windows menyembunyikan jaringan Wi-Fi di sekitar komputer ini, sehingga Iqal tidak dapat mengetahui lokasinya dan kunci tempat akan tetap terkunci di mana pun. Nyalakan Lokasi di Pengaturan > Privasi & keamanan > Lokasi (memerlukan akun administrator), lalu coba lagi.
+location-windows-off-note = Lokasi Windows mati, sehingga Iqal tidak dapat mengetahui lokasi komputer ini dan blok tetap terkunci. Nyalakan di Pengaturan > Privasi & keamanan > Lokasi (memerlukan akun administrator).
 time-source-network = waktu jaringan
 time-source-system = waktu sistem yang tersinkron
 time-source-counted = dihitung dari waktu tepercaya terakhir (luring)

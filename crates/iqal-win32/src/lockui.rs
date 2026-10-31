@@ -10,6 +10,7 @@ use iqal_i18n::{t, ta};
 use iqal_ipc::{ChallengeInfo, Request, Response, UnlockInfo};
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, SYSTEMTIME, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{CreateFontW, DeleteObject, FW_NORMAL, InvalidateRect};
+use windows_sys::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
 use windows_sys::Win32::UI::Controls::{BST_CHECKED, DTM_GETSYSTEMTIME, DTS_SHORTDATEFORMAT};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{EnableWindow, SetFocus};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
@@ -25,7 +26,7 @@ use crate::panel::{self, Item, Panel, Width, width_of};
 use crate::ui::{self, View};
 use crate::{dialog, win};
 
-const SS_LABEL: u32 = 0x2000 | 0x0200;
+const SS_LABEL: u32 = panel::SS_TEXT | 0x0200;
 const EM_SETCUEBANNER: u32 = 0x1501;
 const EM_SETPASSWORDCHAR: u32 = 0x00CC;
 const EM_GETPASSWORDCHAR: u32 = 0x00D2;
@@ -54,9 +55,9 @@ pub fn page(page: Panel, view: &View) {
         Some(lock) => {
             let state = if info.locked { "lock-active" } else { "lock-inactive" };
             items.push(Item::Full { hwnd: page.heading(&t(state)), height: 22 });
-            items.push(Item::Text(page.control("STATIC", &describe_lock(lock), 0x2000, 0)));
+            items.push(Item::Text(page.control("STATIC", &describe_lock(lock), panel::SS_TEXT, 0)));
             if let Some(at) = set.pending_unlock_at {
-                items.push(Item::Text(page.control("STATIC", &ta("lock-pending", &[("time", fmt_time(at).into())]), 0x2000, 0)));
+                items.push(Item::Text(page.control("STATIC", &ta("lock-pending", &[("time", fmt_time(at).into())]), panel::SS_TEXT, 0)));
                 let cancel = page.control("BUTTON", &t("action-cancel-unlock"), WS_TABSTOP, 0);
                 panel::on(cancel, move |code| {
                     if code == BN_CLICKED {
@@ -77,6 +78,12 @@ pub fn page(page: Panel, view: &View) {
                 } else {
                     ("location-learn-detail", "action-learn-location")
                 };
+                // Windows Location off: Iqal cannot tell where the computer is.
+                if location_off() {
+                    let warn = page.note(&t("location-windows-off-note"));
+                    panel::warning(warn);
+                    items.push(Item::Text(warn));
+                }
                 items.push(Item::Text(page.note(&t(detail))));
                 let learn = page.control("BUTTON", &t(action), WS_TABSTOP, 0);
                 panel::on(learn, move |code| {
@@ -135,9 +142,37 @@ pub fn page(page: Panel, view: &View) {
     page.set_items(items);
 }
 
+/// Whether Windows Location is off for the whole computer. Windows then
+/// hides the Wi-Fi networks around it, so Iqal cannot recognise places (a
+/// place lock then stays locked everywhere). `IQAL_LOCATION_OFF=1` acts
+/// as if it were off (for testing).
+fn location_off() -> bool {
+    if std::env::var_os("IQAL_LOCATION_OFF").is_some() {
+        return true;
+    }
+    let key = win::wide(r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location");
+    let value = win::wide("Value");
+    let mut buf = [0u16; 16];
+    let mut size = std::mem::size_of_val(&buf) as u32;
+    // SAFETY: valid strings; buf holds `size` bytes.
+    let ok = unsafe {
+        RegGetValueW(HKEY_LOCAL_MACHINE, key.as_ptr(), value.as_ptr(), RRF_RT_REG_SZ, std::ptr::null_mut(), buf.as_mut_ptr().cast(), &mut size)
+    } == 0;
+    let len = (size as usize / 2).saturating_sub(1).min(buf.len());
+    ok && String::from_utf16_lossy(&buf[..len]) == "Deny"
+}
+
+/// Says that Windows Location is off and how to turn it on.
+fn location_off_message(owner: HWND) {
+    dialog::message(owner, dialog::Icon::Warning, &t("location-windows-off-title"), &t("location-windows-off-detail"));
+}
+
 /// Remembers the Wi-Fi networks around the computer for the block's
 /// location lock, and says how many.
 fn learn_place(owner: HWND, id: SetId) {
+    if location_off() {
+        return location_off_message(owner);
+    }
     match ui::call(Request::LearnLocation { id }) {
         Ok(Response::Learned { networks }) => dialog::message(
             owner,
@@ -389,6 +424,11 @@ fn build_lock_dialog(page: Panel, closer: Closer) {
                 if !checked(yes) && !checked(no) {
                     return fail("location-here-unanswered");
                 }
+                // Iqal could never learn or recognise the place: it would stay
+                // locked everywhere.
+                if location_off() {
+                    return location_off_message(owner);
+                }
                 LockKind::Location { area }
             }
         };
@@ -493,8 +533,8 @@ fn answer_dialog(id: SetId, text: Option<String>) {
         let mut items = Vec::new();
         let entry = match &text {
             Some(text) => {
-                items.push(Item::Text(page.control("STATIC", &t("unlock-type-text"), 0x2000, 0)));
-                let shown = page.control("STATIC", text, 0x2000, 0);
+                items.push(Item::Text(page.control("STATIC", &t("unlock-type-text"), panel::SS_TEXT, 0)));
+                let shown = page.control("STATIC", text, panel::SS_TEXT, 0);
                 win::send(shown, WM_SETFONT, font as usize, 1);
                 items.push(Item::Text(shown));
                 let e = page.control("EDIT", "", WS_TABSTOP | ES_AUTOHSCROLL as u32, WS_EX_CLIENTEDGE);
@@ -504,7 +544,7 @@ fn answer_dialog(id: SetId, text: Option<String>) {
                 e
             }
             None => {
-                items.push(Item::Text(page.control("STATIC", &t("unlock-enter-password"), 0x2000, 0)));
+                items.push(Item::Text(page.control("STATIC", &t("unlock-enter-password"), panel::SS_TEXT, 0)));
                 page.control("EDIT", "", WS_TABSTOP | (ES_PASSWORD | ES_AUTOHSCROLL) as u32, WS_EX_CLIENTEDGE)
             }
         };

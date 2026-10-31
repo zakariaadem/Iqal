@@ -348,6 +348,9 @@ area-named = en «{ $name }»
 action-close = Cerrar
 
 lock-location-detail-named = En este lugar el bloque está activado y bloqueado. Fuera de él está desactivado y se puede cambiar. Cuando Iqal no puede saber dónde está el equipo, el bloque sigue bloqueado.
+location-windows-off-title = La ubicación de Windows está desactivada
+location-windows-off-detail = Mientras la ubicación de Windows está desactivada, Windows oculta las redes Wi-Fi alrededor de este equipo, así que Iqal no puede saber dónde está y un bloqueo por lugar seguiría cerrado en todas partes. Activa la ubicación en Configuración > Privacidad y seguridad > Ubicación (se necesita una cuenta de administrador) y vuelve a intentarlo.
+location-windows-off-note = La ubicación de Windows está desactivada, así que Iqal no puede saber dónde está este equipo y el bloque sigue bloqueado. Actívala en Configuración > Privacidad y seguridad > Ubicación (se necesita una cuenta de administrador).
 time-source-network = hora de la red
 time-source-system = hora del sistema sincronizada
 time-source-counted = contada desde la última hora fiable (sin conexión)

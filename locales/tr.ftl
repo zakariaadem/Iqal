@@ -339,6 +339,9 @@ area-named = “{ $name }” konumunda
 action-close = Kapat
 
 lock-location-detail-named = Bu yerde engel açık ve kilitlidir. Bu yerden uzaktayken kapalıdır ve değiştirilebilir. Iqal bilgisayarın nerede olduğunu anlayamadığında engel kilitli kalır.
+location-windows-off-title = Windows Konum kapalı
+location-windows-off-detail = Windows Konum kapalıyken Windows bu bilgisayarın çevresindeki Wi-Fi ağlarını gizler; bu yüzden Iqal bilgisayarın nerede olduğunu anlayamaz ve yer kilidi her yerde kilitli kalır. Konumu Ayarlar > Gizlilik ve güvenlik > Konum bölümünden açın (yönetici hesabı gerekir) ve yeniden deneyin.
+location-windows-off-note = Windows Konum kapalı; bu yüzden Iqal bu bilgisayarın nerede olduğunu anlayamaz ve engel kilitli kalır. Ayarlar > Gizlilik ve güvenlik > Konum bölümünden açın (yönetici hesabı gerekir).
 time-source-network = ağ saati
 time-source-system = eşitlenmiş sistem saati
 time-source-counted = son güvenilir saatten sayılan (çevrimdışı)

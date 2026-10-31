@@ -348,6 +348,9 @@ area-named = à « { $name } »
 action-close = Fermer
 
 lock-location-detail-named = À cet endroit, le bloc est activé et verrouillé. Ailleurs, il est désactivé et peut être modifié. Quand Iqal ne peut pas savoir où se trouve l’ordinateur, le bloc reste verrouillé.
+location-windows-off-title = La localisation de Windows est désactivée
+location-windows-off-detail = Tant que la localisation de Windows est désactivée, Windows masque les réseaux Wi-Fi autour de cet ordinateur : Iqal ne peut pas savoir où il se trouve et un verrou de lieu resterait verrouillé partout. Activez la localisation dans Paramètres > Confidentialité et sécurité > Localisation (un compte administrateur est nécessaire), puis réessayez.
+location-windows-off-note = La localisation de Windows est désactivée : Iqal ne peut pas savoir où se trouve cet ordinateur et le bloc reste verrouillé. Activez-la dans Paramètres > Confidentialité et sécurité > Localisation (un compte administrateur est nécessaire).
 time-source-network = heure du réseau
 time-source-system = heure système synchronisée
 time-source-counted = comptée depuis la dernière heure fiable (hors ligne)

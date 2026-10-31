@@ -70,7 +70,7 @@ fn show(owner: HWND, icon: Option<Icon>, title: &str, detail: &str, buttons: &[(
             None => items.push(Item::Text(heading)),
         }
         if !detail.is_empty() {
-            items.push(Item::Text(page.control("STATIC", detail, 0x2000 /* SS_NOPREFIX */, 0)));
+            items.push(Item::Text(page.control("STATIC", detail, panel::SS_TEXT, 0)));
         }
         items.push(Item::Space(8));
         let mut row = vec![(page.control("STATIC", "", 0, 0), Width::Flex)];

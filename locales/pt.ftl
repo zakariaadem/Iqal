@@ -348,6 +348,9 @@ area-named = em «{ $name }»
 action-close = Fechar
 
 lock-location-detail-named = Neste lugar o bloqueio fica ligado e trancado. Fora dele fica desligado e pode ser alterado. Quando o Iqal não consegue saber onde o computador está, continua trancado.
+location-windows-off-title = A localização do Windows está desligada
+location-windows-off-detail = Enquanto a localização do Windows está desligada, o Windows esconde as redes Wi-Fi à volta deste computador, por isso o Iqal não consegue saber onde ele está e uma tranca de lugar ficaria trancada em todo o lado. Ligue a localização em Definições > Privacidade e segurança > Localização (é preciso uma conta de administrador) e tente de novo.
+location-windows-off-note = A localização do Windows está desligada, por isso o Iqal não consegue saber onde este computador está e o bloqueio continua trancado. Ligue-a em Definições > Privacidade e segurança > Localização (é preciso uma conta de administrador).
 time-source-network = hora da rede
 time-source-system = hora do sistema sincronizada
 time-source-counted = contada a partir da última hora confiável (offline)

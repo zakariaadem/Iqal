@@ -348,6 +348,9 @@ area-named = bei „{ $name }“
 action-close = Schließen
 
 lock-location-detail-named = An diesem Ort ist die Sperre ein und abgeschlossen. Anderswo ist sie aus und kann geändert werden. Wenn Iqal nicht erkennen kann, wo der Computer ist, bleibt sie abgeschlossen.
+location-windows-off-title = Windows-Standort ist aus
+location-windows-off-detail = Solange der Windows-Standort aus ist, verbirgt Windows die WLAN-Netze um diesen Computer. Iqal kann dann nicht erkennen, wo er ist, und eine Ortssperre bliebe überall gesperrt. Schalte den Standort unter Einstellungen > Datenschutz und Sicherheit > Standort ein (dafür ist ein Administratorkonto nötig) und versuche es erneut.
+location-windows-off-note = Der Windows-Standort ist aus. Iqal kann daher nicht erkennen, wo dieser Computer ist, und die Sperre bleibt abgeschlossen. Schalte ihn unter Einstellungen > Datenschutz und Sicherheit > Standort ein (dafür ist ein Administratorkonto nötig).
 time-source-network = Netzwerkzeit
 time-source-system = synchronisierte Systemzeit
 time-source-counted = gezählt ab der letzten vertrauenswürdigen Zeit (offline)

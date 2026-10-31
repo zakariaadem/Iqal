@@ -333,6 +333,9 @@ area-named = 在“{ $name }”
 action-close = 关闭
 
 lock-location-detail-named = 在这个地方，拦截组开启并上锁。离开这里时，它是关闭的，可以更改。Iqal 无法判断电脑在哪里时，拦截组保持锁定。
+location-windows-off-title = Windows 定位已关闭
+location-windows-off-detail = Windows 定位关闭时，Windows 会隐藏这台电脑周围的 Wi-Fi 网络，因此 Iqal 无法判断它在哪里，地点锁会在任何地方都保持锁定。请在 设置 > 隐私和安全性 > 位置 中打开定位（需要管理员账户），然后重试。
+location-windows-off-note = Windows 定位已关闭，因此 Iqal 无法判断这台电脑在哪里，拦截组保持锁定。请在 设置 > 隐私和安全性 > 位置 中打开定位（需要管理员账户）。
 time-source-network = 网络时间
 time-source-system = 已同步的系统时间
 time-source-counted = 从上次可信时间起计算（离线）

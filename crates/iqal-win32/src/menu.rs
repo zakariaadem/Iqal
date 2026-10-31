@@ -26,7 +26,7 @@ use crate::win::{self, scale};
 use crate::{dialog, ui};
 
 const EM_SETCUEBANNER: u32 = 0x1501;
-const SS_LABEL: u32 = 0x2000 | 0x0200;
+const SS_LABEL: u32 = panel::SS_TEXT | 0x0200;
 
 /// Shows the menu under `button` and runs the chosen entry.
 pub fn show(owner: HWND, button: HWND) {

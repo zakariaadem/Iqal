@@ -348,6 +348,9 @@ area-named = at “{ $name }”
 action-close = Close
 
 lock-location-detail-named = At this place the block is on and locked. Away from it, the block is off and can be changed. When Iqal cannot tell where the computer is, the block stays locked.
+location-windows-off-title = Windows Location is off
+location-windows-off-detail = While Windows Location is off, Windows hides the Wi-Fi networks around this computer, so Iqal cannot tell where it is and a place lock would stay locked everywhere. Turn Location on in Settings > Privacy & security > Location (this needs an administrator account), then try again.
+location-windows-off-note = Windows Location is off, so Iqal cannot tell where this computer is and the block stays locked. Turn it on in Settings > Privacy & security > Location (this needs an administrator account).
 time-source-network = network time
 time-source-system = synchronised system time
 time-source-counted = counted from the last trusted time (offline)
