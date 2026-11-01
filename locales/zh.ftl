@@ -104,6 +104,7 @@ apps-exceptions = 例外（始终允许）
 apps-allowed = 允许的应用
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
 apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
+apps-wayland-note = 此桌面使用 Wayland，它会对 Iqal 隐藏其他程序的窗口。按窗口标题（"title:"）的规则在这里无效；按名称或文件夹拦截应用仍然有效。
 apps-syntax = 名称会拦截同名程序。以 / 结尾的文件夹会拦截其中的所有程序。title:文字 会关闭标题包含该文字的窗口。cmd:文字 会拦截命令行包含该文字的程序。改名后的副本可用 hash: 规则识别。
 apps-syntax-windows = 名称会拦截同名程序。以 \ 结尾的文件夹会拦截其中的所有程序。title:文字 会关闭标题包含该文字的窗口。cmd:文字 会拦截命令行包含该文字的程序。改名后的副本可用 hash: 规则识别。
 window-title-intro = Iqal 会关闭标题中包含这些词的任何窗口，无论它属于哪个程序。适用于没有独立程序的内容，例如启动器中的游戏。网站请改用“网站”选项卡：浏览器窗口会连同所有标签页一起被关闭。

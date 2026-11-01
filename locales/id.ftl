@@ -104,6 +104,7 @@ apps-exceptions = Pengecualian (selalu diizinkan)
 apps-allowed = Aplikasi yang diizinkan
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
 apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
+apps-wayland-note = Desktop ini memakai Wayland, yang menyembunyikan jendela program lain dari Iqal. Aturan berdasarkan judul jendela ("title:") tidak berfungsi di sini; memblokir aplikasi berdasarkan nama atau folder tetap berfungsi.
 apps-syntax = Nama memblokir program dengan nama itu. Folder yang diakhiri / memblokir semua program di dalamnya. title:Teks menutup jendela yang judulnya memuat teks itu. cmd:Teks memblokir program yang baris perintahnya memuatnya. Salinan yang diganti namanya dikenali dengan aturan hash:.
 apps-syntax-windows = Nama memblokir program dengan nama itu. Folder yang diakhiri \ memblokir semua program di dalamnya. title:Teks menutup jendela yang judulnya memuat teks itu. cmd:Teks memblokir program yang baris perintahnya memuatnya. Salinan yang diganti namanya dikenali dengan aturan hash:.
 window-title-intro = Iqal menutup jendela apa pun yang judulnya berisi kata-kata ini, dari program apa pun. Cocok untuk hal yang tidak punya program sendiri, misalnya game di dalam launcher. Untuk situs web, gunakan tab Situs web: jendela browser akan tertutup bersama semua tabnya.

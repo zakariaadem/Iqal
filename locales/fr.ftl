@@ -107,6 +107,7 @@ apps-exceptions = Exceptions (toujours autorisées)
 apps-allowed = Applications autorisées
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
 apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
+apps-wayland-note = Ce bureau utilise Wayland, qui cache à Iqal les fenêtres des autres programmes. Les règles par titre de fenêtre (« title: ») ne fonctionnent pas ici ; le blocage des applications par nom ou par dossier, si.
 apps-syntax = Un nom bloque le programme portant ce nom. Un dossier terminé par / bloque tous les programmes qu’il contient. title:Texte ferme les fenêtres dont le titre contient le texte. cmd:Texte bloque les programmes dont la ligne de commande le contient. Les copies renommées sont repérées avec les règles hash:.
 apps-syntax-windows = Un nom bloque le programme portant ce nom. Un dossier terminé par \ bloque tous les programmes qu’il contient. title:Texte ferme les fenêtres dont le titre contient le texte. cmd:Texte bloque les programmes dont la ligne de commande le contient. Les copies renommées sont repérées avec les règles hash:.
 window-title-intro = Iqal ferme toute fenêtre dont le titre contient ces mots, quel que soit son programme. Cela convient à ce qui n’a pas de programme propre, comme un jeu dans un lanceur. Pour les sites web, utilisez plutôt l’onglet Sites web : une fenêtre de navigateur serait fermée avec tous ses onglets.

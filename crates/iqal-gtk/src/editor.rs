@@ -340,10 +340,23 @@ fn import_text(ui: &Rc<Ui>, add: Rc<dyn Fn(Vec<String>) -> usize>) {
     });
 }
 
+/// Whether the desktop runs on Wayland, which does not let other programs
+/// see window titles, so "title:" rules cannot work there.
+fn on_wayland() -> bool {
+    std::env::var("XDG_SESSION_TYPE").is_ok_and(|v| v.eq_ignore_ascii_case("wayland"))
+        || std::env::var_os("WAYLAND_DISPLAY").is_some()
+}
+
 fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
     let (scroll, body) = page();
     let mode = mode_dropdown(ui, set.apps.mode, [t("apps-mode-block"), t("apps-mode-allow-only")], |s, m| s.apps.mode = m);
     body.append(&mode_row(&mode));
+    let wayland = on_wayland();
+    if wayland {
+        let n = note(&t("apps-wayland-note"));
+        n.add_css_class("warning-text");
+        body.append(&n);
+    }
 
     let examples = t("apps-placeholder");
     // An allow list stands on its own; a block list has exceptions.
@@ -392,7 +405,10 @@ fn apps(ui: &Rc<Ui>, set: &BlockSet) -> gtk::Widget {
         more.set_halign(gtk::Align::Start);
         more.append(&installed);
         more.append(&file);
-        more.append(&title);
+        // Wayland shows no other program's windows: nothing to pick.
+        if !wayland {
+            more.append(&title);
+        }
         let column = editor.actions.parent().and_downcast::<gtk::Box>();
         if let Some(column) = column {
             column.append(&more);

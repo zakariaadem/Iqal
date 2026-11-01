@@ -107,6 +107,7 @@ apps-exceptions = İstisnalar (her zaman izinli)
 apps-allowed = İzin verilen uygulamalar
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
 apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
+apps-wayland-note = Bu masaüstü Wayland kullanıyor; Wayland diğer programların pencerelerini Iqal'dan gizler. Pencere başlığına göre kurallar ("title:") burada çalışmaz; uygulamaları ada veya klasöre göre engellemek çalışır.
 apps-syntax = Bir ad, o adı taşıyan programı engeller. / ile biten bir klasör içindeki tüm programları engeller. title:Metin, başlığı metni içeren pencereleri kapatır. cmd:Metin, komut satırı onu içeren programları engeller. Yeniden adlandırılmış kopyalar hash: kurallarıyla yakalanır.
 apps-syntax-windows = Bir ad, o adı taşıyan programı engeller. \ ile biten bir klasör içindeki tüm programları engeller. title:Metin, başlığı metni içeren pencereleri kapatır. cmd:Metin, komut satırı onu içeren programları engeller. Yeniden adlandırılmış kopyalar hash: kurallarıyla yakalanır.
 window-title-intro = Iqal, başlığında bu sözcükler geçen her pencereyi, hangi programa ait olursa olsun kapatır. Kendi programı olmayan şeyler için uygundur; örneğin bir başlatıcı içindeki oyun. Web siteleri için Web siteleri sekmesini kullanın: bir tarayıcı penceresi tüm sekmeleriyle kapanır.

@@ -107,6 +107,7 @@ apps-exceptions = Exceptions (always allowed)
 apps-allowed = Allowed apps
 apps-placeholder = steam, /opt/games/, title:YouTube, cmd:minecraft
 apps-placeholder-windows = steam, C:\Games\, title:YouTube, cmd:minecraft
+apps-wayland-note = This desktop uses Wayland, which hides other programs' windows from Iqal. Rules by window title ("title:") do not work here; blocking apps by name or folder does.
 apps-syntax = A name blocks the program with that name. A folder ending in / blocks every program in it. title:Text closes windows whose title contains the text. cmd:Text blocks programs whose command line contains it. Renamed copies are caught with hash: rules.
 apps-syntax-windows = A name blocks the program with that name. A folder ending in \ blocks every program in it. title:Text closes windows whose title contains the text. cmd:Text blocks programs whose command line contains it. Renamed copies are caught with hash: rules.
 window-title-intro = Iqal closes any window whose title contains these words, whatever program it belongs to. This suits things without a program of their own, such as a game inside a launcher. For websites, use the Websites tab instead: a browser window would be closed with all its tabs.
