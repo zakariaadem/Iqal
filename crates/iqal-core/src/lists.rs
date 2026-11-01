@@ -9,17 +9,46 @@ pub struct ListDef {
     pub id: &'static str,
     /// Hosts-file or plain lists, downloaded over HTTPS.
     pub sources: &'static [&'static str],
+    /// Programs the list also blocks (app rules), for lists whose websites
+    /// come with programs that would get around them.
+    pub apps: &'static [&'static str],
 }
 
 pub const CATALOG: &[ListDef] = &[
-    ListDef { id: "social", sources: &["https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/social-only/hosts"] },
-    ListDef { id: "adult", sources: &["https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts"] },
-    ListDef { id: "gambling", sources: &["https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling-only/hosts"] },
-    ListDef { id: "search", sources: &[] },
-    ListDef { id: "news", sources: &[] },
-    ListDef { id: "video", sources: &[] },
-    ListDef { id: "games", sources: &[] },
-    ListDef { id: "shopping", sources: &[] },
+    ListDef { id: "social", sources: &["https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/social-only/hosts"], apps: &[] },
+    ListDef { id: "adult", sources: &["https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts"], apps: &[] },
+    ListDef { id: "gambling", sources: &["https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/gambling-only/hosts"], apps: &[] },
+    ListDef { id: "search", sources: &[], apps: &[] },
+    ListDef { id: "news", sources: &[], apps: &[] },
+    ListDef { id: "video", sources: &[], apps: &[] },
+    ListDef { id: "games", sources: &[], apps: &[] },
+    ListDef { id: "shopping", sources: &[], apps: &[] },
+    // VPN and proxy services hide where the computer connects to: their
+    // websites (no downloading or signing up) and their programs, including
+    // the general VPN tools OpenVPN and WireGuard.
+    ListDef { id: "vpn", sources: &[], apps: VPN_APPS },
+];
+
+/// Programs of VPN and proxy services (Windows and Linux file names).
+const VPN_APPS: &[&str] = &[
+    "nordvpn", "nordvpn-service", "nordvpnd",
+    "expressvpn", "expressvpnd",
+    "protonvpn", "protonvpn.client", "protonvpnservice", "protonvpn-app",
+    "surfshark", "surfshark.service",
+    "windscribe", "windscribeservice", "windscribe-cli",
+    "cyberghost", "cyberghost.service",
+    "pia-client", "pia-service", "pia-daemon",
+    "mullvad vpn", "mullvad-gui", "mullvad-daemon", "mullvad",
+    "tunnelbear",
+    "hsscp",
+    "ipvanish",
+    "vyprvpn",
+    "psiphon3", "psiphon-tunnel-core",
+    "lantern",
+    "tor",
+    "cloudflare warp", "warp-svc", "warp-cli",
+    "openvpn", "openvpn-gui", "openvpnserv",
+    "wireguard", "wireguard-go",
 ];
 
 pub fn find(id: &str) -> Option<&'static ListDef> {
@@ -40,5 +69,13 @@ mod tests {
         }
         assert!(find("adult").is_some());
         assert!(find("nope").is_none());
+        let vpn = crate::import::parse_rules_text(include_str!("../../../lists/vpn.txt"));
+        assert!(vpn.errors.is_empty(), "{:?}", vpn.errors);
+        assert!(vpn.rules.len() > 50);
+        for l in CATALOG {
+            for a in l.apps {
+                assert!(matches!(crate::AppRule::parse(&format!("name:{a}")), Ok(crate::AppRule::Name(_))), "{a}");
+            }
+        }
     }
 }

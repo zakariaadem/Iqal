@@ -247,7 +247,7 @@ event-allowance-low = Süre hakkı neredeyse doldu
 event-allowance-used = Süre hakkı doldu
 
 web-lists = Hazır listeler
-web-lists-detail = Hazır site koleksiyonları. Yetişkin içerik, kumar ve sosyal medya listeleri her gün büyük bir topluluk listesinden güncellenir.
+web-lists-detail = Hazır site koleksiyonları. Yetişkin içerik, kumar ve sosyal medya listeleri her gün büyük bir topluluk listesinden güncellenir. VPN'ler ve proxy'ler listesi programlarını da engeller; genel VPN araçları OpenVPN ve WireGuard dahil (yani iş VPN'i de engellenir).
 list-social = Sosyal medya
 list-adult = Yetişkin içerik
 list-gambling = Kumar
@@ -256,6 +256,7 @@ list-news = Haberler
 list-video = Video ve yayın
 list-games = Oyunlar
 list-shopping = Alışveriş
+list-vpn = VPN'ler ve proxy'ler
 list-count = { $count ->
     [one] { $count } site
    *[other] { $count } site

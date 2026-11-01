@@ -244,7 +244,7 @@ event-allowance-low = 使用时长即将用完
 event-allowance-used = 使用时长已用完
 
 web-lists = 预设列表
-web-lists-detail = 现成的网站合集。成人内容、赌博和社交媒体列表每天从一个大型社区列表更新。
+web-lists-detail = 现成的网站合集。成人内容、赌博和社交媒体列表每天从一个大型社区列表更新。“VPN 和代理”列表也会拦截它们的程序，包括通用 VPN 工具 OpenVPN 和 WireGuard（因此工作用的 VPN 也会被拦截）。
 list-social = 社交媒体
 list-adult = 成人内容
 list-gambling = 赌博
@@ -253,6 +253,7 @@ list-news = 新闻
 list-video = 视频和直播
 list-games = 游戏
 list-shopping = 购物
+list-vpn = VPN 和代理
 list-count = { $count } 个网站
 allowance-used-today = 今天已用：{ $used } / { $total } 分钟
 

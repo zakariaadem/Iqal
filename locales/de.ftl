@@ -247,7 +247,7 @@ event-allowance-low = Zeitkontingent fast aufgebraucht
 event-allowance-used = Zeitkontingent aufgebraucht
 
 web-lists = Fertige Listen
-web-lists-detail = Fertige Sammlungen von Websites. Erwachseneninhalte, Glücksspiel und soziale Medien werden täglich aus einer großen Community-Liste aktualisiert.
+web-lists-detail = Fertige Sammlungen von Websites. Erwachseneninhalte, Glücksspiel und soziale Medien werden täglich aus einer großen Community-Liste aktualisiert. Die Liste „VPNs und Proxys“ sperrt auch deren Programme, einschließlich der allgemeinen VPN-Werkzeuge OpenVPN und WireGuard (also auch ein VPN für die Arbeit).
 list-social = Soziale Medien
 list-adult = Inhalte für Erwachsene
 list-gambling = Glücksspiel
@@ -256,6 +256,7 @@ list-news = Nachrichten
 list-video = Video und Streaming
 list-games = Spiele
 list-shopping = Einkaufen
+list-vpn = VPNs und Proxys
 list-count = { $count ->
     [one] { $count } Website
    *[other] { $count } Websites

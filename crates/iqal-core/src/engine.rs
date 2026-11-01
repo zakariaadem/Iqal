@@ -241,6 +241,13 @@ impl Engine {
     }
 }
 
+/// A block's blocked apps, with the programs of its ticked pre-made lists
+/// (the VPN list blocks VPN programs too).
+fn blocked_apps(set: &BlockSet) -> Vec<AppRule> {
+    let listed = set.web.lists.iter().filter_map(|id| crate::lists::find(id)).flat_map(|l| l.apps);
+    set.apps.block.iter().cloned().chain(listed.filter_map(|n| AppRule::parse(&format!("name:{n}")).ok())).collect()
+}
+
 impl CompiledSet {
     fn new(set: &BlockSet, lists: &dyn ListSource) -> Self {
         let mut web_block = WebMatcher::default();
@@ -273,7 +280,7 @@ impl CompiledSet {
                 || !set.web.lists.is_empty()
                 || set.web.safe_search,
             app_mode: set.apps.mode,
-            app_block: AppMatcher::new(if set.apps.mode == ListMode::Block { &set.apps.block } else { &[] }),
+            app_block: AppMatcher::new(&if set.apps.mode == ListMode::Block { blocked_apps(set) } else { Vec::new() }),
             app_allow: AppMatcher::new(&set.apps.allow),
         }
     }
@@ -649,6 +656,18 @@ mod tests {
         ProcessInfo { exe_path: exe, ..Default::default() }
     }
 
+
+    #[test]
+    fn vpn_list_blocks_vpn_programs() {
+        let mut s = BlockSet::new("vpn");
+        s.web.lists = vec!["vpn".into()];
+        let e = engine(vec![s]);
+        let c = ctx();
+        assert!(e.check_process(&proc(r"C:\Program Files\NordVPN\NordVPN.exe"), &c).is_blocked());
+        assert!(e.check_process(&proc(r"C:\Program Files\Mullvad VPN\Mullvad VPN.exe"), &c).is_blocked());
+        assert!(e.check_process(&proc("/usr/sbin/openvpn"), &c).is_blocked());
+        assert!(!e.check_process(&proc("/usr/bin/firefox"), &c).is_blocked());
+    }
     #[test]
     fn app_rules() {
         let mut s = BlockSet::new("games");

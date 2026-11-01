@@ -247,7 +247,7 @@ event-allowance-low = اجازت کا وقت تقریباً ختم
 event-allowance-used = اجازت کا وقت ختم
 
 web-lists = تیار فہرستیں
-web-lists-detail = ویب سائٹس کے تیار مجموعے۔ بالغ مواد، جوئے اور سوشل میڈیا کی فہرستیں ہر روز ایک بڑی کمیونٹی فہرست سے تازہ کی جاتی ہیں۔
+web-lists-detail = ویب سائٹس کے تیار مجموعے۔ بالغ مواد، جوئے اور سوشل میڈیا کی فہرستیں ہر روز ایک بڑی کمیونٹی فہرست سے تازہ کی جاتی ہیں۔ VPN اور پراکسی کی فہرست ان کے پروگرام بھی بلاک کرتی ہے، بشمول عام VPN ٹولز OpenVPN اور WireGuard (یعنی کام کا VPN بھی بلاک ہو گا)۔
 list-social = سوشل میڈیا
 list-adult = بالغ مواد
 list-gambling = جوا
@@ -256,6 +256,7 @@ list-news = خبریں
 list-video = ویڈیو اور اسٹریمنگ
 list-games = گیمز
 list-shopping = خریداری
+list-vpn = VPN اور پراکسی
 list-count = { $count ->
     [one] { $count } ویب سائٹ
    *[other] { $count } ویب سائٹس

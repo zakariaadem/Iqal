@@ -247,7 +247,7 @@ event-allowance-low = Allowance almost used
 event-allowance-used = Allowance used up
 
 web-lists = Pre-made lists
-web-lists-detail = Ready-made collections of websites. Adult content, gambling and social media are updated daily from a large community list.
+web-lists-detail = Ready-made collections of websites. Adult content, gambling and social media are updated daily from a large community list. The VPNs and proxies list also blocks their programs, including the general VPN tools OpenVPN and WireGuard (so a work VPN would be blocked too).
 list-social = Social media
 list-adult = Adult content
 list-gambling = Gambling
@@ -256,6 +256,7 @@ list-news = News
 list-video = Video and streaming
 list-games = Games
 list-shopping = Shopping
+list-vpn = VPNs and proxies
 list-count = { $count ->
     [one] { $count } website
    *[other] { $count } websites

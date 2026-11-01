@@ -1,0 +1,71 @@
+# Iqal pre-made list: VPNs and proxies
+# VPN services
+nordvpn.com
+nordvpn.net
+nordaccount.com
+expressvpn.com
+expressvpn.net
+protonvpn.com
+protonvpn.net
+proton.me/vpn
+proton.me/download/vpn
+surfshark.com
+windscribe.com
+windscribe.net
+cyberghostvpn.com
+privateinternetaccess.com
+mullvad.net
+tunnelbear.com
+hotspotshield.com
+ipvanish.com
+vyprvpn.com
+purevpn.com
+atlasvpn.com
+privadovpn.com
+hide.me
+hidemyass.com
+strongvpn.com
+zoogvpn.com
+urban-vpn.com
+hola.org
+betternet.co
+touchvpn.net
+x-vpn.com
+vpnbook.com
+vpngate.net
+fastestvpn.com
+torguard.net
+ivpn.net
+airvpn.org
+astrill.com
+hoxx.com
+setupvpn.com
+browsec.com
+veepn.com
+planetvpn.com
+freevpn.org
+# Cloudflare WARP (1.1.1.1 with WARP)
+one.one.one.one
+cloudflarewarp.com
+# Anonymity and censorship tools
+torproject.org
+psiphon.ca
+psiphon3.com
+getlantern.org
+lantern.io
+ultrasurf.us
+# General VPN software
+openvpn.net
+wireguard.com
+softether.org
+# Web proxies
+proxysite.com
+kproxy.com
+croxyproxy.com
+croxyproxy.rocks
+hidester.com
+proxyium.com
+4everproxy.com
+blockaway.net
+proxfree.com
+megaproxy.com

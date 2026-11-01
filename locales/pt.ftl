@@ -247,7 +247,7 @@ event-allowance-low = Tempo permitido quase esgotado
 event-allowance-used = Tempo permitido esgotado
 
 web-lists = Listas prontas
-web-lists-detail = Coleções de sites já prontas. As de conteúdo adulto, apostas e redes sociais são atualizadas diariamente a partir de uma grande lista comunitária.
+web-lists-detail = Coleções de sites já prontas. As de conteúdo adulto, apostas e redes sociais são atualizadas diariamente a partir de uma grande lista comunitária. A lista de VPN e proxies também bloqueia os seus programas, incluindo as ferramentas VPN gerais OpenVPN e WireGuard (por isso também uma VPN do trabalho).
 list-social = Redes sociais
 list-adult = Conteúdo adulto
 list-gambling = Apostas
@@ -256,6 +256,7 @@ list-news = Notícias
 list-video = Vídeo e streaming
 list-games = Jogos
 list-shopping = Compras
+list-vpn = VPN e proxies
 list-count = { $count ->
     [one] { $count } site
    *[other] { $count } sites

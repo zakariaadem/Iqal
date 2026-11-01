@@ -244,7 +244,7 @@ event-allowance-low = Jatah waktu hampir habis
 event-allowance-used = Jatah waktu habis
 
 web-lists = Daftar siap pakai
-web-lists-detail = Kumpulan situs yang sudah siap. Daftar konten dewasa, judi, dan media sosial diperbarui setiap hari dari daftar komunitas yang besar.
+web-lists-detail = Kumpulan situs yang sudah siap. Daftar konten dewasa, judi, dan media sosial diperbarui setiap hari dari daftar komunitas yang besar. Daftar VPN dan proksi juga memblokir programnya, termasuk alat VPN umum OpenVPN dan WireGuard (jadi VPN kantor juga terblokir).
 list-social = Media sosial
 list-adult = Konten dewasa
 list-gambling = Judi
@@ -253,6 +253,7 @@ list-news = Berita
 list-video = Video dan streaming
 list-games = Gim
 list-shopping = Belanja
+list-vpn = VPN dan proksi
 list-count = { $count } situs
 allowance-used-today = Terpakai hari ini: { $used } dari { $total } menit
 
