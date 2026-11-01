@@ -151,6 +151,10 @@ struct CompiledSet {
     web_mode: ListMode,
     web_block: WebMatcher,
     web_allow: WebMatcher,
+    /// With "search:" exceptions: the search engines (the "Search engines"
+    /// list, and YouTube), let through the address book so the browser
+    /// extension can allow those searches. Empty otherwise.
+    search_hosts: HashSet<Box<str>>,
     safe_search: bool,
     has_web_rules: bool,
     app_mode: ListMode,
@@ -265,6 +269,15 @@ impl CompiledSet {
             web_block.build(set.web.block.iter().chain(list_rules).chain(unsafe_sites.iter()));
         }
         web_allow.build(set.web.allow.iter());
+        let search_hosts = if set.web.allow.iter().any(|r| matches!(r, WebRule::SearchTerm(_))) {
+            let listed = lists.list("search").unwrap_or_default().iter().filter_map(|r| match r {
+                WebRule::Domain(d) => Some(d.as_str()),
+                _ => None,
+            });
+            listed.chain(["youtube.com"]).map(Box::from).collect()
+        } else {
+            HashSet::new()
+        };
         Self {
             id: set.id,
             enabled: set.enabled,
@@ -274,6 +287,7 @@ impl CompiledSet {
             web_mode: set.web.mode,
             web_block,
             web_allow,
+            search_hosts,
             safe_search: set.web.safe_search,
             has_web_rules: set.web.mode == ListMode::AllowOnly
                 || !set.web.block.is_empty()
@@ -302,7 +316,8 @@ impl CompiledSet {
     /// apply to any page on it, so URL-level exceptions keep working (the
     /// extension then decides per page).
     fn host_verdict(&self, view: &UrlView) -> Option<Reason> {
-        let allowed = self.web_allow.allows_host(&view.host);
+        let allowed = self.web_allow.allows_host(&view.host)
+            || (!self.search_hosts.is_empty() && host_suffixes(&view.host).any(|s| self.search_hosts.contains(s)));
         match self.web_mode {
             ListMode::Block => self.web_block.matches(view).filter(|_| !allowed),
             ListMode::AllowOnly => (!allowed).then_some(Reason::NotAllowed),
@@ -653,6 +668,22 @@ mod tests {
         assert!(!e.check_host("www.google.com", &ctx()).is_blocked(), "the exception covers every page on it");
         assert!(!e.check_url("https://www.google.com/search?q=x", &ctx()).is_blocked());
         assert!(e.check_host("www.bing.com", &ctx()).is_blocked());
+    }
+
+    #[test]
+    fn search_exception_lets_search_engines_through_dns() {
+        let mut lists = HashMap::new();
+        lists.insert("search".to_string(), rules(&["google.com", "bing.com"]));
+        let mut s = BlockSet::new("s");
+        s.web.block = rules(&["google.com", "example.com"]);
+        let e = Engine::new(&Config { block_sets: vec![s.clone()], ..Config::default() }, &lists);
+        assert!(e.check_host("www.google.com", &ctx()).is_blocked(), "no search exception: blocked");
+        s.web.allow = rules(&["search:homework"]);
+        let e = Engine::new(&Config { block_sets: vec![s], ..Config::default() }, &lists);
+        assert!(!e.check_host("www.google.com", &ctx()).is_blocked(), "the extension decides per search");
+        assert!(!e.check_url("https://www.google.com/search?q=homework+help", &ctx()).is_blocked());
+        assert!(e.check_url("https://www.google.com/search?q=games", &ctx()).is_blocked());
+        assert!(e.check_host("example.com", &ctx()).is_blocked(), "not a search engine");
     }
     #[test]
     fn safe_search_flag() {
