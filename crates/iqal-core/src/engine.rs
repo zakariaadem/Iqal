@@ -405,9 +405,12 @@ impl WebMatcher {
         None
     }
 
-    /// Could any page on this host be allowed by these rules?
+    /// Could any page on this host be allowed by these rules? A
+    /// "contains:" rule whose text is in the host name itself allows every
+    /// page on it (an address always contains its host).
     fn allows_host(&self, host: &str) -> bool {
         host_suffixes(host).any(|s| self.domains.contains(s) || self.urls.contains_key(s))
+            || self.contains.as_ref().is_some_and(|p| p.find(host).is_some())
     }
 }
 
@@ -638,6 +641,19 @@ mod tests {
         assert!(e.check_url("https://www.tiktok.com/@x", &ctx()).is_blocked());
     }
 
+
+    #[test]
+    fn contains_exception_lets_its_hosts_through_dns() {
+        let mut lists = HashMap::new();
+        lists.insert("search".to_string(), rules(&["google.com", "bing.com"]));
+        let mut s = BlockSet::new("search");
+        s.web.lists = vec!["search".into()];
+        s.web.allow = rules(&["contains:google"]);
+        let e = Engine::new(&Config { block_sets: vec![s], ..Config::default() }, &lists);
+        assert!(!e.check_host("www.google.com", &ctx()).is_blocked(), "the exception covers every page on it");
+        assert!(!e.check_url("https://www.google.com/search?q=x", &ctx()).is_blocked());
+        assert!(e.check_host("www.bing.com", &ctx()).is_blocked());
+    }
     #[test]
     fn safe_search_flag() {
         let mut s = BlockSet::new("safe");
