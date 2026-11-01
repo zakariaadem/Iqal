@@ -567,6 +567,16 @@ impl Service {
                 };
                 Ok(Response::Unlock { outcome })
             }
+            Request::EmergencyUnlock { id } => {
+                let mut inner = self.lock_inner();
+                if !lock::is_locked(find(&inner.config, id)?, &ctx) {
+                    return Ok(Response::Unlock { outcome: UnlockInfo::Unlocked });
+                }
+                let at = self.commit(&mut inner, |c| {
+                    Ok(lock::start_emergency_unlock(c.get_mut(id).ok_or(CoreError::NotFound)?, &now))
+                })?;
+                Ok(Response::Unlock { outcome: UnlockInfo::Pending { at } })
+            }
             Request::CancelUnlock { id } => {
                 let mut inner = self.lock_inner();
                 self.commit(&mut inner, |c| {

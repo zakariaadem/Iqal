@@ -113,7 +113,18 @@ pub fn page(page: Panel, view: &View) {
                         start_unlock(id);
                     }
                 });
-                items.push(Item::Row { cells: vec![(unlock, width_of(unlock))], height: panel::ROW });
+                let mut cells = vec![(unlock, width_of(unlock))];
+                // Any lock opens after a long wait (not while one is waiting).
+                if set.pending_unlock_at.is_none() {
+                    let emergency = page.control("BUTTON", &t("action-emergency-unlock"), WS_TABSTOP, 0);
+                    panel::on(emergency, move |code| {
+                        if code == BN_CLICKED {
+                            emergency_unlock(id);
+                        }
+                    });
+                    cells.push((emergency, width_of(emergency)));
+                }
+                items.push(Item::Row { cells, height: panel::ROW });
             } else {
                 let remove = page.control("BUTTON", &t("action-remove-lock"), WS_TABSTOP, 0);
                 panel::on(remove, |code| {
@@ -500,6 +511,30 @@ fn show_password_box(page: Panel, boxes: &[HWND]) -> HWND {
 }
 
 /// Asks the service how the lock opens early, and asks for the answer.
+/// Emergency unlock: after a confirmation, the lock opens in 48 hours
+/// (cancelled on the Lock tab).
+fn emergency_unlock(id: SetId) {
+    let owner = ui::main_window();
+    let buttons = [(0, t("action-cancel")), (1, t("action-start-emergency"))];
+    if dialog::ask(owner, Some(dialog::Icon::Warning), &t("emergency-confirm"), &t("emergency-confirm-detail"), &buttons)
+        != Some(1)
+    {
+        return;
+    }
+    let result = ui::call(Request::EmergencyUnlock { id });
+    ui::refresh(true);
+    match result {
+        Ok(Response::Unlock { outcome: UnlockInfo::Pending { at } }) => dialog::message(
+            owner,
+            dialog::Icon::Info,
+            &t("emergency-started"),
+            &ta("emergency-started-detail", &[("time", fmt_time(at).into())]),
+        ),
+        Ok(_) => {}
+        Err(e) => dialog::error(owner, &e),
+    }
+}
+
 pub fn start_unlock(id: SetId) {
     let owner = ui::main_window();
     let challenge = match ui::call(Request::UnlockStart { id }) {

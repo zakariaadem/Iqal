@@ -45,6 +45,10 @@ pub enum Request {
     UnlockStart { id: SetId },
     UnlockAnswer { id: SetId, answer: String },
     CancelUnlock { id: SetId },
+    /// Opens any lock after a long wait (see
+    /// `iqal_core::lock::EMERGENCY_WAIT_SECS`); answered with
+    /// `Response::Unlock`. Cancelled like any waiting unlock.
+    EmergencyUnlock { id: SetId },
     /// Ask what the engine would decide (for testing rules).
     Check { query: CheckQuery, user: Option<String> },
     /// Recent things the service blocked (the caller's own, or everyone's

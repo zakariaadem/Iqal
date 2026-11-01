@@ -82,7 +82,21 @@ pub fn page(ui: &Rc<Ui>, info: &SetInfo) -> gtk::Widget {
                         start_unlock(&ui, id);
                     }
                 });
-                body.append(&unlock);
+                let row = hbox(6);
+                row.set_halign(gtk::Align::Start);
+                row.append(&unlock);
+                // Any lock opens after a long wait (not while one is waiting).
+                if set.pending_unlock_at.is_none() {
+                    let emergency = gtk::Button::with_label(&t("action-emergency-unlock"));
+                    let weak = ui.weak();
+                    emergency.connect_clicked(move |_| {
+                        if let Some(ui) = weak.upgrade() {
+                            emergency_unlock(&ui, id);
+                        }
+                    });
+                    row.append(&emergency);
+                }
+                body.append(&row);
             } else {
                 let remove = gtk::Button::with_label(&t("action-remove-lock"));
                 remove.set_halign(gtk::Align::Start);
@@ -371,6 +385,25 @@ pub fn lock_dialog(ui: &Rc<Ui>) {
         });
     });
     win.present();
+}
+
+/// Emergency unlock: after a confirmation, the lock opens in 48 hours
+/// (cancelled on the Lock tab).
+fn emergency_unlock(ui: &Rc<Ui>, id: iqal_core::SetId) {
+    let weak = ui.weak();
+    ui.confirm(&t("emergency-confirm"), &t("emergency-confirm-detail"), &t("action-start-emergency"), move || {
+        let Some(ui) = weak.upgrade() else { return };
+        let result = ui.service.call(Request::EmergencyUnlock { id });
+        ui.refresh(true);
+        match result {
+            Ok(Response::Unlock { outcome: UnlockInfo::Pending { at } }) => ui.info(
+                &t("emergency-started"),
+                &ta("emergency-started-detail", &[("time", fmt_time(at).into())]),
+            ),
+            Ok(_) => {}
+            Err(e) => ui.error(&e),
+        }
+    });
 }
 
 pub fn start_unlock(ui: &Rc<Ui>, id: iqal_core::SetId) {

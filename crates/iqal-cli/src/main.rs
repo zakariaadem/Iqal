@@ -103,6 +103,9 @@ enum Cmd {
     LearnLocation { block: String },
     /// Open a password or random-text lock.
     Unlock { block: String },
+    /// Emergency unlock: any lock opens after 48 hours (cancel with
+    /// cancel-unlock).
+    EmergencyUnlock { block: String },
     /// Cancel a pending (delayed) unlock.
     CancelUnlock { block: String },
     /// Export blocks to a file (all blocks if none are named).
@@ -441,6 +444,15 @@ fn run(cmd: Cmd) -> Result<()> {
             println!("This place now has {networks} Wi-Fi network(s) remembered for \"{}\".", s.set.name);
         }
         Cmd::Unlock { block } => unlock(&mut c, &block)?,
+        Cmd::EmergencyUnlock { block } => {
+            let s = c.find(&block)?;
+            match c.call(Request::EmergencyUnlock { id: s.set.id })? {
+                Response::Unlock { outcome: UnlockInfo::Pending { at } } => {
+                    println!("Emergency unlock started: the lock opens at {} (cancel with: iqal-cli cancel-unlock).", fmt_time(at));
+                }
+                _ => println!("\"{}\" is not locked.", s.set.name),
+            }
+        }
         Cmd::CancelUnlock { block } => {
             let s = c.find(&block)?;
             c.call(Request::CancelUnlock { id: s.set.id })?;

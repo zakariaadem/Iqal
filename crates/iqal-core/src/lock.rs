@@ -163,19 +163,35 @@ pub fn try_unlock(
     if !correct {
         return Err(CoreError::WrongAnswer);
     }
-    if let Some(at) = set.pending_unlock_at {
-        return Ok(UnlockOutcome::Pending { at });
-    }
     if lock.unlock_delay_secs == 0 {
         // Opened: the block turns off with it.
         set.lock = None;
         set.enabled = false;
         Ok(UnlockOutcome::Unlocked)
     } else {
+        // An unlock already waiting (an emergency unlock, or this answer
+        // given before) keeps its time if that is sooner.
         let at = now.unix + lock.unlock_delay_secs as i64;
+        let at = set.pending_unlock_at.map_or(at, |p| p.min(at));
         set.pending_unlock_at = Some(at);
         Ok(UnlockOutcome::Pending { at })
     }
+}
+
+/// How long an emergency unlock waits: long enough for an urge to pass,
+/// short enough to free a lock that cannot open by itself (a place the
+/// computer never leaves, a forgotten password).
+pub const EMERGENCY_WAIT_SECS: i64 = 48 * 3600;
+
+/// Emergency unlock: any lock opens after [`EMERGENCY_WAIT_SECS`], and its
+/// block turns off (an unlock already waiting keeps its time if that is
+/// sooner). Until then nothing changes; cancelling is always possible.
+/// Returns when the lock opens.
+pub fn start_emergency_unlock(set: &mut BlockSet, now: &Now) -> i64 {
+    let at = now.unix + EMERGENCY_WAIT_SECS;
+    let at = set.pending_unlock_at.map_or(at, |p| p.min(at));
+    set.pending_unlock_at = Some(at);
+    at
 }
 
 /// Argon2id password hash.
@@ -542,6 +558,29 @@ mod tests {
         assert!(expire(&mut s, &home));
         assert!(s.enabled, "back: on");
         assert!(s.lock.is_some(), "the lock stays");
+    }
+
+    #[test]
+    fn emergency_unlock_opens_any_lock_after_the_wait() {
+        let area = GeoArea::Named { name: "Home".into() };
+        let mut s = locked_set(LockKind::Location { area });
+        let at = start_emergency_unlock(&mut s, &now(100));
+        assert_eq!(at, 100 + EMERGENCY_WAIT_SECS);
+        assert!(!expire(&mut s, &ctx(at - 1)), "nothing changes during the wait");
+        assert!(is_locked(&s, &ctx(at - 1)) && s.enabled);
+        assert!(expire(&mut s, &ctx(at)));
+        assert!(s.lock.is_none() && !s.enabled, "opened, and the block turned off");
+        // Starting again never makes it later.
+        let mut s = locked_set(LockKind::RandomText { length: 20 });
+        s.pending_unlock_at = Some(500);
+        assert_eq!(start_emergency_unlock(&mut s, &now(100)), 500);
+    }
+
+    #[test]
+    fn password_opens_at_once_during_an_emergency_unlock() {
+        let mut s = locked_set(LockKind::Password { hash: PasswordHash::new("right").unwrap() });
+        start_emergency_unlock(&mut s, &now(0));
+        assert_eq!(try_unlock(&mut s, "right", None, &now(10)).unwrap(), UnlockOutcome::Unlocked);
     }
     #[test]
     fn schedule_lock() {
