@@ -330,7 +330,8 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
             WS_EX_CLIENTEDGE,
         );
         win::send(list, LB_SETITEMHEIGHT, 0, scale(ROW_HEIGHT, panel::dpi()) as isize);
-        win::send(list, LB_SETCOUNT, state.borrow().shown.len(), 0);
+        let rows = state.borrow().shown.len();
+        win::send(list, LB_SETCOUNT, rows, 0);
         let spacer = page.control("STATIC", "", 0, 0);
         let add = page.control("BUTTON", &t("action-add"), WS_TABSTOP | BS_DEFPUSHBUTTON as u32, 0);
         crate::theme::style_button(add, Some(crate::theme::Icon::Add), crate::theme::Look::Main);
@@ -347,12 +348,15 @@ pub fn pick(owner: HWND, on_pick: impl Fn(Vec<String>) + 'static) {
                         st.shown.len()
                     };
                     win::send(list, LB_SETCOUNT, count, 0);
-                    // The ticked apps stay ticked.
-                    let st = state.borrow();
-                    for (row, app) in st.shown.iter().enumerate() {
-                        if st.chosen.contains(app) {
-                            win::send(list, LB_SETSEL, 1, row as isize);
-                        }
+                    // The ticked apps stay ticked. Ticking redraws the row at
+                    // once (and drawing needs the state), so the state is
+                    // let go first.
+                    let ticked: Vec<usize> = {
+                        let st = state.borrow();
+                        st.shown.iter().enumerate().filter(|(_, app)| st.chosen.contains(app)).map(|(row, _)| row).collect()
+                    };
+                    for row in ticked {
+                        win::send(list, LB_SETSEL, 1, row as isize);
                     }
                     // SAFETY: our list.
                     unsafe { InvalidateRect(list, std::ptr::null(), 1) };
